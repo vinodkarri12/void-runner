@@ -1,34 +1,46 @@
 :root {
-  --bg: #060b16;
-  --panel: rgba(8, 14, 24, 0.72);
-  --panel-border: rgba(96, 220, 255, 0.42);
-  --cyan: #6ae7ff;
-  --cyan-deep: #1aa9ff;
-  --purple: #bf67ff;
-  --red: #ff456f;
-  --white: #edf6ff;
-  --muted: #9aaac3;
-  --shadow: rgba(2, 4, 10, 0.8);
+  --bg: #080d12;
+  --panel: rgba(11, 16, 21, 0.84);
+  --panel-border: rgba(137, 166, 178, 0.28);
+  --cyan: #a6c4c9;
+  --cyan-deep: #648a94;
+  --purple: #9b8297;
+  --red: #d16a60;
+  --white: #e1e5e5;
+  --muted: #929da1;
+  --shadow: rgba(0, 0, 0, 0.78);
 }
 
 * { box-sizing: border-box; }
-html, body, #game-root { width: 100%; height: 100%; margin: 0; }
+html, body, #game-root { width: 100%; height: 100%; margin: 0; overscroll-behavior: none; }
 body {
-  background: #040812;
+  background: #070b0e;
   color: var(--white);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   overflow: hidden;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: auto;
 }
 #game-root {
   position: relative;
   overflow: hidden;
-  background: radial-gradient(circle at top, #0f1d34 0%, #050914 40%, #01050b 100%);
+  touch-action: none;
+  background: radial-gradient(ellipse at 52% 35%, #18212a 0%, #0a0f14 48%, #030507 100%);
 }
 #viewport {
   position: absolute;
   inset: 0;
   z-index: 0;
+}
+#viewport::after {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 43%, transparent 35%, rgba(1, 3, 5, 0.34) 100%),
+    linear-gradient(180deg, rgba(4, 7, 9, 0.14), transparent 24%, transparent 72%, rgba(2, 4, 5, 0.27));
+  content: "";
+  pointer-events: none;
 }
 #viewport canvas { display: block; width: 100%; height: 100%; }
 body.frontend-open .hud-header,
@@ -64,7 +76,7 @@ body.screen-modal-active .mobile-controls { visibility: hidden; }
   flex-direction: column;
   justify-content: space-between;
   padding: clamp(16px, 3vw, 38px);
-  background: linear-gradient(90deg, rgba(3, 6, 14, 0.93), rgba(5, 7, 18, 0.63) 43%, rgba(6, 8, 18, 0.08)), linear-gradient(0deg, rgba(3, 7, 15, 0.55), transparent 60%);
+  background: linear-gradient(90deg, rgba(4, 7, 9, 0.95), rgba(7, 11, 14, 0.66) 43%, rgba(7, 9, 11, 0.12)), linear-gradient(0deg, rgba(3, 5, 7, 0.72), transparent 60%);
   opacity: 1;
   transition: opacity 0.24s ease;
 }
@@ -74,7 +86,7 @@ body.screen-modal-active .mobile-controls { visibility: hidden; }
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at 74% 53%, rgba(122, 47, 216, 0.18), transparent 34%), radial-gradient(ellipse at 91% 22%, rgba(55, 223, 255, 0.12), transparent 30%);
+  background: radial-gradient(ellipse at 74% 53%, rgba(159, 111, 70, 0.13), transparent 34%), radial-gradient(ellipse at 91% 22%, rgba(126, 173, 183, 0.11), transparent 30%);
   animation: menu-atmosphere 8s ease-in-out infinite alternate;
 }
 @keyframes menu-atmosphere { to { opacity: 0.58; transform: scale(1.06); } }
@@ -95,10 +107,10 @@ body.screen-modal-active .mobile-controls { visibility: hidden; }
 .front-save-status { margin: 14px 0 12px; color: var(--muted); font-size: 0.58rem; letter-spacing: 0.16rem; }
 .front-actions { display: grid; grid-template-columns: repeat(2, minmax(155px, 220px)); gap: 8px; }
 .front-actions button, .selection-detail button, .weapon-detail button, #levelSearchButton, .front-secondary {
-  min-height: 42px; border: 1px solid #62dfff6b; color: var(--white); background: linear-gradient(100deg, #12243dcc, #272047cc); cursor: pointer; letter-spacing: 0.12rem; font-weight: 700;
+  min-height: 42px; border: 1px solid #8ea7ae55; color: var(--white); background: linear-gradient(100deg, #1c262bcc, #201f20dd); cursor: pointer; letter-spacing: 0.12rem; font-weight: 700;
 }
-.front-actions button:first-child { grid-column: span 2; color: #06121c; border: 0; background: linear-gradient(100deg, #65e7ff, #a87aff); }
-.front-actions button:hover, .selection-detail button:hover, .weapon-detail button:hover { filter: brightness(1.25); box-shadow: 0 0 18px #8c72ff42; }
+.front-actions button:first-child { grid-column: span 2; color: #0a1114; border: 0; background: linear-gradient(100deg, #a4c5c7, #889ba3); }
+.front-actions button:hover, .selection-detail button:hover, .weapon-detail button:hover { filter: brightness(1.18); box-shadow: 0 0 18px #91b4bd32; }
 .front-actions button:disabled, .front-actions button[aria-disabled="true"] { opacity: 0.38; cursor: not-allowed; }
 .front-end footer { display: flex; justify-content: space-between; color: #7586a2; font-size: 0.52rem; letter-spacing: 0.12rem; }
 .front-wide { width: min(1000px, 100%); }
@@ -575,6 +587,7 @@ body.reduced-effects .front-end-backdrop { animation: none; }
   transform: rotate(45deg);
 }
 .mobile-controls { display: none; }
+body.frontend-open #game-root { touch-action: pan-y; }
 .overlay {
   position: absolute;
   inset: 0;
@@ -776,12 +789,16 @@ body.reduced-effects .front-end-backdrop { animation: none; }
 .boss-health-panel.vulnerable .boss-health-track i { background: linear-gradient(90deg, #994dff, #c6faff); box-shadow: 0 0 15px #ad68ff; }
 .boss-health-panel.vulnerable small { color: #d9b2ff; }
 .boss-health-panel.final-boss {
+  top: 12%;
   width: min(560px, calc(100vw - 36px));
   border-color: rgba(190, 111, 255, 0.9);
   box-shadow: 0 0 28px rgba(158, 66, 255, 0.42);
 }
 .boss-health-panel.final-boss .boss-health-track { height: 12px; }
-.campaign-panel.master-arena { border-color: rgba(191, 103, 255, 0.7); }
+.campaign-panel.master-arena {
+  top: 190px;
+  border-color: rgba(191, 103, 255, 0.7);
+}
 .target-health-track { display: block; height: 4px; background: #32151b; }
 .target-health-track i {
   display: block;
@@ -945,4 +962,103 @@ body.sprint-active:not(.overdrive-active) #game-root::before {
   body.sprint-active #game-root::before { opacity: 0.12; }
   .front-end-backdrop, .loading-sigil, .loading-ninja, .loading-ninja *,
   .loading-particles i, .tutorial-demo * { animation-duration: 4s !important; }
+}
+
+@media (pointer: coarse), (max-width: 620px) {
+  .mobile-controls {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+    pointer-events: none;
+    touch-action: none;
+  }
+  .move-stick {
+    position: absolute;
+    left: max(12px, env(safe-area-inset-left));
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 76px);
+    width: clamp(88px, 14vw, 112px);
+    height: clamp(88px, 14vw, 112px);
+    border: 1px solid #83eaffaa;
+    border-radius: 50%;
+    background: rgba(8, 18, 31, 0.62);
+    touch-action: none;
+  }
+  .move-knob {
+    position: absolute;
+    left: 32px;
+    top: 32px;
+    width: 44px;
+    height: 44px;
+    border: 1px solid #a2f3ff;
+    border-radius: 50%;
+    background: #49d9ff77;
+    box-shadow: 0 0 16px #4acfff77;
+  }
+  .steering-button {
+    position: absolute;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: clamp(64px, 10vw, 76px);
+    min-height: 56px;
+    color: var(--white);
+    background: rgba(7, 15, 28, 0.9);
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 0 16px rgba(61, 195, 255, 0.2);
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.08rem;
+    pointer-events: auto;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .steering-button-left { left: max(12px, env(safe-area-inset-left)); }
+  .steering-button-right { right: max(12px, env(safe-area-inset-right)); }
+  .steering-button.pressed {
+    color: #06121c;
+    background: linear-gradient(100deg, #65e7ff, #a87aff);
+    box-shadow: 0 0 22px rgba(86, 237, 255, 0.58);
+  }
+  .mobile-actions {
+    display: grid;
+    position: absolute;
+    right: calc(max(12px, env(safe-area-inset-right)) + clamp(64px, 10vw, 76px) + 10px);
+    bottom: max(12px, env(safe-area-inset-bottom));
+    grid-template-columns: repeat(2, clamp(52px, 8vw, 64px));
+    gap: 8px;
+    width: max-content;
+    pointer-events: auto;
+  }
+  .mobile-actions button {
+    min-height: 42px;
+    color: var(--white);
+    background: rgba(7, 15, 28, 0.85);
+    border: 1px solid var(--panel-border);
+    font-size: 0.56rem;
+    letter-spacing: 0.08rem;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-actions button.pressed {
+    background: linear-gradient(100deg, #087bcb, #5845ce);
+  }
+  .move-stick, .mobile-actions, .steering-button { pointer-events: auto; }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 520px) {
+  .ability-panel { display: none; }
+  .mobile-actions {
+    grid-template-columns: repeat(4, clamp(44px, 7vw, 58px));
+    gap: 4px;
+  }
+  .mobile-actions button { min-height: 36px; }
+  .ability-panel {
+    bottom: 155px;
+    left: 50%;
+    right: auto;
+    width: min(54vw, 460px);
+    max-height: 125px;
+    overflow: auto;
+    transform: translateX(-50%);
+  }
+  .ability-cooldowns { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }

@@ -143,7 +143,7 @@ export class HUD {
           : player.horizontalSpeed > 0.4 ? 'RUN' : 'IDLE';
     this.maxSpeedStatus.classList.toggle('active', player.isMaxSpeed);
 
-    this.centerMessage.textContent = `LEVEL ${String(wave).padStart(3, '0')} / 1000`;
+    this.centerMessage.textContent = `LEVEL ${String(wave).padStart(2, '0')} / 15`;
     this.messageTimer = Math.max(0, this.messageTimer - 1 / 60);
     if (this.messageTimer === 0) this.combatMessage.classList.remove('visible');
     this.mapRefresh -= 1 / 60;
@@ -154,10 +154,10 @@ export class HUD {
   }
 
   showLevel(level, definition, progression, state = {}) {
-    this.levelValue.textContent = `LEVEL: ${String(level).padStart(3, '0')} / 1000`;
+    this.levelValue.textContent = `LEVEL: ${String(level).padStart(2, '0')} / 15`;
     this.levelTitle.textContent = definition.master ? `MASTER // ${definition.title}` : definition.title;
     this.levelObjective.textContent = definition.objective;
-    this.unlockedLevel.textContent = `UNLOCKED: ${String(progression.unlockedLevel).padStart(3, '0')}  //  CLEARED: ${progression.completedCount}`;
+    this.unlockedLevel.textContent = `UNLOCKED: ${String(progression.unlockedLevel).padStart(2, '0')}  //  CLEARED: ${progression.completedCount}`;
     const completed = progression.completedLevels.has(level) && state.status === undefined;
     const ratio = state.status === 'complete' || completed
       ? 1
@@ -328,11 +328,11 @@ export class HUD {
       enemiesRemaining: 0,
       status: 'complete'
     });
-    const title = result.final ? 'CAMPAIGN COMPLETE' : definition.master ? 'MASTER LEVEL CLEARED' : 'LEVEL COMPLETE';
+    const title = result.final ? 'VOID OVERLORD DEFEATED' : definition.master ? 'FINAL LEVEL CLEARED' : 'LEVEL COMPLETE';
     const message = result.final
-      ? 'The Void Sovereign has fallen. You mastered all 1,000 levels.'
-      : `Level ${String(result.completed).padStart(3, '0')} cleared. Level ${String(result.unlocked).padStart(3, '0')} is now unlocked.`;
-    this.showModal(result.final ? 'CAMPAIGN COMPLETE' : 'LEVEL COMPLETE', title, message);
+      ? `The VOID OVERLORD has fallen. All 15 levels are complete. Final score: ${Math.floor(summary.score)}.`
+      : `Level ${String(result.completed).padStart(2, '0')} cleared. Level ${String(result.unlocked).padStart(2, '0')} is now unlocked.`;
+    this.showModal(result.final ? 'VOID OVERLORD DEFEATED' : 'LEVEL COMPLETE', title, message);
     this.resultsPanel.innerHTML = [
       ['RANK', summary.rank],
       ['SCORE', String(Math.floor(summary.score)).padStart(6, '0')],

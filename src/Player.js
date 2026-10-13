@@ -4,13 +4,14 @@ export class Player {
   constructor() {
     this.root = new THREE.Group();
     this.materials = {
-      armor: new THREE.MeshStandardMaterial({ color: 0x111924, metalness: 0.82, roughness: 0.3 }),
-      trim: new THREE.MeshStandardMaterial({ color: 0x364453, metalness: 0.72, roughness: 0.38 }),
-      hair: new THREE.MeshStandardMaterial({ color: 0xdfefff, metalness: 0.16, roughness: 0.43 }),
-      blue: new THREE.MeshStandardMaterial({ color: 0x63e9ff, emissive: 0x20bfff, emissiveIntensity: 2.2, metalness: 0.25 }),
-      mask: new THREE.MeshStandardMaterial({ color: 0x090e17, metalness: 0.68, roughness: 0.3 }),
-      weaponMetal: new THREE.MeshStandardMaterial({ color: 0x222631, metalness: 0.92, roughness: 0.23 }),
-      weaponSilver: new THREE.MeshStandardMaterial({ color: 0xa9bfd0, metalness: 0.86, roughness: 0.2 }),
+      armor: new THREE.MeshStandardMaterial({ color: 0x35434e, metalness: 0.52, roughness: 0.4 }),
+      trim: new THREE.MeshStandardMaterial({ color: 0x46545e, metalness: 0.64, roughness: 0.4 }),
+      ceramic: new THREE.MeshStandardMaterial({ color: 0x596771, metalness: 0.46, roughness: 0.43 }),
+      undersuit: new THREE.MeshStandardMaterial({ color: 0x080e15, metalness: 0.42, roughness: 0.68 }),
+      blue: new THREE.MeshStandardMaterial({ color: 0x63e9ff, emissive: 0x20bfff, emissiveIntensity: 2.2, metalness: 0.25, roughness: 0.2 }),
+      mask: new THREE.MeshStandardMaterial({ color: 0x070b10, metalness: 0.72, roughness: 0.44 }),
+      weaponMetal: new THREE.MeshStandardMaterial({ color: 0x46515a, metalness: 0.58, roughness: 0.42 }),
+      weaponSilver: new THREE.MeshStandardMaterial({ color: 0x91a3ad, metalness: 0.62, roughness: 0.35 }),
       weaponViolet: new THREE.MeshStandardMaterial({
         color: 0xe0aaff, emissive: 0x922cff, emissiveIntensity: 2.4,
         metalness: 0.24, roughness: 0.18, transparent: true, opacity: 0.92
@@ -32,26 +33,64 @@ export class Player {
     const armor = this.materials.armor;
     const trim = this.materials.trim;
     const blue = this.materials.blue;
+    const ceramic = this.materials.ceramic;
+    const undersuit = this.materials.undersuit;
 
     this.torso = part(new THREE.CapsuleGeometry(0.39, 0.68, 5, 10), armor, new THREE.Vector3(0, 1.34, 0));
     this.torso.scale.set(1, 1, 0.72);
-    part(new THREE.BoxGeometry(0.58, 0.38, 0.22), trim, new THREE.Vector3(0, 1.67, 0.05));
-    part(new THREE.BoxGeometry(0.12, 0.55, 0.13), blue, new THREE.Vector3(0, 1.55, -0.23));
-    part(new THREE.OctahedronGeometry(0.12), blue, new THREE.Vector3(0, 1.53, -0.32));
+    part(new THREE.CapsuleGeometry(0.29, 0.47, 3, 8), undersuit, new THREE.Vector3(0, 1.37, 0.02)).scale.set(1, 1, 0.74);
+    const chestShape = new THREE.Shape();
+    chestShape.moveTo(-0.29, 0.2);
+    chestShape.lineTo(-0.31, 0.02);
+    chestShape.lineTo(-0.19, -0.18);
+    chestShape.lineTo(0, -0.23);
+    chestShape.lineTo(0.19, -0.18);
+    chestShape.lineTo(0.31, 0.02);
+    chestShape.lineTo(0.29, 0.2);
+    chestShape.lineTo(0, 0.29);
+    chestShape.closePath();
+    part(new THREE.ExtrudeGeometry(chestShape, {
+      depth: 0.09, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: 0.035, bevelThickness: 0.025
+    }), ceramic, new THREE.Vector3(0, 1.49, 0.235));
+    part(new THREE.BoxGeometry(0.42, 0.065, 0.035), trim, new THREE.Vector3(0, 1.68, 0.34));
+    part(new THREE.BoxGeometry(0.075, 0.34, 0.035), blue, new THREE.Vector3(0, 1.49, 0.355));
+    part(new THREE.OctahedronGeometry(0.105), blue, new THREE.Vector3(0, 1.49, 0.405));
+    for (const side of [-1, 1]) {
+      const rib = part(new THREE.BoxGeometry(0.075, 0.29, 0.12), trim,
+        new THREE.Vector3(side * 0.33, 1.28, 0.04));
+      rib.rotation.z = side * -0.12;
+      part(new THREE.BoxGeometry(0.24, 0.12, 0.23), undersuit, new THREE.Vector3(side * 0.2, 1.02, 0));
+      part(new THREE.BoxGeometry(0.28, 0.1, 0.08), ceramic, new THREE.Vector3(side * 0.19, 1.02, 0.09));
+    }
 
     const head = new THREE.Group();
     head.position.set(0, 2.02, 0);
     this.head = head;
     this.root.add(head);
-    part(new THREE.SphereGeometry(0.255, 14, 12), this.materials.hair, new THREE.Vector3(0, 0.05, 0), head);
-    part(new THREE.BoxGeometry(0.33, 0.17, 0.29), this.materials.mask, new THREE.Vector3(0, -0.035, 0.14), head);
-    part(new THREE.BoxGeometry(0.3, 0.035, 0.05), blue, new THREE.Vector3(0, 0.025, 0.3), head);
-    for (let i = 0; i < 7; i++) {
-      const angle = i / 7 * Math.PI * 2;
-      const spike = part(new THREE.ConeGeometry(0.09, 0.34 + (i % 2) * 0.12, 5), this.materials.hair,
-        new THREE.Vector3(Math.cos(angle) * 0.16, 0.31, Math.sin(angle) * 0.13), head);
-      spike.rotation.z = Math.cos(angle) * -0.55;
-      spike.rotation.x = Math.sin(angle) * 0.55;
+    part(new THREE.BoxGeometry(0.51, 0.49, 0.43), this.materials.mask,
+      new THREE.Vector3(0, 0.035, 0), head);
+    part(new THREE.BoxGeometry(0.49, 0.18, 0.34), armor,
+      new THREE.Vector3(0, -0.13, -0.015), head);
+    part(new THREE.BoxGeometry(0.53, 0.34, 0.15), armor,
+      new THREE.Vector3(0, 0.015, -0.205), head);
+    part(new THREE.BoxGeometry(0.55, 0.11, 0.15), armor,
+      new THREE.Vector3(0, 0.245, -0.12), head);
+    part(new THREE.BoxGeometry(0.47, 0.2, 0.075), this.materials.mask,
+      new THREE.Vector3(0, 0.045, 0.25), head);
+    part(new THREE.BoxGeometry(0.38, 0.045, 0.025), blue,
+      new THREE.Vector3(0, 0.055, 0.29), head);
+    part(new THREE.BoxGeometry(0.3, 0.11, 0.1), armor,
+      new THREE.Vector3(0, -0.14, 0.2), head);
+    part(new THREE.BoxGeometry(0.35, 0.065, 0.035), this.materials.mask,
+      new THREE.Vector3(0, 0.035, -0.29), head);
+    for (const side of [-1, 1]) {
+      const ear = part(new THREE.CylinderGeometry(0.105, 0.12, 0.12, 8), armor,
+        new THREE.Vector3(side * 0.29, 0.015, -0.005), head);
+      ear.rotation.z = Math.PI / 2;
+      part(new THREE.BoxGeometry(0.12, 0.26, 0.31), armor,
+        new THREE.Vector3(side * 0.22, -0.075, 0.005), head);
+      part(new THREE.BoxGeometry(0.04, 0.16, 0.12), trim,
+        new THREE.Vector3(side * 0.281, 0.02, -0.17), head);
     }
 
     this.arms = [];
@@ -61,18 +100,32 @@ export class Player {
       const arm = new THREE.Group();
       arm.position.set(side * 0.48, 1.68, 0);
       this.root.add(arm);
-      part(new THREE.SphereGeometry(0.19, 10, 8), trim, new THREE.Vector3(0, 0, 0), arm);
-      part(new THREE.CapsuleGeometry(0.105, 0.48, 4, 7), armor, new THREE.Vector3(0, -0.34, 0), arm);
-      part(new THREE.BoxGeometry(0.19, 0.22, 0.2), blue, new THREE.Vector3(0, -0.68, 0.025), arm);
+      part(new THREE.SphereGeometry(0.2, 10, 8), undersuit, new THREE.Vector3(0, 0, 0), arm);
+      const pauldron = part(new THREE.SphereGeometry(0.28, 10, 8), ceramic,
+        new THREE.Vector3(side * -0.035, 0.025, 0), arm);
+      pauldron.scale.set(1.2, 0.76, 1.22);
+      const shoulderCap = part(new THREE.BoxGeometry(0.28, 0.1, 0.29), trim,
+        new THREE.Vector3(side * -0.045, -0.12, 0.07), arm);
+      shoulderCap.rotation.z = side * 0.1;
+      part(new THREE.CapsuleGeometry(0.125, 0.48, 4, 7), undersuit, new THREE.Vector3(0, -0.34, 0), arm);
+      part(new THREE.CapsuleGeometry(0.155, 0.3, 3, 7), armor, new THREE.Vector3(0, -0.32, 0.045), arm);
+      const bracer = part(new THREE.BoxGeometry(0.24, 0.3, 0.24), trim, new THREE.Vector3(0, -0.5, 0.04), arm);
+      bracer.rotation.x = -0.12;
+      part(new THREE.BoxGeometry(0.035, 0.22, 0.025), blue, new THREE.Vector3(side * -0.02, -0.5, 0.16), arm);
+      part(new THREE.BoxGeometry(0.19, 0.18, 0.21), armor, new THREE.Vector3(0, -0.69, 0.015), arm);
       this.arms.push(arm);
       if (side === 1) rightArm = arm;
 
       const leg = new THREE.Group();
       leg.position.set(side * 0.19, 0.89, 0);
       this.root.add(leg);
-      part(new THREE.CapsuleGeometry(0.14, 0.42, 4, 8), trim, new THREE.Vector3(0, -0.22, 0), leg);
+      part(new THREE.CapsuleGeometry(0.16, 0.42, 4, 8), undersuit, new THREE.Vector3(0, -0.22, 0), leg);
+      part(new THREE.BoxGeometry(0.27, 0.29, 0.22), armor, new THREE.Vector3(0, -0.14, 0.015), leg);
+      part(new THREE.BoxGeometry(0.25, 0.19, 0.23), ceramic, new THREE.Vector3(0, -0.42, 0.035), leg);
+      part(new THREE.BoxGeometry(0.045, 0.12, 0.035), blue, new THREE.Vector3(0, -0.42, 0.16), leg);
       part(new THREE.BoxGeometry(0.25, 0.19, 0.4), armor, new THREE.Vector3(0, -0.58, 0.08), leg);
-      part(new THREE.BoxGeometry(0.17, 0.045, 0.08), blue, new THREE.Vector3(0, -0.58, 0.27), leg);
+      part(new THREE.BoxGeometry(0.24, 0.07, 0.24), trim, new THREE.Vector3(0, -0.59, 0.12), leg);
+      part(new THREE.BoxGeometry(0.16, 0.035, 0.08), blue, new THREE.Vector3(0, -0.58, 0.27), leg);
       this.legs.push(leg);
     }
 
@@ -80,6 +133,7 @@ export class Player {
     this.weapon.name = 'VOID REAVER';
     this.weapon.position.set(0.025, -0.76, 0.13);
     this.weapon.rotation.set(0.12, 0.05, -0.34);
+    this.weapon.scale.set(0.82, 0.72, 0.9);
     rightArm.add(this.weapon);
     const weaponPart = (geometry, material, position, rotation = new THREE.Euler()) => {
       const mesh = new THREE.Mesh(geometry, material);

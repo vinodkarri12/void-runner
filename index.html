@@ -2,10 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#060b16" />
     <title>VOID RUNNER | Speed Is Your Weapon</title>
-    <link rel="stylesheet" href="./src/style.css" />
+    <link rel="stylesheet" href="./src/style.css?campaign15a" />
     <script type="importmap">
       {
         "imports": {
@@ -30,7 +30,7 @@
           <div class="mini-stat"><span>Combo</span><strong id="comboValue">x0</strong><small id="scoreMultiplier">SCORE x1</small></div>
           <div class="mini-stat"><span>Defeated</span><strong id="defeatedValue">0</strong></div>
           <div class="mini-stat"><span>Enemies Remaining</span><strong id="enemyValue">0 LEFT</strong></div>
-          <div class="mini-stat level-header-stat"><span>Campaign</span><strong id="levelValue">LEVEL: 001 / 1000</strong></div>
+          <div class="mini-stat level-header-stat"><span>Campaign</span><strong id="levelValue">LEVEL: 01 / 15</strong></div>
           <button id="cameraResetButton" class="camera-reset-button" type="button" title="Reset camera (C)">CAM RESET</button>
           <button id="pauseButton" class="pause-button">II</button>
         </div>
@@ -124,14 +124,14 @@
 
       <div id="centerMessage" class="center-message">WAVE 01</div>
       <section class="campaign-panel" aria-label="Campaign level progress">
-        <div class="campaign-heading"><strong id="levelTitle">NEON ENTRY</strong><span id="unlockedLevel">UNLOCKED: 001 // CLEARED: 0</span></div>
+        <div class="campaign-heading"><strong id="levelTitle">REFINERY APPROACH</strong><span id="unlockedLevel">UNLOCKED: 001 // CLEARED: 0</span></div>
         <div class="campaign-objective" id="levelObjective">DEFEAT ALL HOSTILES</div>
         <div class="campaign-progress-track"><i id="levelProgress"></i></div>
         <small id="levelProgressText">HOSTILES 0 / 2</small>
       </section>
       <div id="combatMessage" class="combat-message" aria-live="polite"></div>
       <section id="bossHealthPanel" class="boss-health-panel hidden" aria-label="Void Colossus health">
-        <div><span id="bossName">VOID COLOSSUS</span><strong id="bossHealthText">780 / 780</strong></div>
+        <div><span id="bossName">VOID OVERLORD</span><strong id="bossHealthText">150 / 150</strong></div>
         <div class="boss-health-track"><i id="bossHealthBar"></i></div>
         <small id="bossPhaseText">ARMORED</small>
       </section>
@@ -143,12 +143,12 @@
         <div class="front-end-brand"><span>V</span><div><strong>VOID RUNNER</strong><small>SPEED IS YOUR WEAPON</small></div></div>
         <div class="front-end-content">
           <section class="front-view active" data-view="home">
-            <p class="front-eyebrow">NEON FRONTIER // CAMPAIGN SYSTEM</p>
+            <p class="front-eyebrow">INDUSTRIAL FRONTIER // CAMPAIGN SYSTEM</p>
             <h1>VOID<br><em>RUNNER</em></h1>
             <p class="front-subtitle">MOMENTUM IS YOUR WEAPON</p>
-            <div class="front-save-status" id="frontSaveStatus">LEVEL 001 // NEW CAMPAIGN</div>
+            <div class="front-save-status" id="frontSaveStatus">LEVEL 01 / 15 // NEW CAMPAIGN</div>
             <div class="front-actions">
-              <button data-menu-action="start">START GAME</button>
+              <button data-menu-action="start">NEW GAME</button>
               <button data-menu-action="continue">CONTINUE</button>
               <button data-view-button="levels">LEVEL SELECT</button>
               <button data-view-button="armory">WEAPON ARMORY</button>
@@ -174,16 +174,16 @@
           </section>
 
           <section class="front-view front-wide" data-view="levels">
-            <p class="front-eyebrow">CAMPAIGN // <span id="campaignProgress">1 / 1000</span></p>
+            <p class="front-eyebrow">CAMPAIGN // <span id="campaignProgress">1 / 15</span></p>
             <h2>SELECT LEVEL</h2>
             <div class="level-tools">
-              <input id="levelSearch" type="number" min="1" max="1000" placeholder="SEARCH LEVEL" aria-label="Search level number">
+              <input id="levelSearch" type="number" min="1" max="15" placeholder="SEARCH LEVEL" aria-label="Search level number">
               <button id="levelSearchButton">GO</button>
-              <button id="levelPrevious">‹</button><span id="levelPageLabel">001–050</span><button id="levelNext">›</button>
+              <button id="levelPrevious">‹</button><span id="levelPageLabel">01–15</span><button id="levelNext">›</button>
             </div>
             <div id="levelGrid" class="level-grid" aria-label="Campaign levels"></div>
             <div class="selection-detail">
-              <div><small>SELECTED // <span id="selectedLevelNumber">001</span></small><strong id="selectedLevelName">NEON ENTRY</strong><span id="selectedLevelInfo">DIFFICULTY 1.0 // 3 HOSTILES</span></div>
+              <div><small>SELECTED // <span id="selectedLevelNumber">01</span></small><strong id="selectedLevelName">REFINERY APPROACH</strong><span id="selectedLevelInfo">DIFFICULTY 1.0 // 2 HOSTILES</span></div>
               <button id="playSelectedLevel">PLAY LEVEL</button>
             </div>
             <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
@@ -243,6 +243,8 @@
 
       <div class="mobile-controls" aria-label="Touch controls">
         <div id="moveStick" class="move-stick"><div id="moveKnob" class="move-knob"></div></div>
+        <button class="steering-button steering-button-left" type="button" data-steer="left" aria-label="Hold to move left" aria-pressed="false">LEFT</button>
+        <button class="steering-button steering-button-right" type="button" data-steer="right" aria-label="Hold to move right" aria-pressed="false">RIGHT</button>
         <div class="mobile-actions">
           <button data-action="slide">SLIDE</button>
           <button data-action="dash">DASH</button>
@@ -275,6 +277,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/main.js"></script>
+    <script type="module" src="./src/main.js?campaign15a"></script>
   </body>
 </html>

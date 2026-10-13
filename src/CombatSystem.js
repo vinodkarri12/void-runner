@@ -494,7 +494,7 @@ export class CombatSystem {
     const normalHit = enemy.type !== 'colossus' &&
       dist < enemy.attackRange && enemy.attackPhase > 0.25 && !enemy.attackHitDone;
     if ((normalHit || bossHit) && player.invulnerable <= 0) {
-      const damage = enemy.type === 'colossus' ? 11 : 6;
+      const damage = enemy.attackDamage ?? (enemy.type === 'colossus' ? 11 : 6);
       const applied = feedback.takeDamage
         ? feedback.takeDamage(damage)
         : player.takeDamage(damage);

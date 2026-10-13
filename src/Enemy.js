@@ -12,6 +12,8 @@ export class Enemy {
   constructor(position, type = 'scout', options = {}) {
     this.type = ARCHETYPES[type] ? type : 'scout';
     this.spec = { ...ARCHETYPES[this.type], ...(options.spec || {}) };
+    this.isFinalBoss = options.isFinalBoss === true;
+    this.name = options.name || this.spec.name;
     this.root = new THREE.Group();
     this.root.position.copy(position);
     this.root.scale.setScalar(this.spec.scale);
@@ -19,27 +21,45 @@ export class Enemy {
     this.root.userData.enemy = this;
 
     this.armorMaterial = new THREE.MeshStandardMaterial({
-      color: this.spec.armor,
-      emissive: 0x350712,
-      emissiveIntensity: 0.75,
-      metalness: 0.86,
-      roughness: 0.28
+      color: this.isFinalBoss ? 0x594766 : this.spec.armor,
+      emissive: 0x100609,
+      emissiveIntensity: 0.32,
+      metalness: 0.58,
+      roughness: 0.44
     });
+    this.armorBaseColor = new THREE.Color(this.isFinalBoss ? 0x594766 : this.spec.armor)
+      .lerp(new THREE.Color(0x101820), 0.3);
+    this.armorMaterial.color.copy(this.armorBaseColor);
     this.trimMaterial = new THREE.MeshStandardMaterial({
-      color: 0x11151c,
-      emissive: 0x1f0810,
-      emissiveIntensity: 0.5,
-      metalness: 0.78,
-      roughness: 0.34
+      color: 0x20272d,
+      emissive: 0x19040a,
+      emissiveIntensity: 0.38,
+      metalness: 0.56,
+      roughness: 0.46
+    });
+    this.edgeMaterial = new THREE.MeshStandardMaterial({
+      color: 0x4a5862,
+      metalness: 0.72,
+      roughness: 0.38
+    });
+    this.jointMaterial = new THREE.MeshStandardMaterial({
+      color: 0x252a30,
+      metalness: 0.46,
+      roughness: 0.56
+    });
+    this.visorMaterial = new THREE.MeshStandardMaterial({
+      color: 0x080d12,
+      metalness: 0.72,
+      roughness: 0.2
     });
     this.redMaterial = new THREE.MeshStandardMaterial({
-      color: 0xff6572,
-      emissive: 0xff1237,
-      emissiveIntensity: this.type === 'colossus' ? 4 : 3,
-      metalness: 0.28,
-      roughness: 0.22
+      color: this.isFinalBoss ? 0x9b4db5 : 0x76232b,
+      emissive: this.isFinalBoss ? 0x6f2094 : 0x500810,
+      emissiveIntensity: this.isFinalBoss ? 1.5 : this.type === 'colossus' ? 1.2 : 0.85,
+      metalness: 0.46,
+      roughness: 0.32
     });
-    this.eyeMaterial = new THREE.MeshBasicMaterial({ color: 0xff182d });
+    this.eyeMaterial = new THREE.MeshBasicMaterial({ color: 0xb01b2a });
 
     const mesh = (geometry, material, position, parent = this.root) => {
       const object = new THREE.Mesh(geometry, material);
@@ -51,53 +71,116 @@ export class Enemy {
     };
     const armor = this.armorMaterial;
     const trim = this.trimMaterial;
+    const edge = this.edgeMaterial;
+    const joint = this.jointMaterial;
     const red = this.redMaterial;
-    const wide = this.type === 'colossus' ? 1.45 : this.type === 'guardian' || this.type === 'elite' ? 1.1 : 0.84;
+    const wide = this.type === 'colossus' ? 1.9 : this.type === 'guardian' || this.type === 'elite' ? 1.52 : 1.12;
 
-    this.torso = mesh(new THREE.BoxGeometry(wide, 1.28, 0.62), armor, new THREE.Vector3(0, 1.68, 0));
-    mesh(new THREE.BoxGeometry(wide * 0.76, 0.45, 0.18), trim, new THREE.Vector3(0, 2.08, 0.36));
-    mesh(new THREE.BoxGeometry(wide * 0.62, 0.085, 0.035), red, new THREE.Vector3(0, 1.84, 0.47));
-    mesh(new THREE.BoxGeometry(0.09, 0.58, 0.035), red, new THREE.Vector3(0, 1.98, 0.49));
-    mesh(new THREE.BoxGeometry(wide * 0.92, 0.18, 0.72), trim, new THREE.Vector3(0, 1.02, 0));
-    mesh(new THREE.BoxGeometry(wide * 0.78, 0.075, 0.77), red, new THREE.Vector3(0, 1.06, 0.02));
+    this.torso = mesh(new THREE.BoxGeometry(wide, 1.28, 0.62), joint, new THREE.Vector3(0, 1.68, 0));
+    mesh(new THREE.BoxGeometry(wide * 0.94, 0.8, 0.18), armor, new THREE.Vector3(0, 1.78, 0.31));
+    const chestShape = new THREE.Shape();
+    chestShape.moveTo(-wide * 0.39, 0.28);
+    chestShape.lineTo(-wide * 0.46, 0.02);
+    chestShape.lineTo(-wide * 0.32, -0.31);
+    chestShape.lineTo(0, -0.42);
+    chestShape.lineTo(wide * 0.32, -0.31);
+    chestShape.lineTo(wide * 0.46, 0.02);
+    chestShape.lineTo(wide * 0.39, 0.28);
+    chestShape.lineTo(0, 0.4);
+    chestShape.closePath();
+    mesh(new THREE.ExtrudeGeometry(chestShape, {
+      depth: 0.12, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: 0.045, bevelThickness: 0.025
+    }), armor, new THREE.Vector3(0, 1.77, 0.405));
+    mesh(new THREE.BoxGeometry(wide * 0.74, 0.085, 0.045), edge, new THREE.Vector3(0, 1.89, 0.55));
+    mesh(new THREE.BoxGeometry(wide * 0.55, 0.11, 0.05), red, new THREE.Vector3(0, 1.63, 0.55));
+    mesh(new THREE.BoxGeometry(0.075, 0.3, 0.045), trim, new THREE.Vector3(0, 1.61, 0.57));
+    mesh(new THREE.BoxGeometry(wide * 0.94, 0.2, 0.72), trim, new THREE.Vector3(0, 1.02, 0));
+    mesh(new THREE.BoxGeometry(wide * 0.82, 0.08, 0.77), armor, new THREE.Vector3(0, 1.09, 0.02));
+    mesh(new THREE.BoxGeometry(wide * 0.57, 0.055, 0.06), red, new THREE.Vector3(0, 1.06, 0.42));
+    for (const side of [-1, 1]) {
+      mesh(new THREE.BoxGeometry(0.11, 0.22, 0.16), edge,
+        new THREE.Vector3(side * wide * 0.27, 1.04, 0.31));
+    }
 
     this.head = new THREE.Group();
     this.head.position.set(0, 2.62, 0);
     this.root.add(this.head);
     const headSize = this.type === 'colossus' ? 0.48 : this.type === 'guardian' ? 0.36 : 0.31;
-    mesh(new THREE.BoxGeometry(headSize * 1.55, headSize * 1.35, headSize * 1.25), trim, new THREE.Vector3(0, 0, 0), this.head);
-    mesh(new THREE.BoxGeometry(headSize * 1.32, 0.12, 0.075), red, new THREE.Vector3(0, 0.035, headSize * 0.65), this.head);
+    mesh(new THREE.BoxGeometry(headSize * 1.75, headSize * 1.28, headSize * 1.3), joint,
+      new THREE.Vector3(0, -0.025, 0), this.head);
+    mesh(new THREE.BoxGeometry(headSize * 1.58, headSize * 0.82, headSize * 1.1), armor,
+      new THREE.Vector3(0, 0.045, 0.045), this.head);
+    mesh(new THREE.BoxGeometry(headSize * 1.55, 0.23, 0.09), this.visorMaterial,
+      new THREE.Vector3(0, 0.015, headSize * 0.69), this.head);
+    mesh(new THREE.BoxGeometry(headSize * 1.4, 0.075, 0.045), red,
+      new THREE.Vector3(0, 0.022, headSize * 0.79), this.head);
+    mesh(new THREE.BoxGeometry(headSize * 1.66, 0.065, 0.09), edge,
+      new THREE.Vector3(0, 0.16, headSize * 0.67), this.head);
+    mesh(new THREE.BoxGeometry(headSize * 0.46, headSize * 0.42, 0.12), armor,
+      new THREE.Vector3(0, -headSize * 0.39, headSize * 0.4), this.head);
     for (const side of [-1, 1]) {
-      mesh(new THREE.SphereGeometry(0.075, 8, 6), this.eyeMaterial,
-        new THREE.Vector3(side * headSize * 0.31, 0.04, headSize * 0.7), this.head);
-      const horn = mesh(new THREE.ConeGeometry(0.13, this.type === 'colossus' ? 0.85 : 0.43, 6), armor,
-        new THREE.Vector3(side * headSize * 0.65, 0.28, 0), this.head);
+      const optic = mesh(new THREE.SphereGeometry(this.type === 'colossus' ? 0.055 : 0.04, 8, 6), this.eyeMaterial,
+        new THREE.Vector3(side * headSize * 0.5, 0.015, headSize * 0.8), this.head);
+      optic.scale.set(1.4, 0.7, 0.45);
+      const horn = mesh(new THREE.ConeGeometry(this.type === 'colossus' ? 0.17 : 0.12,
+        this.type === 'colossus' ? 0.9 : 0.52, 5), armor,
+        new THREE.Vector3(side * headSize * 0.7, 0.2, -0.015), this.head);
       horn.rotation.z = -side * 0.65;
     }
 
     this.arms = [];
     this.legs = [];
     for (const side of [-1, 1]) {
-      const shoulder = mesh(new THREE.BoxGeometry(0.48 * wide, 0.48, 0.52), armor,
+      const shoulder = mesh(new THREE.SphereGeometry(0.31 * wide, 9, 7), armor,
         new THREE.Vector3(side * (wide * 0.59), 2.05, 0));
+      shoulder.scale.set(1.28, 0.84, 1.3);
       shoulder.rotation.z = side * -0.08;
-      mesh(new THREE.BoxGeometry(0.4 * wide, 0.075, 0.57), red,
-        new THREE.Vector3(side * (wide * 0.59), 2.09, 0.05));
+      const shoulderPlate = mesh(new THREE.BoxGeometry(0.62 * wide, 0.42, 0.18), armor,
+        new THREE.Vector3(side * (wide * 0.62), 2.13, 0.22));
+      shoulderPlate.rotation.z = side * -0.12;
+      mesh(new THREE.BoxGeometry(0.48 * wide, 0.1, 0.1), trim,
+        new THREE.Vector3(side * (wide * 0.62), 1.91, 0.26));
+      mesh(new THREE.BoxGeometry(0.48 * wide, 0.075, 0.045), edge,
+        new THREE.Vector3(side * (wide * 0.62), 1.94, 0.32));
+      mesh(new THREE.BoxGeometry(0.2 * wide, 0.045, 0.035), red,
+        new THREE.Vector3(side * (wide * 0.62), 2.19, 0.32));
+      const shoulderSpike = mesh(new THREE.ConeGeometry(0.1 * wide, 0.34 * wide, 5), armor,
+        new THREE.Vector3(side * (wide * 0.73), 2.2, 0.01));
+      shoulderSpike.rotation.z = -side * 0.42;
 
       const arm = new THREE.Group();
       arm.position.set(side * (wide * 0.66), 1.95, 0);
       this.root.add(arm);
-      mesh(new THREE.CapsuleGeometry(0.17 * wide, 0.43 * wide, 4, 8), armor, new THREE.Vector3(0, -0.36 * wide, 0), arm);
-      mesh(new THREE.BoxGeometry(0.12, 0.5 * wide, 0.06), red, new THREE.Vector3(0, -0.36 * wide, 0.18));
-      mesh(new THREE.BoxGeometry(0.24 * wide, 0.3 * wide, 0.31 * wide), trim, new THREE.Vector3(0, -0.8 * wide, 0.02), arm);
+      mesh(new THREE.CapsuleGeometry(0.17 * wide, 0.43 * wide, 4, 8), joint, new THREE.Vector3(0, -0.36 * wide, 0), arm);
+      mesh(new THREE.BoxGeometry(0.29 * wide, 0.44 * wide, 0.31 * wide), armor,
+        new THREE.Vector3(0, -0.37 * wide, 0.025), arm);
+      mesh(new THREE.BoxGeometry(0.07, 0.38 * wide, 0.045), red,
+        new THREE.Vector3(0, -0.37 * wide, 0.19), arm);
+      mesh(new THREE.BoxGeometry(0.32 * wide, 0.09, 0.3 * wide), edge,
+        new THREE.Vector3(0, -0.61 * wide, 0.06), arm);
+      mesh(new THREE.BoxGeometry(0.24 * wide, 0.3 * wide, 0.31 * wide), trim,
+        new THREE.Vector3(0, -0.8 * wide, 0.02), arm);
+      for (const clawSide of [-1, 1]) {
+        mesh(new THREE.ConeGeometry(0.045 * wide, 0.19 * wide, 4), edge,
+          new THREE.Vector3(clawSide * 0.1 * wide, -0.96 * wide, 0.13), arm);
+      }
       this.arms.push(arm);
 
       const leg = new THREE.Group();
       leg.position.set(side * wide * 0.29, 1.03, 0);
       this.root.add(leg);
-      mesh(new THREE.CapsuleGeometry(0.2 * wide, 0.48 * wide, 4, 8), armor, new THREE.Vector3(0, -0.32 * wide, 0), leg);
-      mesh(new THREE.BoxGeometry(0.1, 0.5 * wide, 0.07), red, new THREE.Vector3(0, -0.33 * wide, 0.2));
-      mesh(new THREE.BoxGeometry(0.32 * wide, 0.23 * wide, 0.55 * wide), trim, new THREE.Vector3(0, -0.72 * wide, 0.09), leg);
+      mesh(new THREE.CapsuleGeometry(0.2 * wide, 0.48 * wide, 4, 8), joint,
+        new THREE.Vector3(0, -0.32 * wide, 0), leg);
+      mesh(new THREE.BoxGeometry(0.31 * wide, 0.45 * wide, 0.31 * wide), armor,
+        new THREE.Vector3(0, -0.31 * wide, 0.015), leg);
+      mesh(new THREE.BoxGeometry(0.1, 0.38 * wide, 0.055), red,
+        new THREE.Vector3(0, -0.33 * wide, 0.19), leg);
+      mesh(new THREE.BoxGeometry(0.34 * wide, 0.18 * wide, 0.16), edge,
+        new THREE.Vector3(0, -0.54 * wide, 0.14), leg);
+      mesh(new THREE.CylinderGeometry(0.13 * wide, 0.13 * wide, 0.12, 8), joint,
+        new THREE.Vector3(0, -0.55 * wide, 0.2), leg);
+      mesh(new THREE.BoxGeometry(0.32 * wide, 0.23 * wide, 0.55 * wide), trim,
+        new THREE.Vector3(0, -0.72 * wide, 0.09), leg);
       this.legs.push(leg);
     }
 
@@ -106,13 +189,26 @@ export class Enemy {
     this.root.add(this.weapon);
     mesh(new THREE.BoxGeometry(0.12, 0.72, 0.12), trim, new THREE.Vector3(0, 0, 0), this.weapon);
     const bladeLength = this.type === 'colossus' ? 2.3 : 1.25;
-    const blade = mesh(new THREE.BoxGeometry(0.09, bladeLength, 0.2), red,
-      new THREE.Vector3(0, bladeLength * 0.66, 0), this.weapon);
+    mesh(new THREE.BoxGeometry(0.2, 0.14, 0.24), edge, new THREE.Vector3(0, 0.34, 0), this.weapon);
+    const bladeShape = new THREE.Shape();
+    bladeShape.moveTo(-0.09, 0.31);
+    bladeShape.lineTo(-0.075, bladeLength * 0.75);
+    bladeShape.lineTo(0.025, bladeLength);
+    bladeShape.lineTo(0.17, bladeLength * 0.78);
+    bladeShape.lineTo(0.1, 0.34);
+    bladeShape.closePath();
+    const blade = mesh(new THREE.ExtrudeGeometry(bladeShape, {
+      depth: 0.14, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: 0.025, bevelThickness: 0.02
+    }), red, new THREE.Vector3(0, 0, -0.07), this.weapon);
     blade.rotation.z = -0.05;
-    mesh(new THREE.BoxGeometry(0.23, 0.1, 0.28), red, new THREE.Vector3(0, 0.31, 0), this.weapon);
+    mesh(new THREE.BoxGeometry(0.045, bladeLength * 0.56, 0.035), edge,
+      new THREE.Vector3(0.025, bladeLength * 0.64, 0.09), this.weapon);
+    mesh(new THREE.BoxGeometry(0.27, 0.11, 0.3), red, new THREE.Vector3(0, 0.31, 0), this.weapon);
 
     this.health = this.spec.health;
     this.maxHealth = this.health;
+    this.attackDamage = this.spec.attackDamage ?? (this.type === 'colossus' ? 11 : 6);
+    this.attackCooldownScale = this.spec.attackCooldownScale ?? 1;
     this.alive = true;
     this.defeated = false;
     this.rewarded = false;
@@ -132,16 +228,14 @@ export class Enemy {
     this.attackActiveTimer = 0;
     this.vulnerableTimer = 0;
     this.phase = Math.random() * 5;
-    this.name = options.name || this.spec.name;
     this.arrivalTimer = Math.max(0, options.arrivalDelay ?? 1.35);
     this.arrivalDuration = Math.max(0.7, options.arrivalDuration ?? 1.35);
     this.root.visible = this.arrivalTimer <= 0;
     this.masterLevel = options.masterLevel ?? 0;
-    this.isFinalBoss = options.isFinalBoss === true;
     this.billboardRotation = new THREE.Quaternion();
     this.healthSprite = this.createHealthSprite();
     this.healthSprite.position.set(0, 3.55, 0);
-    this.healthSprite.scale.set(2.5, 0.62, 1);
+    this.healthSprite.scale.set(this.isFinalBoss ? 3.3 : 2.5, this.isFinalBoss ? 0.78 : 0.62, 1);
     this.root.add(this.healthSprite);
     if (this.type === 'colossus') {
       this.telegraphRing = new THREE.Mesh(
@@ -221,8 +315,9 @@ export class Enemy {
   }
 
   moveOnGround(directionX, directionZ, dt, world, getHeight) {
-    const moveX = directionX * this.spec.speed * dt;
-    const moveZ = directionZ * this.spec.speed * dt;
+    const aggression = this.isFinalBoss ? 1 + (1 - this.health / this.maxHealth) * 0.55 : 1;
+    const moveX = directionX * this.spec.speed * aggression * dt;
+    const moveZ = directionZ * this.spec.speed * aggression * dt;
     const steps = Math.max(1, Math.ceil(Math.hypot(moveX, moveZ) / 0.5));
     for (let step = 0; step < steps; step++) {
       this.root.position.x += moveX / steps;
@@ -280,7 +375,7 @@ export class Enemy {
           this.attackActive = false;
           this.attackPhase = 0;
           this.vulnerableTimer = 1.45;
-          this.attackCooldown = 1.55;
+          this.attackCooldown = this.isFinalBoss ? 1.25 : 1.55;
         }
       } else if (this.attackPhase > 0) {
         this.attackPhase = Math.max(0, this.attackPhase - dt);
@@ -293,9 +388,14 @@ export class Enemy {
         }
       } else if (this.hitStun <= 0 && distance < 19 && this.attackCooldown <= 0) {
         this.attackPattern = this.attackPatternCount++ % 3;
-        this.attackPhase = this.isFinalBoss ? 1.28 : this.masterLevel >= 200 ? 1.15 : 1.05;
+        const aggression = this.isFinalBoss ? 1 - this.health / this.maxHealth : 0;
+        this.attackPhase = this.isFinalBoss
+          ? Math.max(0.82, 1.3 - aggression * 0.42)
+          : this.masterLevel >= 200 ? 1.15 : 1.05;
         this.attackHitDone = false;
-        this.attackCooldown = Math.max(1.65, 2.6 - Math.min(0.7, this.masterLevel * 0.0007));
+        this.attackCooldown = this.isFinalBoss
+          ? Math.max(0.95, 2.35 - aggression * 1.05)
+          : Math.max(1.65, 2.6 - Math.min(0.7, this.masterLevel * 0.0007));
         this.telegraphRing.visible = this.attackPattern !== 2;
         this.telegraphBeam.visible = this.attackPattern === 2;
         const ringScale = [1.85, 3.55, 5][this.attackPattern];
@@ -311,7 +411,7 @@ export class Enemy {
         this.moveOnGround(-dx / distance, -dz / distance, dt, world, getHeight);
         if (this.attackCooldown <= 0 && this.attackPhase <= 0) {
           this.attackPhase = 0.62;
-          this.attackCooldown = 1.9;
+          this.attackCooldown = 1.9 * this.attackCooldownScale;
           this.attackHitDone = false;
         }
       } else if (distance > this.attackRange) {
@@ -332,7 +432,7 @@ export class Enemy {
     } else if (this.attackCooldown <= 0) {
       this.root.rotation.z = 0;
       this.attackPhase = 0.45;
-      this.attackCooldown = this.type === 'scout' ? 0.9 : 1.45;
+      this.attackCooldown = (this.type === 'scout' ? 0.9 : 1.45) * this.attackCooldownScale;
       this.attackHitDone = false;
     }
 
@@ -371,8 +471,8 @@ export class Enemy {
     }
     const flashing = this.hitFlash > 0;
     const vulnerable = this.type === 'colossus' && this.vulnerableTimer > 0;
-    this.armorMaterial.color.setHex(flashing ? 0xffffff : vulnerable ? 0x9365bb : this.spec.armor);
-    this.armorMaterial.emissiveIntensity = flashing ? 2.4 : vulnerable ? 1.85 : 0.75;
+    this.armorMaterial.color.setHex(flashing ? 0xffffff : vulnerable ? 0x65405f : this.armorBaseColor.getHex());
+    this.armorMaterial.emissiveIntensity = flashing ? 1.5 : vulnerable ? 1.2 : 0.32;
     this.trimMaterial.color.setHex(flashing ? 0xffffff : 0x11151c);
   }
 

@@ -1,29 +1,41 @@
 import * as THREE from 'three';
-import { World } from './World.js';
-import { WorldChunkManager } from './WorldChunkManager.js';
-import { Player } from './Player.js';
+import { World } from './World.js?campaign15a';
+import { WorldChunkManager } from './WorldChunkManager.js?campaign15a';
+import { Player } from './Player.js?campaign15a';
 import { MovementSystem } from './MovementSystem.js';
 import {
   CombatSystem,
   EXECUTION_HEALTH_RATIO,
   EXECUTION_RANGE
-} from './CombatSystem.js';
-import { Enemy } from './Enemy.js';
+} from './CombatSystem.js?campaign15a';
+import { Enemy } from './Enemy.js?campaign15a';
 import { Effects } from './Effects.js';
 import { AudioManager } from './AudioManager.js';
-import { CameraController } from './CameraController.js';
-import { HUD } from './HUD.js';
-import { ProgressionManager, createLevelDefinition, CAMPAIGN_LEVELS } from './ProgressionManager.js';
-import { WeaponManager, WEAPONS } from './WeaponManager.js';
+import { CameraController } from './CameraController.js?campaign15a';
+import { HUD } from './HUD.js?campaign15a';
+import { ProgressionManager, createLevelDefinition, CAMPAIGN_LEVELS } from './ProgressionManager.js?campaign15a';
+import { WeaponManager, WEAPONS } from './WeaponManager.js?campaign15a';
 import { SettingsManager } from './SettingsManager.js';
 
 const viewport = document.getElementById('viewport');
-const renderer = new THREE.WebGLRenderer({ antialias: window.innerWidth > 700, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
+const isMobileViewport = () => window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700;
+const getPixelRatioCap = (quality) => {
+  const qualityCap = quality === 'low' ? 0.8 : quality === 'medium' ? 1.15 : 1.6;
+  const fullHdCap = Math.min(1920 / window.innerWidth, 1080 / window.innerHeight);
+  const deviceCap = isMobileViewport() ? (quality === 'high' ? 1.25 : 1) : qualityCap;
+  return Math.min(deviceCap, fullHdCap);
+};
+const renderer = new THREE.WebGLRenderer({
+  antialias: window.innerWidth > 700 && !isMobileViewport(),
+  powerPreference: 'high-performance'
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, getPixelRatioCap('high')));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
 viewport.appendChild(renderer.domElement);
 
 const world = new World();
@@ -44,7 +56,17 @@ const enemies = [];
 const energyOrbs = [];
 const getGroundHeight = worldChunks.getHeight.bind(worldChunks);
 const keys = new Set();
-const touch = { moveX: 0, moveY: 0, sprint: false, jump: false, slide: false, dash: false, charge: false };
+const touch = {
+  moveX: 0,
+  moveY: 0,
+  left: false,
+  right: false,
+  sprint: false,
+  jump: false,
+  slide: false,
+  dash: false,
+  charge: false
+};
 let isPaused = true;
 let inMainMenu = true;
 let reduceFlash = settingsManager.values.reducedEffects;
@@ -52,7 +74,7 @@ let menuReturnToPause = false;
 let screenState = 'main-menu';
 let loadingInProgress = false;
 let loadingFailed = false;
-let levelPageIndex = Math.floor((progression.unlockedLevel - 1) / 50);
+let levelPageIndex = Math.floor((progression.unlockedLevel - 1) / 15);
 let selectedLevel = progression.unlockedLevel;
 let selectedWeapon = WEAPONS[0];
 let loadingLevel = progression.unlockedLevel;
@@ -242,7 +264,7 @@ function handleEnemyKill(enemy) {
     player.energy = Math.min(100, player.energy + 38);
     spawnEnergyOrb(enemy.root.position, true);
     combatFeedback.slowMotion(0.42);
-    combatFeedback.message('VOID COLOSSUS DEFEATED // +1200', 1600);
+    combatFeedback.message(`${enemy.isFinalBoss ? 'VOID OVERLORD' : 'VOID COLOSSUS'} DEFEATED // +1200`, 1600);
   } else {
     spawnEnergyOrb(enemy.root.position);
     combatFeedback.message(healed > 0 ? `ENEMY DEFEATED // +${Math.round(healed)} HP` : 'ENEMY DEFEATED // HP FULL', 1000);
@@ -334,7 +356,7 @@ function createMasterArena(definition) {
   masterArena = root;
 }
 
-function spawnWave(level = wave) {
+function spawnWave(level = wave, checkpoint = null) {
   if (waveState === 'spawning' || waveState === 'active' ||
       !Number.isInteger(level) || level < 1 || level > CAMPAIGN_LEVELS) return false;
   enemies.splice(0, enemies.length);
@@ -344,25 +366,28 @@ function spawnWave(level = wave) {
   levelElapsed = 0;
   levelDamageTaken = 0;
   createMasterArena(levelDefinition);
-  levelKills = 0;
+  levelKills = checkpoint?.level === level ? checkpoint.completedKills : 0;
   spawnQueue = [];
   spawnInterval = 0;
   waveState = 'spawning';
   levelCompleteResult = null;
   const forward = player.facing.clone().setY(0).normalize();
   const right = new THREE.Vector3(forward.z, 0, -forward.x);
+  const reservedSpawns = [];
   encounterQueues = levelDefinition.waves.map(() => []);
-  encounterWaveIndex = 0;
+  encounterWaveIndex = checkpoint?.level === level
+    ? Math.max(0, Math.min(levelDefinition.waves.length - 1, checkpoint.waveIndex))
+    : 0;
   for (let stageIndex = 0; stageIndex < levelDefinition.waves.length; stageIndex++) {
     const types = levelDefinition.waves[stageIndex];
     for (let index = 0; index < types.length; index++) {
-    const baseDistance = (levelDefinition.master ? 39 : 22) + (index % 3) * 5;
-    const spawnRadius = types[index] === 'colossus' ? 5.5 : types[index] === 'guardian' ? 2.8 : 2.1;
+    const baseDistance = (levelDefinition.finalBoss ? 34 : 22) + (index % 3) * 5;
+    const spawnRadius = types[index] === 'colossus' ? 4.2 : types[index] === 'guardian' ? 2.8 : 2.1;
     let x = 0;
     let z = 0;
     let foundClearance = false;
-    for (let attempt = 0; attempt < 28; attempt++) {
-      const distance = baseDistance + Math.floor(attempt / 7) * 4.5;
+    for (let attempt = 0; attempt < 48; attempt++) {
+      const distance = baseDistance + Math.floor(attempt / 8) * 6;
       const lane = attempt === 0
         ? (types.length === 1 ? 0 : (index % 5 - 2) * 3.3)
         : ((index * 3 + attempt) % 5 - 2) * 3.1;
@@ -374,13 +399,17 @@ function spawnWave(level = wave) {
         7.1 - worldChunks.worldOffset.x
       );
       z = centerZ + right.z * lane;
-      if (worldChunks.isLocationClear(x, z, spawnRadius)) {
+      const clearOfSpawned = reservedSpawns.every((spawn) =>
+        Math.hypot(x - spawn.x, z - spawn.z) > spawn.radius + spawnRadius + 2
+      );
+      const clearOfPlayer = Math.hypot(x - player.root.position.x, z - player.root.position.z) > 16;
+      if (clearOfPlayer && clearOfSpawned && worldChunks.isLocationClear(x, z, spawnRadius)) {
         foundClearance = true;
         break;
       }
     }
     if (!foundClearance) {
-      const distance = baseDistance + 32;
+      const distance = baseDistance + 48 + reservedSpawns.length * 7;
       x = THREE.MathUtils.clamp(
         player.root.position.x + forward.x * distance,
         -6.2 - worldChunks.worldOffset.x,
@@ -388,38 +417,57 @@ function spawnWave(level = wave) {
       );
       z = player.root.position.z + forward.z * distance;
     }
+    reservedSpawns.push({ x, z, radius: spawnRadius });
     const position = new THREE.Vector3(x, getGroundHeight(x, z), z);
     const type = types[index] || 'scout';
     const masterBoss = type === 'colossus';
-    const healthScale = masterBoss
-      ? Math.min(levelDefinition.finalBoss ? 2.8 : 2.15, 1.15 + Math.log2(wave + 1) * 0.11)
-      : Math.min(1.65, 1 + Math.log2(wave + 1) * 0.045);
-    const speedScale = Math.min(1.42, 1 + levelDefinition.phase * 0.06 + Math.log2(wave + 1) * 0.025);
+    const healthScale = 0.74 + (wave - 1) * 0.055;
+    const speedScale = 0.9 + (wave - 1) * 0.035;
+    const attackScale = 0.72 + (wave - 1) * 0.075;
     const baseHealth = { scout: 72, guardian: 145, ranged: 112, elite: 230, colossus: 780 }[type] || 72;
     const baseSpeed = { scout: 4.2, guardian: 2.35, ranged: 2.8, elite: 3.1, colossus: 1.45 }[type] || 4.2;
     const options = {
-      arrivalDelay: 1.2,
-      arrivalDuration: 1.2,
+      arrivalDelay: levelDefinition.finalBoss ? 1.8 : 1.05,
+      arrivalDuration: levelDefinition.finalBoss ? 1.5 : 1.05,
       masterLevel: masterBoss ? wave : 0,
       isFinalBoss: levelDefinition.finalBoss && masterBoss,
-      name: levelDefinition.finalBoss && masterBoss ? 'VOID SOVEREIGN' : undefined,
+      name: levelDefinition.finalBoss && masterBoss ? 'VOID OVERLORD' : undefined,
       spec: {
-        ...(masterBoss ? { scale: levelDefinition.finalBoss ? 3 : 2.35 + levelDefinition.phase * 0.12 } : {}),
-        health: Math.round(baseHealth * healthScale),
-        speed: baseSpeed * speedScale
+        ...(levelDefinition.finalBoss && masterBoss
+          ? { scale: 2.8, health: 150, speed: 2.05, attackDamage: 15, armor: 0x493b54 }
+          : { health: Math.round(baseHealth * healthScale), speed: baseSpeed * speedScale,
+            attackDamage: Math.round(({ scout: 6, guardian: 7, ranged: 7, elite: 9 }[type] || 6) * attackScale),
+            attackCooldownScale: Math.max(0.5, 1 - (wave - 1) * 0.035) })
       }
     };
     const enemy = new Enemy(position, type, options);
-    enemy.scoreReward = masterBoss ? Math.round(800 + wave * 2.3) : Math.round(140 + wave * 0.35);
-    encounterQueues[stageIndex].push({ enemy, position, color: levelDefinition.master ? 0xb867ff : 0xff486c, delay: levelDefinition.master ? 0.38 : 0.24 });
+    enemy.scoreReward = levelDefinition.finalBoss ? 2500 : Math.round(140 + wave * 18);
+    encounterQueues[stageIndex].push({
+      enemy,
+      position,
+      color: levelDefinition.finalBoss ? 0xd19aff : 0xff486c,
+      delay: levelDefinition.finalBoss ? 0.65 : 0.42
+    });
     }
   }
-  spawnQueue = encounterQueues[0] || [];
+  for (let index = 0; index < encounterWaveIndex; index++) encounterQueues[index] = [];
+  spawnQueue = encounterQueues[encounterWaveIndex] || [];
+  world.setCampaignMood?.(wave);
+  worldChunks.setCampaignPhase(wave);
+  progression.saveCheckpoint({
+    level: wave,
+    waveIndex: encounterWaveIndex,
+    completedKills: levelKills,
+    health: player.health,
+    energy: player.energy,
+    score: player.score,
+    defeated: defeatedEnemies
+  });
   if (levelDefinition.master) audio.play('charge');
   hud.showLevel(wave, levelDefinition, progression);
   hud.centerMessage.textContent = levelDefinition.master
-    ? `MASTER LEVEL ${String(wave).padStart(3, '0')} // ${levelDefinition.title}`
-    : `LEVEL ${String(wave).padStart(3, '0')} // ${levelDefinition.title}`;
+    ? `FINAL BATTLE // LEVEL 15 // ${levelDefinition.title}`
+    : `LEVEL ${String(wave).padStart(2, '0')} // ${levelDefinition.title}`;
   hud.centerMessage.style.opacity = '1';
   window.clearTimeout(waveMessageTimeout);
   waveMessageTimeout = window.setTimeout(() => { hud.centerMessage.style.opacity = '0'; }, 2200);
@@ -479,6 +527,15 @@ function beginNextEncounterWave() {
   spawnQueue = encounterQueues[encounterWaveIndex];
   spawnInterval = 0;
   waveState = 'spawning';
+  progression.saveCheckpoint({
+    level: wave,
+    waveIndex: encounterWaveIndex,
+    completedKills: levelKills,
+    health: player.health,
+    energy: player.energy,
+    score: player.score,
+    defeated: defeatedEnemies
+  });
   combatFeedback.message(
     levelDefinition.master && encounterWaveIndex === encounterQueues.length - 1
       ? 'MASTER BOSS // BREACH DETECTED'
@@ -492,11 +549,21 @@ function completeLevel() {
   if (waveState !== 'active' || levelKills < levelDefinition.requiredKills || enemies.length > 0) return false;
   waveState = 'complete';
   player.score += levelDefinition.master ? 1400 + wave * 3 : 400 + wave * 2;
-  const result = progression.completeCurrentLevel(levelDefinition.master ? 1400 + wave * 3 : 400 + wave * 2);
+  const reward = levelDefinition.finalBoss ? 5000 : levelDefinition.master ? 1400 + wave * 3 : 400 + wave * 2;
+  const result = progression.completeCurrentLevel(reward, {
+    health: player.health,
+    energy: player.energy,
+    score: player.score,
+    defeated: defeatedEnemies
+  });
   if (levelDefinition.master) {
     effects.shockwave(player.root.position.clone(), levelDefinition.finalBoss ? 0xffd16f : 0xb36cff, 3.2);
     effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1.4, 0)), levelDefinition.finalBoss ? 0xffd16f : 0xbf72ff, 42, 9);
-    effects.floatingText(player.root.position.clone().add(new THREE.Vector3(0, 2.4, 0)), 'MASTER TRIAL // CLEARED', '#d9b6ff');
+    effects.floatingText(
+      player.root.position.clone().add(new THREE.Vector3(0, 2.4, 0)),
+      levelDefinition.finalBoss ? 'VOID OVERLORD // DEFEATED' : 'MASTER TRIAL // CLEARED',
+      '#d9b6ff'
+    );
     audio.play('overdrive');
   }
   levelCompleteResult = result;
@@ -515,7 +582,7 @@ function completeLevel() {
     enemies: levelKills,
     time: levelElapsed,
     damage: levelDamageTaken,
-    reward: levelDefinition.master ? 1400 + wave * 3 : 400 + wave * 2
+    reward
   });
   isPaused = true;
   return true;
@@ -531,6 +598,21 @@ function continueCampaign() {
   };
   wave = levelCompleteResult.unlocked;
   startLevelWithLoading(wave, carriedRun);
+}
+
+function continueSavedCampaign() {
+  const checkpoint = progression.checkpoint;
+  if (!checkpoint && progression.completedLevels.has(CAMPAIGN_LEVELS)) return;
+  if (!checkpoint) {
+    startLevelWithLoading(progression.unlockedLevel);
+    return;
+  }
+  startLevelWithLoading(checkpoint.level, {
+    health: checkpoint.health,
+    energy: checkpoint.energy,
+    score: checkpoint.score,
+    defeated: checkpoint.defeated
+  }, false, checkpoint);
 }
 
 function replayLevel() {
@@ -570,17 +652,24 @@ function setFrontView(name) {
 
 function refreshHomeMenu() {
   const hasProgress = progression.hasProgress;
-  document.getElementById('frontSaveStatus').textContent = hasProgress
-    ? `LEVEL ${String(progression.unlockedLevel).padStart(3, '0')} UNLOCKED // ${progression.completedCount} CLEARED`
-    : 'LEVEL 001 // NEW CAMPAIGN';
+  const checkpoint = progression.checkpoint;
+  const campaignComplete = progression.completedLevels.has(CAMPAIGN_LEVELS) && !checkpoint;
+  document.getElementById('frontSaveStatus').textContent = campaignComplete
+    ? 'CAMPAIGN COMPLETE // VOID OVERLORD DEFEATED'
+    : hasProgress
+    ? `CHECKPOINT // LEVEL ${String(checkpoint?.level ?? progression.unlockedLevel).padStart(2, '0')} / 15 // ${progression.completedCount} CLEARED`
+    : 'LEVEL 01 / 15 // NEW CAMPAIGN';
   const continueButton = document.querySelector('[data-menu-action="continue"]');
-  continueButton.disabled = false;
-  continueButton.title = hasProgress ? 'Continue from your latest unlocked level' : 'No save yet; continue will offer to start Level 1';
+  continueButton.textContent = hasProgress && checkpoint
+    ? `CONTINUE — LEVEL ${checkpoint.level}`
+    : 'CONTINUE';
+  continueButton.disabled = campaignComplete;
+  continueButton.title = hasProgress ? 'Resume from the latest safe checkpoint' : 'No save yet; continue will offer to start Level 1';
 }
 
 function renderLevelSelect(page = null) {
   const grid = document.getElementById('levelGrid');
-  const pageSize = 50;
+  const pageSize = 15;
   const searchValue = Number(document.getElementById('levelSearch').value);
   if (page === 'search') {
     page = null;
@@ -615,13 +704,13 @@ function renderLevelSelect(page = null) {
     grid.append(button);
   }
   document.getElementById('campaignProgress').textContent =
-    `${progression.completedCount} / ${CAMPAIGN_LEVELS} COMPLETE // ${String(progression.unlockedLevel).padStart(3, '0')} UNLOCKED`;
+    `${progression.completedCount} / ${CAMPAIGN_LEVELS} COMPLETE // ${String(progression.unlockedLevel).padStart(2, '0')} UNLOCKED`;
   document.getElementById('levelPageLabel').textContent =
-    `${String(first).padStart(3, '0')}–${String(last).padStart(3, '0')}`;
+    `${String(first).padStart(2, '0')}–${String(last).padStart(2, '0')}`;
   document.getElementById('levelPrevious').disabled = currentPage === 0;
   document.getElementById('levelNext').disabled = currentPage === pageCount - 1;
   const detail = createLevelDefinition(selectedLevel);
-  document.getElementById('selectedLevelNumber').textContent = String(selectedLevel).padStart(3, '0');
+  document.getElementById('selectedLevelNumber').textContent = String(selectedLevel).padStart(2, '0');
   document.getElementById('selectedLevelName').textContent = `${detail.master ? 'MASTER // ' : ''}${detail.title}`;
   document.getElementById('selectedLevelInfo').textContent =
     `DIFFICULTY ${detail.difficulty.toFixed(1)} // ${detail.requiredKills} HOSTILES // REWARD ${detail.master ? '1400+' : '400+'} SCORE`;
@@ -683,8 +772,9 @@ function applySettings() {
   document.getElementById('reduceFlashButton').textContent = `REDUCE FLASH / SHAKE: ${reduceFlash ? 'ON' : 'OFF'}`;
   document.getElementById('reduceFlashButton').setAttribute('aria-pressed', String(reduceFlash));
   const quality = settings.graphics;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality === 'low' ? 0.8 : quality === 'medium' ? 1.15 : 1.6));
-  renderer.shadowMap.enabled = quality !== 'low';
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, getPixelRatioCap(quality)));
+  renderer.shadowMap.enabled = quality !== 'low' && !isMobileViewport();
+  renderer.toneMappingExposure = quality === 'low' ? 1.04 : 1.12;
 }
 
 function openFrontFromPause(view) {
@@ -715,7 +805,7 @@ function showLoadingProgress(percent, status, indeterminate = false) {
   document.getElementById('loadingStatus').textContent = status;
 }
 
-function startLevelWithLoading(level, carryState = null, retry = false) {
+function startLevelWithLoading(level, carryState = null, retry = false, checkpoint = null) {
   if (loadingInProgress && !retry) return false;
   if (!progression.selectLevel(level)) {
     combatFeedback.message('LEVEL LOCKED // COMPLETE THE PREVIOUS LEVEL', 1100);
@@ -730,9 +820,11 @@ function startLevelWithLoading(level, carryState = null, retry = false) {
   document.getElementById('loadingError').hidden = true;
   document.getElementById('loadingRetry').hidden = true;
   document.getElementById('loadingMenu').hidden = true;
-  document.getElementById('loadingEyebrow').textContent = definition.master ? 'MASTER BREACH // BOSS ARENA' : 'BREACH SEQUENCE';
+  document.getElementById('loadingEyebrow').textContent = definition.finalBoss
+    ? 'FINAL BOSS // LEVEL 15 // DIFFICULTY 5.5 // 15 HOSTILES'
+    : `LEVEL ${String(level).padStart(2, '0')} / 15 // DIFFICULTY ${definition.difficulty.toFixed(1)} // ${definition.requiredKills} HOSTILES`;
   document.getElementById('loadingTitle').textContent =
-    `PREPARING ${String(level).padStart(3, '0')} // ${definition.title}`;
+    `PREPARING LEVEL ${String(level).padStart(2, '0')} // ${definition.title}`;
   const tipIndex = level % loadingTips.length;
   document.getElementById('loadingTip').textContent = loadingTips[tipIndex];
   loadingTipTimer = 4;
@@ -744,13 +836,23 @@ function startLevelWithLoading(level, carryState = null, retry = false) {
       showLoadingProgress(50, 'CAMPAIGN ACCESS VERIFIED // 1 OF 2 TASKS');
       document.querySelector('.loading-track').classList.remove('indeterminate');
       player.equipWeapon(WEAPONS.find((weapon) => weapon.id === weaponManager.equippedId) || WEAPONS[0]);
-      resetGame(true);
+      resetGame(true, checkpoint);
       if (carryState) {
         player.health = Math.min(player.maxHealth, carryState.health);
         player.energy = Math.min(100, carryState.energy);
         player.score = carryState.score;
         defeatedEnemies = carryState.defeated;
         updateHealthHUD();
+        progression.saveCheckpoint({
+          ...(checkpoint || progression.checkpoint),
+          level,
+          waveIndex: checkpoint?.waveIndex ?? 0,
+          completedKills: checkpoint?.completedKills ?? 0,
+          health: player.health,
+          energy: player.energy,
+          score: player.score,
+          defeated: defeatedEnemies
+        });
       }
       isPaused = true;
       inMainMenu = true;
@@ -804,7 +906,7 @@ function bindFrontend() {
       startLevelWithLoading(1);
       return;
     }
-    startLevelWithLoading(progression.unlockedLevel);
+    continueSavedCampaign();
   });
   document.getElementById('levelPrevious').addEventListener('click', () => {
     renderLevelSelect(levelPageIndex - 1);
@@ -849,6 +951,68 @@ function bindFrontend() {
 }
 
 const bindInput = () => {
+  const heldControlReleases = new Set();
+  const activeTouchReleases = new Map();
+  const releaseTouches = (event) => {
+    for (const changedTouch of event.changedTouches) {
+      const release = activeTouchReleases.get(changedTouch.identifier);
+      if (!release) continue;
+      activeTouchReleases.delete(changedTouch.identifier);
+      release();
+    }
+  };
+  window.addEventListener('touchend', releaseTouches, { capture: true, passive: false });
+  window.addEventListener('touchcancel', releaseTouches, { capture: true, passive: false });
+  const bindHoldControl = (button, onPress, onRelease) => {
+    const pointerIds = new Set();
+    const touchIds = new Set();
+    let pressed = false;
+    const syncPressedState = () => {
+      const nextPressed = pointerIds.size > 0 || touchIds.size > 0;
+      if (pressed === nextPressed) return;
+      pressed = nextPressed;
+      button.classList.toggle('pressed', pressed);
+      button.setAttribute('aria-pressed', String(pressed));
+      if (pressed) onPress();
+      else onRelease();
+    };
+    const endPointer = (event) => {
+      if (pointerIds.delete(event.pointerId)) syncPressedState();
+    };
+    const startTouch = (event) => {
+      event.preventDefault();
+      for (const changedTouch of event.changedTouches) {
+        const id = changedTouch.identifier;
+        if (touchIds.has(id)) continue;
+        touchIds.add(id);
+        activeTouchReleases.set(id, () => {
+          touchIds.delete(id);
+          syncPressedState();
+        });
+      }
+      syncPressedState();
+    };
+    const clear = () => {
+      pointerIds.clear();
+      for (const id of touchIds) activeTouchReleases.delete(id);
+      touchIds.clear();
+      syncPressedState();
+    };
+    button.addEventListener('pointerdown', (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      event.preventDefault();
+      pointerIds.add(event.pointerId);
+      if (button.setPointerCapture) button.setPointerCapture(event.pointerId);
+      syncPressedState();
+    });
+    button.addEventListener('pointerup', endPointer);
+    button.addEventListener('pointercancel', endPointer);
+    button.addEventListener('lostpointercapture', endPointer);
+    button.addEventListener('touchstart', startTouch, { passive: false });
+    heldControlReleases.add(clear);
+    return clear;
+  };
+
   window.addEventListener('keydown', (event) => {
     if (event.code === 'Escape') {
       if (isPaused && menuReturnToPause) {
@@ -907,7 +1071,17 @@ const bindInput = () => {
   });
   window.addEventListener('blur', () => {
     keys.clear();
+    for (const release of heldControlReleases) release();
+    touch.moveX = 0;
+    touch.moveY = 0;
+    touch.left = false;
+    touch.right = false;
+    touch.sprint = false;
+    touch.jump = false;
+    touch.slide = false;
+    touch.dash = false;
     touch.charge = false;
+    document.getElementById('moveKnob').style.transform = '';
     combat.cancelVoidCharge(player);
     if (!isPaused) pauseGame();
   });
@@ -965,26 +1139,24 @@ const bindInput = () => {
   };
   stick.addEventListener('pointerup', endStick);
   stick.addEventListener('pointercancel', endStick);
+  stick.addEventListener('lostpointercapture', endStick);
 
   document.querySelectorAll('[data-action]').forEach((button) => {
     const action = button.dataset.action;
-    button.addEventListener('pointerdown', (event) => {
-      event.preventDefault();
-      touch[action] = true;
-    });
-    for (const type of ['pointerup', 'pointercancel', 'pointerleave']) {
-      button.addEventListener(type, () => { touch[action] = false; });
-    }
+    bindHoldControl(button, () => { touch[action] = true; }, () => { touch[action] = false; });
+  });
+
+  document.querySelectorAll('[data-steer]').forEach((button) => {
+    const direction = button.dataset.steer;
+    bindHoldControl(button, () => { touch[direction] = true; }, () => { touch[direction] = false; });
   });
 
   document.querySelectorAll('[data-ability]').forEach((button) => {
     const ability = button.dataset.ability;
-    button.addEventListener('pointerdown', (event) => {
-      event.preventDefault();
+    bindHoldControl(button, () => {
       audio.init();
       if (isPaused) return;
       if (ability === 'charge') {
-        button.setPointerCapture(event.pointerId);
         touch.charge = true;
         combat.beginVoidCharge(player);
       } else if (!isPaused && ability === 'strike') {
@@ -1006,15 +1178,11 @@ const bindInput = () => {
       } else if (!isPaused && ability === 'anchor') {
         activateKineticAnchor();
       }
-    });
-    const releaseAbility = () => {
+    }, () => {
       if (ability !== 'charge') return;
       touch.charge = false;
       if (!isPaused) combat.releaseVoidCharge(player, enemies, combatFeedback);
-    };
-    button.addEventListener('pointerup', releaseAbility);
-    button.addEventListener('pointercancel', releaseAbility);
-    button.addEventListener('lostpointercapture', releaseAbility);
+    });
   });
 
   let swipePointer = null;
@@ -1085,7 +1253,7 @@ function resumeGame() {
   lastTime = performance.now();
 }
 
-function resetGame(keepPaused = false) {
+function resetGame(keepPaused = false, checkpoint = null) {
   for (const enemy of enemies) removeEnemy(enemy);
   enemies.length = 0;
   removeMasterArena();
@@ -1139,7 +1307,7 @@ function resetGame(keepPaused = false) {
   hud.centerMessage.style.opacity = '1';
   hud.setTarget(null);
   worldChunks.update(player.root.position);
-  spawnWave(wave);
+  spawnWave(wave, checkpoint);
   if (keepPaused) {
     isPaused = true;
     inMainMenu = true;
@@ -1380,7 +1548,7 @@ function readInput() {
   const forwardZ = -Math.cos(yaw);
   const rightX = -Math.cos(yaw);
   const rightZ = Math.sin(yaw);
-  const moveX = sideInput + touch.moveX;
+  const moveX = sideInput + Number(touch.right) - Number(touch.left) + touch.moveX;
   const moveY = forwardInput + touch.moveY;
 
   movementSystem.input.moveX = rightX * moveX + forwardX * moveY;
@@ -1644,9 +1812,9 @@ function animate(time) {
 function resize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  const pixelCap = settingsManager.values.graphics === 'low' ? 0.8 :
-    settingsManager.values.graphics === 'medium' ? 1.15 : 1.6;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelCap));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, getPixelRatioCap(settingsManager.values.graphics)));
+  renderer.shadowMap.enabled = settingsManager.values.graphics !== 'low' && !isMobileViewport();
+  renderer.toneMappingExposure = settingsManager.values.graphics === 'low' ? 1.04 : 1.12;
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
@@ -1656,5 +1824,9 @@ worldChunks.update(player.root.position);
 cameraController.lookYaw = Math.PI;
 bindInput();
 weaponManager.load(player, progression);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') progression.save();
+});
+window.addEventListener('pagehide', () => progression.save());
 window.addEventListener('resize', resize);
 requestAnimationFrame(animate);

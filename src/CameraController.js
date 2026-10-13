@@ -9,6 +9,8 @@ export class CameraController {
     this.targetPitch = 0.26;
     this.currentFov = camera.fov;
     this.currentBank = 0;
+    this.currentDistance = null;
+    this.currentHeight = null;
     this.previousVelocity = new THREE.Vector3();
     this.lastHeading = new THREE.Vector3(0, 0, -1);
     this.desired = new THREE.Vector3();
@@ -62,12 +64,14 @@ export class CameraController {
 
     const inputYaw = Math.atan2(-this.lastHeading.x, -this.lastHeading.z);
     const yawDelta = Math.atan2(Math.sin(inputYaw - this.lookYaw), Math.cos(inputYaw - this.lookYaw));
-    const movementYawWeight = speed > 13 ? THREE.MathUtils.clamp((speed - 13) / 18, 0, 0.72) : 0;
+    const mobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700;
+    const movementYawWeight = mobile ? 0 :
+      speed > 13 ? THREE.MathUtils.clamp((speed - 13) / 18, 0, 0.42) : 0;
     this.lookYaw += yawDelta * (1 - Math.exp(-dt * 1.25 * movementYawWeight));
     this.lookPitch += (this.targetPitch - this.lookPitch) * (1 - Math.exp(-dt * 7));
 
     const turnCross = this.previousVelocity.x * velocity.z - this.previousVelocity.z * velocity.x;
-    const bankTarget = THREE.MathUtils.clamp(-turnCross * 0.0019, -0.16, 0.16);
+    const bankTarget = mobile ? 0 : THREE.MathUtils.clamp(-turnCross * 0.0019, -0.08, 0.08);
     this.currentBank += (bankTarget - this.currentBank) * (1 - Math.exp(-dt * 5));
     this.previousVelocity.copy(velocity);
 
@@ -88,18 +92,23 @@ export class CameraController {
       ? 5.4 + Math.max(0, target.spec.scale - 2.25) * 2
       : 0;
     const closeCombatPullback = target && nearest < 12 ? 1.2 : 0;
-    const distance = 7.7 + speedRatio * 2.9 + chargePullback + overdrivePullback +
+    const targetDistance = (mobile ? 8.6 : 7.7 + speedRatio * 2.9) + chargePullback + overdrivePullback +
       dashPullback + bossPullback + closeCombatPullback;
-    const height = 3.25 + speedRatio * 0.65 + Math.max(0, velocity.y) * 0.035 +
+    const targetHeight = (mobile ? 3.45 : 3.25 + speedRatio * 0.65) + Math.max(0, velocity.y) * (mobile ? 0.015 : 0.035) +
       (target?.type === 'colossus' ? 1.2 : 0);
+    if (this.currentDistance === null) this.currentDistance = targetDistance;
+    if (this.currentHeight === null) this.currentHeight = targetHeight;
+    const framingResponse = 1 - Math.exp(-dt * 2.4);
+    this.currentDistance += (targetDistance - this.currentDistance) * framingResponse;
+    this.currentHeight += (targetHeight - this.currentHeight) * framingResponse;
     this.offset.set(
-      Math.sin(this.lookYaw) * distance,
-      height + this.lookPitch * 1.8,
-      Math.cos(this.lookYaw) * distance
+      Math.sin(this.lookYaw) * this.currentDistance,
+      this.currentHeight + this.lookPitch * 1.8,
+      Math.cos(this.lookYaw) * this.currentDistance
     );
-    const anticipation = THREE.MathUtils.clamp(speed * 0.16, 0, 5.2);
+    const anticipation = THREE.MathUtils.clamp(speed * (mobile ? 0.035 : 0.085), 0, mobile ? 1.1 : 3.4);
     this.focus.copy(targetPosition).addScaledVector(this.lastHeading, anticipation);
-    if (target && (speed > 12 || nearest < 15)) {
+    if (!mobile && target && (speed > 12 || nearest < 15)) {
       const aimX = (target.root.position.x + this.player.root.position.x) * 0.5;
       const aimY = (target.root.position.y + this.player.root.position.y) * 0.5 + (target.type === 'colossus' ? 2.2 : 1.1);
       const aimZ = (target.root.position.z + this.player.root.position.z) * 0.5;
@@ -123,10 +132,10 @@ export class CameraController {
       world.resolveFeatureCollision(this.camera.position, 0.45);
     }
     this.camera.lookAt(this.focus);
-    this.camera.rotateZ(this.currentBank);
+    if (!mobile) this.camera.rotateZ(this.currentBank);
     const shakeScale = reducedShake ? 0.12 : 0.3;
     const shakeAmount = Math.min(0.18, shake * shakeScale);
-    if (shakeAmount > 0) {
+    if (!mobile && shakeAmount > 0) {
       this.shakeOffset.set(
         (Math.random() - 0.5) * shakeAmount,
         (Math.random() - 0.5) * shakeAmount,
@@ -134,9 +143,10 @@ export class CameraController {
       );
       this.camera.position.add(this.shakeOffset);
     }
-    const targetFov = 59 + speedRatio * 18 + (this.player.overdriveTimer > 0 ? 4 : 0) +
-      (this.player.dashDuration > 0 ? 3 : 0);
-    this.currentFov += (targetFov - this.currentFov) * (1 - Math.exp(-dt * 2.8));
+    const baseFov = mobile ? (this.camera.aspect < 0.85 ? 68 : 62) : 59;
+    const targetFov = baseFov + speedRatio * (mobile ? 5 : 18) + (this.player.overdriveTimer > 0 ? (mobile ? 1 : 4) : 0) +
+      (this.player.dashDuration > 0 ? (mobile ? 1 : 3) : 0);
+    this.currentFov += (targetFov - this.currentFov) * (1 - Math.exp(-dt * (mobile ? 1.8 : 2.8)));
     this.camera.fov = this.currentFov;
     this.camera.updateProjectionMatrix();
   }
