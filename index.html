@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#060b16" />
+    <title>VOID RUNNER | Speed Is Your Weapon</title>
+    <link rel="stylesheet" href="./src/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="game-root">
+      <div id="viewport"></div>
+      <header class="hud-header">
+        <div class="brand-block">
+          <div class="brand-mark">V</div>
+          <div>
+            <div class="brand-title">VOID RUNNER</div>
+            <div class="brand-subtitle">SPEED IS YOUR WEAPON</div>
+          </div>
+        </div>
+        <div class="hud-top-right">
+          <div class="mini-stat"><span>Score</span><strong id="scoreValue">000000</strong></div>
+          <div class="mini-stat"><span>Combo</span><strong id="comboValue">x0</strong><small id="scoreMultiplier">SCORE x1</small></div>
+          <div class="mini-stat"><span>Defeated</span><strong id="defeatedValue">0</strong></div>
+          <div class="mini-stat"><span>Enemies Remaining</span><strong id="enemyValue">0 LEFT</strong></div>
+          <div class="mini-stat level-header-stat"><span>Campaign</span><strong id="levelValue">LEVEL: 001 / 1000</strong></div>
+          <button id="cameraResetButton" class="camera-reset-button" type="button" title="Reset camera (C)">CAM RESET</button>
+          <button id="pauseButton" class="pause-button">II</button>
+        </div>
+      </header>
+
+      <aside class="left-panel">
+        <div class="minimap-panel">
+          <div class="minimap-label">LOCAL SCAN</div>
+          <canvas id="minimap" width="180" height="180" aria-label="Nearby terrain and hostile radar"></canvas>
+        </div>
+        <div class="portrait-panel">
+          <div class="portrait-box">
+            <div class="portrait-head"></div>
+            <div class="portrait-mask"></div>
+          </div>
+          <div class="portrait-stats">
+            <div class="health-row"><span>Health</span><strong id="healthText">100 / 100 HP</strong></div>
+            <div class="bar"><div id="healthBar" class="bar-fill health-fill"></div></div>
+            <div class="energy-row"><span>Energy</span><strong id="energyText">100/100</strong></div>
+            <div class="bar"><div id="energyBar" class="bar-fill energy-fill"></div></div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="speed-panel">
+        <div class="speed-header">
+          <span>M/S</span>
+          <strong id="speedValue">000</strong>
+        </div>
+        <div class="meter-wrap">
+          <div class="meter-track"><div id="momentumBar" class="meter-fill"></div></div>
+        </div>
+        <div class="speed-label-row">
+          <span id="momentumState">IDLE</span>
+          <span><b id="damageMultiplier">KINETIC DMG x0.45</b> <i id="maxSpeedStatus">MAX SPEED</i></span>
+        </div>
+      </section>
+
+      <aside class="ability-panel" aria-label="VOID REAVER abilities">
+        <div class="ability-heading">
+          <div><span class="ability-kicker">EQUIPPED WEAPON</span><strong id="equippedHudWeapon">VOID REAVER</strong></div>
+          <span id="overdriveStatus" class="overdrive-status">OVERDRIVE READY</span>
+        </div>
+        <div class="ability-meters">
+          <div class="ability-meter"><div class="ability-meter-label"><span>REAVER ENERGY</span><strong id="weaponEnergyText">100%</strong></div><div class="ability-track"><i id="weaponEnergyBar"></i></div></div>
+          <div class="ability-meter"><div class="ability-meter-label"><span>IMPACT DISCHARGE <b id="chargePercent">0%</b></span><strong id="chargeFull" class="charge-full">FULL CHARGE</strong></div><div class="ability-track charge-track"><i id="chargeBar"></i></div></div>
+          <div class="ability-meter"><div class="ability-meter-label"><span>OVERDRIVE</span><strong id="overdriveText">60%</strong></div><div class="ability-track overdrive-track"><i id="overdriveBar"></i></div></div>
+        </div>
+        <div class="ability-cooldowns">
+          <span>Q STRIKE <b id="qStatus">READY</b></span>
+          <span>F SLASH <b id="fStatus">READY</b></span>
+          <span>E DASH <b id="eStatus">READY</b></span>
+          <span>R DISCHARGE <b id="rStatus">READY</b></span>
+          <span>T OVERDRIVE <b id="tStatus">READY</b></span>
+          <span>G CLONE <b id="gStatus">READY</b></span>
+          <span>V CHAIN <b id="vStatus">READY</b></span>
+          <span>X ANCHOR <b id="xStatus">READY</b></span>
+          <span>Z EXECUTE <b id="zStatus">READY</b></span>
+        </div>
+        <button id="reduceFlashButton" class="reduce-flash-button" type="button" aria-pressed="false">REDUCE FLASH / SHAKE: OFF</button>
+      </aside>
+
+      <aside class="objective-panel">
+        <div class="objective-title">OBJECTIVE</div>
+        <div class="objective-text">DEFEAT ALL ENEMIES</div>
+        <details class="control-details">
+          <summary>CONTROLS // SHOW / HIDE</summary>
+          <div class="control-list">
+            <span>W — FORWARD</span>
+            <span>A — LEFT</span>
+            <span>S — BACK</span>
+            <span>D — RIGHT</span>
+            <span>MOUSE — CAMERA</span>
+            <span>C — CAMERA RESET</span>
+            <span>SHIFT — SPRINT</span>
+            <span>CTRL — SLIDE</span>
+            <span>SPACE — JUMP</span>
+            <span>Q — REAVER STRIKE</span>
+            <span>F — VOID SLASH</span>
+            <span>E — PHANTOM DASH</span>
+            <span>HOLD / RELEASE R — IMPACT DISCHARGE</span>
+            <span>T — OVERDRIVE</span>
+            <span>G — SHADOW CLONE</span>
+            <span>V — VOID CHAIN</span>
+            <span>X — KINETIC ANCHOR</span>
+            <span>Z — NINJA EXECUTION</span>
+            <span>WALL RUN — NEAR WALL</span>
+          </div>
+        </details>
+      </aside>
+
+      <div id="centerMessage" class="center-message">WAVE 01</div>
+      <section class="campaign-panel" aria-label="Campaign level progress">
+        <div class="campaign-heading"><strong id="levelTitle">NEON ENTRY</strong><span id="unlockedLevel">UNLOCKED: 001 // CLEARED: 0</span></div>
+        <div class="campaign-objective" id="levelObjective">DEFEAT ALL HOSTILES</div>
+        <div class="campaign-progress-track"><i id="levelProgress"></i></div>
+        <small id="levelProgressText">HOSTILES 0 / 2</small>
+      </section>
+      <div id="combatMessage" class="combat-message" aria-live="polite"></div>
+      <section id="bossHealthPanel" class="boss-health-panel hidden" aria-label="Void Colossus health">
+        <div><span id="bossName">VOID COLOSSUS</span><strong id="bossHealthText">780 / 780</strong></div>
+        <div class="boss-health-track"><i id="bossHealthBar"></i></div>
+        <small id="bossPhaseText">ARMORED</small>
+      </section>
+      <div id="targetMarker" class="target-marker hidden"><span class="target-diamond"></span><div class="target-info"><strong id="targetName"></strong><span id="targetHealthText"></span><span class="target-health-track"><i id="targetHealthBar"></i></span></div></div>
+      <div id="impactFlash" class="impact-flash" aria-hidden="true"></div>
+
+      <section id="frontEnd" class="front-end" aria-label="VOID RUNNER front end">
+        <div class="front-end-backdrop"></div>
+        <div class="front-end-brand"><span>V</span><div><strong>VOID RUNNER</strong><small>SPEED IS YOUR WEAPON</small></div></div>
+        <div class="front-end-content">
+          <section class="front-view active" data-view="home">
+            <p class="front-eyebrow">NEON FRONTIER // CAMPAIGN SYSTEM</p>
+            <h1>VOID<br><em>RUNNER</em></h1>
+            <p class="front-subtitle">MOMENTUM IS YOUR WEAPON</p>
+            <div class="front-save-status" id="frontSaveStatus">LEVEL 001 // NEW CAMPAIGN</div>
+            <div class="front-actions">
+              <button data-menu-action="start">START GAME</button>
+              <button data-menu-action="continue">CONTINUE</button>
+              <button data-view-button="levels">LEVEL SELECT</button>
+              <button data-view-button="armory">WEAPON ARMORY</button>
+              <button data-view-button="settings">SETTINGS</button>
+              <button data-view-button="how">HOW TO PLAY</button>
+            </div>
+          </section>
+
+          <section class="front-view" data-view="loading">
+            <p class="front-eyebrow" id="loadingEyebrow">BREACH SEQUENCE</p>
+            <h2 id="loadingTitle">PREPARING LEVEL 001</h2>
+            <div class="loading-stage" aria-hidden="true">
+              <div class="loading-sigil">V</div>
+              <div class="loading-ninja"><i class="ninja-mask"></i><i class="ninja-body"></i><i class="ninja-cloak"></i><i class="ninja-blade"></i><i class="ninja-trail"></i></div>
+              <div class="loading-particles"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+            <p id="loadingTip">Build speed before you strike.</p>
+            <div class="loading-track"><i id="loadingProgress"></i></div>
+            <div class="loading-readout"><span id="loadingStatus">INITIALIZING ARENA</span><strong id="loadingPercent">0%</strong></div>
+            <p id="loadingError" class="loading-error" hidden>Level preparation failed. Try again.</p>
+            <button id="loadingRetry" class="front-back-button" hidden>RETRY</button>
+            <button id="loadingMenu" class="front-back-button" hidden>RETURN TO MENU</button>
+          </section>
+
+          <section class="front-view front-wide" data-view="levels">
+            <p class="front-eyebrow">CAMPAIGN // <span id="campaignProgress">1 / 1000</span></p>
+            <h2>SELECT LEVEL</h2>
+            <div class="level-tools">
+              <input id="levelSearch" type="number" min="1" max="1000" placeholder="SEARCH LEVEL" aria-label="Search level number">
+              <button id="levelSearchButton">GO</button>
+              <button id="levelPrevious">‹</button><span id="levelPageLabel">001–050</span><button id="levelNext">›</button>
+            </div>
+            <div id="levelGrid" class="level-grid" aria-label="Campaign levels"></div>
+            <div class="selection-detail">
+              <div><small>SELECTED // <span id="selectedLevelNumber">001</span></small><strong id="selectedLevelName">NEON ENTRY</strong><span id="selectedLevelInfo">DIFFICULTY 1.0 // 3 HOSTILES</span></div>
+              <button id="playSelectedLevel">PLAY LEVEL</button>
+            </div>
+            <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
+          </section>
+
+          <section class="front-view front-wide" data-view="armory">
+            <p class="front-eyebrow">ARSENAL // <span id="equippedWeaponName">VOID REAVER EQUIPPED</span></p>
+            <h2>WEAPON ARMORY</h2>
+            <div class="armory-layout">
+              <div id="weaponGrid" class="weapon-grid"></div>
+              <div class="weapon-detail"><div id="weaponPreview" class="weapon-preview">◇</div><small id="weaponType">ENERGY BLADE</small><strong id="weaponDetailName">VOID REAVER</strong><p id="weaponDescription"></p><div id="weaponStats" class="weapon-stats"></div><button id="equipWeaponButton">EQUIPPED</button></div>
+            </div>
+            <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
+          </section>
+
+          <section class="front-view" data-view="settings">
+            <p class="front-eyebrow">SYSTEM // ACCESSIBILITY</p><h2>SETTINGS</h2>
+            <div class="settings-list">
+              <label>MASTER VOLUME <input data-setting="masterVolume" type="range" min="0" max="1" step="0.05"></label>
+              <label>SOUND EFFECTS <input data-setting="sfxVolume" type="range" min="0" max="1" step="0.05"></label>
+              <label>MOUSE SENSITIVITY <input data-setting="sensitivity" type="range" min="0.25" max="2" step="0.05"></label>
+              <label>CAMERA FOLLOW <input data-setting="cameraFollow" type="range" min="0.3" max="2" step="0.05"></label>
+              <label>CAMERA SHAKE <input data-setting="cameraShake" type="range" min="0" max="2" step="0.05"></label>
+              <label>SCREEN FLASH <input data-setting="screenFlash" type="range" min="0" max="2" step="0.05"></label>
+              <label>MOTION EFFECTS <input data-setting="motionBlur" type="range" min="0" max="1.5" step="0.05"></label>
+              <label>GRAPHICS QUALITY <select data-setting="graphics"><option value="low">LOW</option><option value="medium">MEDIUM</option><option value="high">HIGH</option></select></label>
+              <label>REDUCED VISUAL EFFECTS <input data-setting="reducedEffects" type="checkbox"></label>
+            </div>
+            <button id="fullscreenButton" class="front-secondary">FULLSCREEN</button>
+            <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
+          </section>
+
+          <section class="front-view" data-view="how">
+            <p class="front-eyebrow">FIELD MANUAL // VOID RUNNER</p><h2>HOW TO PLAY</h2>
+            <div class="tutorial-demo" aria-hidden="true"><span></span><i></i><b>MOVE // BUILD MOMENTUM // STRIKE</b></div>
+            <div class="how-to-play"><table><thead><tr><th>KEY</th><th>ACTION</th><th>EFFECT</th></tr></thead><tbody>
+              <tr><td>W A S D / ARROWS</td><td>Move</td><td>Steer and build speed</td></tr>
+              <tr><td>MOUSE</td><td>Look</td><td>Orbit the third-person camera</td></tr>
+              <tr><td>C / HOME</td><td>Reset camera</td><td>Recenter behind movement</td></tr>
+              <tr><td>SHIFT</td><td>Sprint</td><td>Build momentum faster</td></tr>
+              <tr><td>SPACE</td><td>Jump</td><td>Leap; use movement input for air control</td></tr>
+              <tr><td>CTRL</td><td>Slide</td><td>Slide under obstacles while retaining speed</td></tr>
+              <tr><td>E</td><td>Phantom Dash</td><td>Burst forward and damage crossed enemies</td></tr>
+              <tr><td>Q</td><td>Weapon attack</td><td>Strike; Orbital Drones fire a manual energy bolt</td></tr>
+              <tr><td>F</td><td>Void Slash</td><td>Manual melee sweep</td></tr>
+              <tr><td>HOLD / RELEASE R</td><td>Impact Discharge</td><td>Charge, then release a speed-scaled blast</td></tr>
+              <tr><td>T</td><td>Overdrive</td><td>Spend charge for a speed and damage boost</td></tr>
+              <tr><td>G / V / X / Z</td><td>Ninja abilities</td><td>Clone / chain / anchor / execution</td></tr>
+              <tr><td>1–6</td><td>Switch weapon</td><td>Equip an unlocked weapon from the armory</td></tr>
+              <tr><td>ESC</td><td>Pause / resume</td><td>Open or close the pause menu</td></tr>
+            </tbody></table></div>
+            <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
+          </section>
+        </div>
+        <footer>VOID RUNNER // OPERATIVE FIELD SYSTEM <span>CAMPAIGN DATA SAVED LOCALLY</span></footer>
+      </section>
+
+      <div class="mobile-controls" aria-label="Touch controls">
+        <div id="moveStick" class="move-stick"><div id="moveKnob" class="move-knob"></div></div>
+        <div class="mobile-actions">
+          <button data-action="slide">SLIDE</button>
+          <button data-action="dash">DASH</button>
+          <button data-action="sprint">RUN</button>
+          <button data-action="jump">JUMP</button>
+          <button data-ability="strike">Q STRIKE</button>
+          <button data-ability="slash">F SLASH</button>
+          <button data-ability="charge">HOLD R</button>
+          <button data-ability="overdrive">T OVERDRIVE</button>
+          <button data-ability="clone">G CLONE</button>
+          <button data-ability="chain">V CHAIN</button>
+          <button data-ability="anchor">X ANCHOR</button>
+          <button data-ability="execute">Z FINISH</button>
+        </div>
+      </div>
+
+      <div id="overlay" class="overlay hidden">
+        <div class="modal-box">
+          <div class="modal-eyebrow" id="modalEyebrow">SYSTEM PAUSED</div>
+          <h1 id="modalTitle">PAUSED</h1>
+          <p id="modalMessage">Catch your breath before the next breach.</p>
+          <div id="resultsPanel" class="modal-results hidden"></div>
+          <button id="resumeButton" class="modal-button">RESUME</button>
+          <button id="continueButton" class="modal-button">CONTINUE</button>
+          <button id="changeWeaponButton" class="modal-button secondary">CHANGE WEAPON</button>
+          <button id="settingsMenuButton" class="modal-button secondary">SETTINGS</button>
+          <button id="restartButton" class="modal-button secondary">RESTART</button>
+          <button id="mainMenuButton" class="modal-button secondary">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
