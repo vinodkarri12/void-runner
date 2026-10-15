@@ -6,18 +6,31 @@ export class Effects {
     this.trails = [];
     this.particles = [];
     this.particlePool = [];
-    this.maxParticles = 240;
+    this.isMobile = (typeof window !== 'undefined') &&
+      (window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700);
+    this.maxParticles = this.isMobile ? 110 : 240;
     this.afterimages = [];
     this.afterimageCursor = 0;
     this.speedStreaks = [];
     this.footprints = [];
+    this.shockwavePool = [];
     this.speedEffectCursor = 0;
+
     this.trailGeometry = new THREE.CylinderGeometry(0.1, 0.22, 1.5, 8, 1, true);
     this.particleGeometry = new THREE.SphereGeometry(0.09, 6, 6);
-    this.shockwaveGeometry = new THREE.TorusGeometry(0.5, 0.05, 8, 28);
+    this.shockwaveGeometry = new THREE.TorusGeometry(0.5, 0.05, 8, 24);
     this.speedStreakGeometry = new THREE.CylinderGeometry(0.035, 0.12, 1.8, 5, 1, true);
     this.footprintGeometry = new THREE.TorusGeometry(0.18, 0.018, 4, 12);
-    for (let index = 0; index < 20; index++) {
+    this.dashGeometry = new THREE.CylinderGeometry(0.04, 0.24, 3.4, 8, 1, true);
+    this.slashGeometry = new THREE.TorusGeometry(1.05, 0.075, 8, 24, Math.PI * 1.18);
+
+    this.materialCache = new Map();
+    this.scratchVector = new THREE.Vector3();
+    this.scratchVector2 = new THREE.Vector3();
+    this.upVector = new THREE.Vector3(0, 1, 0);
+
+    const streakCount = this.isMobile ? 12 : 20;
+    for (let index = 0; index < streakCount; index++) {
       const streak = new THREE.Mesh(this.speedStreakGeometry, this.createEffectMaterial(0x7bdbff, 0.58));
       streak.visible = false;
       streak.userData.life = 0;
@@ -25,7 +38,8 @@ export class Effects {
       this.scene.add(streak);
       this.speedStreaks.push(streak);
     }
-    for (let index = 0; index < 12; index++) {
+    const footprintCount = this.isMobile ? 8 : 12;
+    for (let index = 0; index < footprintCount; index++) {
       const footprint = new THREE.Mesh(this.footprintGeometry, this.createEffectMaterial(0x6ddfff, 0.56));
       footprint.rotation.x = Math.PI / 2;
       footprint.visible = false;
@@ -36,29 +50,36 @@ export class Effects {
     }
   }
 
-  createEffectMaterial(color, opacity = 0.9) {
-    return new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
-    });
+  createEffectMaterial(color, opacity = 0.9, side = THREE.FrontSide) {
+    const key = `${color}_${opacity}_${side}`;
+    let mat = this.materialCache.get(key);
+    if (!mat) {
+      mat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity,
+        side,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      this.materialCache.set(key, mat);
+    }
+    return mat;
   }
 
   getPooledParticle(color = 0x74d5ff) {
     const particle = this.particlePool.pop();
     if (particle) {
       if (particle.userData.particleColor !== color) {
-        particle.material.dispose();
-        particle.material = this.createEffectMaterial(color);
+        particle.material = this.createEffectMaterial(color, 0.95);
         particle.userData.particleColor = color;
       }
       particle.visible = true;
       return particle;
     }
     if (this.particles.length + this.particlePool.length >= this.maxParticles) return null;
-    const created = new THREE.Mesh(this.particleGeometry, this.createEffectMaterial(color));
+    const mat = this.createEffectMaterial(color, 0.95);
+    const created = new THREE.Mesh(this.particleGeometry, mat);
     created.userData.particleColor = color;
     created.visible = true;
     this.scene.add(created);
@@ -66,17 +87,8 @@ export class Effects {
   }
 
   spawnTrail(position, color = 0x79deff, scale = 1) {
-    const mesh = new THREE.Mesh(
-      this.trailGeometry,
-      new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.75,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      })
-    );
+    const mat = this.createEffectMaterial(color, 0.75, THREE.DoubleSide).clone();
+    const mesh = new THREE.Mesh(this.trailGeometry, mat);
     mesh.position.copy(position);
     mesh.rotation.x = Math.PI / 2;
     mesh.scale.setScalar(scale);
@@ -85,24 +97,31 @@ export class Effects {
   }
 
   burst(position, color = 0x74d5ff, count = 20, power = 5) {
-    for (let i = 0; i < count; i++) {
+    const actualCount = this.isMobile ? Math.min(count, 10) : count;
+    for (let i = 0; i < actualCount; i++) {
       const particle = this.getPooledParticle(color);
       if (!particle) return;
-      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8, Math.random() - 0.5).normalize();
+      this.scratchVector.set(
+        Math.random() - 0.5,
+        Math.random() * 0.8,
+        Math.random() - 0.5
+      ).normalize();
       particle.position.copy(position);
-      particle.userData.velocity = dir.multiplyScalar(power * (0.7 + Math.random()));
-      particle.userData.life = 0.4 + Math.random() * 0.7;
+      particle.userData.velocity = this.scratchVector.multiplyScalar(power * (0.7 + Math.random())).clone();
+      particle.userData.life = 0.35 + Math.random() * 0.55;
       particle.userData.maxLife = particle.userData.life;
       this.particles.push(particle);
     }
   }
 
   bootParticles(position, color = 0x67e4ff, count = 2, power = 1.4) {
-    for (let index = 0; index < count; index++) {
+    const actualCount = this.isMobile ? 1 : count;
+    for (let index = 0; index < actualCount; index++) {
       const particle = this.getPooledParticle(color);
       if (!particle) return;
       particle.position.copy(position);
-      particle.userData.velocity = new THREE.Vector3(
+      if (!particle.userData.velocity) particle.userData.velocity = new THREE.Vector3();
+      particle.userData.velocity.set(
         (Math.random() - 0.5) * power,
         Math.random() * power * 0.45,
         (Math.random() - 0.5) * power - 0.4
@@ -118,7 +137,8 @@ export class Effects {
     const streak = this.speedStreaks[this.speedEffectCursor++ % this.speedStreaks.length];
     streak.visible = true;
     streak.position.copy(position).addScaledVector(facing, -0.55);
-    streak.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), facing.clone().normalize());
+    this.scratchVector.copy(facing).normalize();
+    streak.quaternion.setFromUnitVectors(this.upVector, this.scratchVector);
     streak.scale.setScalar(0.6 + intensity * 0.9);
     streak.material.color.setHex(color);
     streak.material.opacity = 0.62;
@@ -137,6 +157,7 @@ export class Effects {
   }
 
   afterimage(source, color = 0x70efff) {
+    if (this.isMobile) return;
     if (!this.afterimages.length) {
       for (let index = 0; index < 4; index++) {
         const material = new THREE.MeshBasicMaterial({
@@ -174,54 +195,42 @@ export class Effects {
   }
 
   shockwave(position, color = 0x80dfff, scale = 1) {
-    const ring = new THREE.Mesh(
-      this.shockwaveGeometry,
-      new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.95,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      })
-    );
-    ring.rotation.x = Math.PI / 2;
+    let ring = this.shockwavePool.pop();
+    if (!ring) {
+      const mat = this.createEffectMaterial(color, 0.95).clone();
+      ring = new THREE.Mesh(this.shockwaveGeometry, mat);
+      ring.rotation.x = Math.PI / 2;
+    } else {
+      ring.material.color.setHex(color);
+      ring.material.opacity = 0.95;
+      ring.visible = true;
+    }
     ring.position.copy(position);
     ring.position.y += 0.22;
     ring.scale.setScalar(scale * 0.2);
-    this.scene.add(ring);
+    if (!ring.parent) this.scene.add(ring);
     this.trails.push({ mesh: ring, life: 0.62, maxLife: 0.62, ring: true });
   }
 
   slashArc(position, facing, color = 0xb76dff, scale = 1) {
-    const material = new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.95,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    });
-    const arc = new THREE.Mesh(new THREE.TorusGeometry(1.05 * scale, 0.075 * scale, 8, 32, Math.PI * 1.18), material);
+    const mat = this.createEffectMaterial(color, 0.95, THREE.DoubleSide).clone();
+    const arc = new THREE.Mesh(this.slashGeometry, mat);
     arc.position.copy(position);
     arc.position.addScaledVector(facing, 0.85);
     arc.rotation.y = Math.atan2(facing.x, facing.z) - Math.PI * 0.59;
     arc.rotation.x = 0.12;
+    arc.scale.setScalar(scale);
     this.scene.add(arc);
     this.trails.push({ mesh: arc, life: 0.3, maxLife: 0.3, slash: true });
   }
 
   dashStreak(position, facing, color = 0xbf67ff) {
-    const material = new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.8,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
-    });
-    const streak = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.24, 3.4, 8, 1, true), material);
+    const mat = this.createEffectMaterial(color, 0.8).clone();
+    const streak = new THREE.Mesh(this.dashGeometry, mat);
     streak.position.copy(position).addScaledVector(facing, 1.25);
     streak.position.y += 1.1;
-    streak.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), facing.clone().normalize());
+    this.scratchVector.copy(facing).normalize();
+    streak.quaternion.setFromUnitVectors(this.upVector, this.scratchVector);
     this.scene.add(streak);
     this.trails.push({ mesh: streak, life: 0.28, maxLife: 0.28, streak: true });
   }
@@ -299,10 +308,15 @@ export class Effects {
         item.mesh.material.opacity = ratio * 0.8;
       }
       if (item.life <= 0) {
-        this.scene.remove(item.mesh);
-        if (item.texture) item.texture.dispose();
-        if ((item.slash || item.streak || item.tether) && item.mesh.geometry) item.mesh.geometry.dispose();
-        if (item.mesh.material) item.mesh.material.dispose();
+        if (item.ring) {
+          item.mesh.visible = false;
+          this.shockwavePool.push(item.mesh);
+        } else {
+          this.scene.remove(item.mesh);
+          if (item.texture) item.texture.dispose();
+          if ((item.tether) && item.mesh.geometry) item.mesh.geometry.dispose();
+          if (item.mesh.material && !item.slash && !item.streak) item.mesh.material.dispose();
+        }
         this.trails.splice(i, 1);
       }
     }

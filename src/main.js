@@ -18,20 +18,23 @@ import { WeaponManager, WEAPONS } from './WeaponManager.js?campaign15a';
 import { SettingsManager } from './SettingsManager.js';
 
 const viewport = document.getElementById('viewport');
-const isMobileViewport = () => window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700;
+const isMobileViewport = () => (typeof window !== 'undefined') &&
+  (window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 768 || ('ontouchstart' in window));
 const getPixelRatioCap = (quality) => {
-  const qualityCap = quality === 'low' ? 0.8 : quality === 'medium' ? 1.15 : 1.6;
+  if (isMobileViewport()) {
+    return quality === 'high' ? 1.25 : 1.0;
+  }
+  const qualityCap = quality === 'low' ? 1.0 : quality === 'medium' ? 1.25 : 1.75;
   const fullHdCap = Math.min(1920 / window.innerWidth, 1080 / window.innerHeight);
-  const deviceCap = isMobileViewport() ? (quality === 'high' ? 1.25 : 1) : qualityCap;
-  return Math.min(deviceCap, fullHdCap);
+  return Math.min(qualityCap, Math.max(1, fullHdCap));
 };
 const renderer = new THREE.WebGLRenderer({
-  antialias: window.innerWidth > 700 && !isMobileViewport(),
+  antialias: !isMobileViewport(),
   powerPreference: 'high-performance'
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, getPixelRatioCap('high')));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, getPixelRatioCap('high')));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !isMobileViewport();
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -952,63 +955,41 @@ function bindFrontend() {
 
 const bindInput = () => {
   const heldControlReleases = new Set();
-  const activeTouchReleases = new Map();
-  const releaseTouches = (event) => {
-    for (const changedTouch of event.changedTouches) {
-      const release = activeTouchReleases.get(changedTouch.identifier);
-      if (!release) continue;
-      activeTouchReleases.delete(changedTouch.identifier);
-      release();
-    }
-  };
-  window.addEventListener('touchend', releaseTouches, { capture: true, passive: false });
-  window.addEventListener('touchcancel', releaseTouches, { capture: true, passive: false });
   const bindHoldControl = (button, onPress, onRelease) => {
-    const pointerIds = new Set();
-    const touchIds = new Set();
-    let pressed = false;
-    const syncPressedState = () => {
-      const nextPressed = pointerIds.size > 0 || touchIds.size > 0;
-      if (pressed === nextPressed) return;
-      pressed = nextPressed;
-      button.classList.toggle('pressed', pressed);
-      button.setAttribute('aria-pressed', String(pressed));
-      if (pressed) onPress();
-      else onRelease();
-    };
-    const endPointer = (event) => {
-      if (pointerIds.delete(event.pointerId)) syncPressedState();
-    };
-    const startTouch = (event) => {
-      event.preventDefault();
-      for (const changedTouch of event.changedTouches) {
-        const id = changedTouch.identifier;
-        if (touchIds.has(id)) continue;
-        touchIds.add(id);
-        activeTouchReleases.set(id, () => {
-          touchIds.delete(id);
-          syncPressedState();
-        });
-      }
-      syncPressedState();
-    };
-    const clear = () => {
-      pointerIds.clear();
-      for (const id of touchIds) activeTouchReleases.delete(id);
-      touchIds.clear();
-      syncPressedState();
-    };
-    button.addEventListener('pointerdown', (event) => {
+    const activePointers = new Set();
+    const handleDown = (event) => {
       if (event.button !== undefined && event.button !== 0) return;
       event.preventDefault();
-      pointerIds.add(event.pointerId);
-      if (button.setPointerCapture) button.setPointerCapture(event.pointerId);
-      syncPressedState();
-    });
-    button.addEventListener('pointerup', endPointer);
-    button.addEventListener('pointercancel', endPointer);
-    button.addEventListener('lostpointercapture', endPointer);
-    button.addEventListener('touchstart', startTouch, { passive: false });
+      activePointers.add(event.pointerId);
+      if (button.setPointerCapture) {
+        try { button.setPointerCapture(event.pointerId); } catch (_) {}
+      }
+      button.classList.add('pressed');
+      button.setAttribute('aria-pressed', 'true');
+      onPress();
+    };
+    const handleUp = (event) => {
+      if (!activePointers.has(event.pointerId)) return;
+      activePointers.delete(event.pointerId);
+      if (button.releasePointerCapture) {
+        try { button.releasePointerCapture(event.pointerId); } catch (_) {}
+      }
+      if (activePointers.size === 0) {
+        button.classList.remove('pressed');
+        button.setAttribute('aria-pressed', 'false');
+        onRelease();
+      }
+    };
+    button.addEventListener('pointerdown', handleDown);
+    button.addEventListener('pointerup', handleUp);
+    button.addEventListener('pointercancel', handleUp);
+    button.addEventListener('lostpointercapture', handleUp);
+    const clear = () => {
+      activePointers.clear();
+      button.classList.remove('pressed');
+      button.setAttribute('aria-pressed', 'false');
+      onRelease();
+    };
     heldControlReleases.add(clear);
     return clear;
   };
@@ -1141,14 +1122,105 @@ const bindInput = () => {
   stick.addEventListener('pointercancel', endStick);
   stick.addEventListener('lostpointercapture', endStick);
 
+  const leftSteerBtn = document.getElementById('steeringLeft') || document.querySelector('[data-steer="left"]');
+  const rightSteerBtn = document.getElementById('steeringRight') || document.querySelector('[data-steer="right"]');
+  const activeSteerPointers = new Map();
+
+  const syncSteerState = () => {
+    let hasLeft = false;
+    let hasRight = false;
+    for (const dir of activeSteerPointers.values()) {
+      if (dir === 'left') hasLeft = true;
+      if (dir === 'right') hasRight = true;
+    }
+    touch.left = hasLeft;
+    touch.right = hasRight;
+    if (leftSteerBtn) {
+      leftSteerBtn.classList.toggle('pressed', hasLeft);
+      leftSteerBtn.setAttribute('aria-pressed', String(hasLeft));
+    }
+    if (rightSteerBtn) {
+      rightSteerBtn.classList.toggle('pressed', hasRight);
+      rightSteerBtn.setAttribute('aria-pressed', String(hasRight));
+    }
+  };
+
+  const determineSteerDirection = (clientX, clientY) => {
+    if (leftSteerBtn) {
+      const rectL = leftSteerBtn.getBoundingClientRect();
+      if (clientX >= rectL.left - 20 && clientX <= rectL.right + 25 &&
+          clientY >= rectL.top - 25 && clientY <= rectL.bottom + 25) {
+        return 'left';
+      }
+    }
+    if (rightSteerBtn) {
+      const rectR = rightSteerBtn.getBoundingClientRect();
+      if (clientX >= rectR.left - 25 && clientX <= rectR.right + 20 &&
+          clientY >= rectR.top - 25 && clientY <= rectR.bottom + 25) {
+        return 'right';
+      }
+    }
+    const el = document.elementFromPoint(clientX, clientY);
+    const steerEl = el?.closest('[data-steer]');
+    if (steerEl) return steerEl.dataset.steer;
+    return null;
+  };
+
+  const handleSteerDown = (event, initialDir) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    const btn = event.currentTarget;
+    if (btn && btn.setPointerCapture) {
+      try { btn.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+    activeSteerPointers.set(event.pointerId, initialDir);
+    syncSteerState();
+  };
+
+  const handleSteerMove = (event) => {
+    if (!activeSteerPointers.has(event.pointerId)) return;
+    const newDir = determineSteerDirection(event.clientX, event.clientY);
+    if (newDir && newDir !== activeSteerPointers.get(event.pointerId)) {
+      activeSteerPointers.set(event.pointerId, newDir);
+      syncSteerState();
+    }
+  };
+
+  const handleSteerEnd = (event) => {
+    if (activeSteerPointers.has(event.pointerId)) {
+      activeSteerPointers.delete(event.pointerId);
+      syncSteerState();
+    }
+    const btn = event.currentTarget;
+    if (btn && btn.releasePointerCapture) {
+      try { btn.releasePointerCapture(event.pointerId); } catch (_) {}
+    }
+  };
+
+  if (leftSteerBtn) {
+    leftSteerBtn.addEventListener('pointerdown', (e) => handleSteerDown(e, 'left'));
+    leftSteerBtn.addEventListener('pointermove', handleSteerMove);
+    leftSteerBtn.addEventListener('pointerup', handleSteerEnd);
+    leftSteerBtn.addEventListener('pointercancel', handleSteerEnd);
+    leftSteerBtn.addEventListener('lostpointercapture', handleSteerEnd);
+  }
+
+  if (rightSteerBtn) {
+    rightSteerBtn.addEventListener('pointerdown', (e) => handleSteerDown(e, 'right'));
+    rightSteerBtn.addEventListener('pointermove', handleSteerMove);
+    rightSteerBtn.addEventListener('pointerup', handleSteerEnd);
+    rightSteerBtn.addEventListener('pointercancel', handleSteerEnd);
+    rightSteerBtn.addEventListener('lostpointercapture', handleSteerEnd);
+  }
+
+  heldControlReleases.add(() => {
+    activeSteerPointers.clear();
+    syncSteerState();
+  });
+
   document.querySelectorAll('[data-action]').forEach((button) => {
     const action = button.dataset.action;
     bindHoldControl(button, () => { touch[action] = true; }, () => { touch[action] = false; });
-  });
-
-  document.querySelectorAll('[data-steer]').forEach((button) => {
-    const direction = button.dataset.steer;
-    bindHoldControl(button, () => { touch[direction] = true; }, () => { touch[direction] = false; });
   });
 
   document.querySelectorAll('[data-ability]').forEach((button) => {
@@ -1183,22 +1255,6 @@ const bindInput = () => {
       touch.charge = false;
       if (!isPaused) combat.releaseVoidCharge(player, enemies, combatFeedback);
     });
-  });
-
-  let swipePointer = null;
-  window.addEventListener('pointerdown', (event) => {
-    if (event.pointerType === 'touch' && !event.target.closest('.mobile-controls')) {
-      swipePointer = event.pointerId;
-      lastAimX = event.clientX;
-    }
-  });
-  window.addEventListener('pointermove', (event) => {
-    if (event.pointerId !== swipePointer) return;
-    cameraController.addMouseLook((event.clientX - lastAimX) * 2.1, 0);
-    lastAimX = event.clientX;
-  });
-  window.addEventListener('pointerup', (event) => {
-    if (event.pointerId === swipePointer) swipePointer = null;
   });
   bindFrontend();
 };
@@ -1539,20 +1595,36 @@ function updateEnergyOrbs(dt, time) {
 }
 
 function readInput() {
+  const isMobile = isMobileViewport();
   const forwardInput = Number(keys.has('KeyW') || keys.has('ArrowUp')) -
     Number(keys.has('KeyS') || keys.has('ArrowDown'));
   const sideInput = Number(keys.has('KeyD') || keys.has('ArrowRight')) -
     Number(keys.has('KeyA') || keys.has('ArrowLeft'));
-  const yaw = cameraController.lookYaw;
-  const forwardX = -Math.sin(yaw);
-  const forwardZ = -Math.cos(yaw);
-  const rightX = -Math.cos(yaw);
-  const rightZ = Math.sin(yaw);
-  const moveX = sideInput + Number(touch.right) - Number(touch.left) + touch.moveX;
-  const moveY = forwardInput + touch.moveY;
 
-  movementSystem.input.moveX = rightX * moveX + forwardX * moveY;
-  movementSystem.input.moveY = rightZ * moveX + forwardZ * moveY;
+  const steerX = Number(touch.right) - Number(touch.left) + touch.moveX;
+  const moveX = sideInput + steerX;
+
+  // On mobile, the runner maintains forward momentum down the corridor during gameplay
+  let mobileForward = 0;
+  if (isMobile && player.isAlive && !isPaused && screenState === 'gameplay') {
+    mobileForward = 1;
+  }
+  const moveY = forwardInput + touch.moveY + mobileForward;
+
+  if (isMobile) {
+    // Direct path-aligned movement along the track (+Z is forward, +X is right, -X is left):
+    movementSystem.input.moveX = THREE.MathUtils.clamp(moveX, -1, 1);
+    movementSystem.input.moveY = THREE.MathUtils.clamp(moveY, -1, 1);
+  } else {
+    const yaw = cameraController.lookYaw;
+    const forwardX = -Math.sin(yaw);
+    const forwardZ = -Math.cos(yaw);
+    const rightX = -Math.cos(yaw);
+    const rightZ = Math.sin(yaw);
+    movementSystem.input.moveX = rightX * moveX + forwardX * moveY;
+    movementSystem.input.moveY = rightZ * moveX + forwardZ * moveY;
+  }
+
   movementSystem.input.sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || touch.sprint;
   movementSystem.input.jump = keys.has('Space') || touch.jump;
   movementSystem.input.slide = keys.has('ControlLeft') || keys.has('ControlRight') || touch.slide;
@@ -1810,12 +1882,15 @@ function animate(time) {
 }
 
 function resize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const width = window.visualViewport?.width || window.innerWidth;
+  const height = window.visualViewport?.height || window.innerHeight;
+  camera.aspect = width / height;
   camera.updateProjectionMatrix();
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, getPixelRatioCap(settingsManager.values.graphics)));
+  const quality = settingsManager.values.graphics;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, getPixelRatioCap(quality)));
   renderer.shadowMap.enabled = settingsManager.values.graphics !== 'low' && !isMobileViewport();
   renderer.toneMappingExposure = settingsManager.values.graphics === 'low' ? 1.04 : 1.12;
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(width, height);
 }
 
 scene.add(player.root);
@@ -1829,4 +1904,17 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', () => progression.save());
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => {
+  setTimeout(resize, 60);
+  setTimeout(resize, 250);
+});
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resize);
+}
+if (screen.orientation) {
+  screen.orientation.addEventListener('change', () => {
+    setTimeout(resize, 60);
+    setTimeout(resize, 250);
+  });
+}
 requestAnimationFrame(animate);

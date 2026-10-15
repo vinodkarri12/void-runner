@@ -12,18 +12,31 @@
 }
 
 * { box-sizing: border-box; }
-html, body, #game-root { width: 100%; height: 100%; margin: 0; overscroll-behavior: none; }
+html, body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
 body {
   background: #070b0e;
   color: var(--white);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   overflow: hidden;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  touch-action: auto;
 }
 #game-root {
+  width: 100%;
+  height: 100%;
   position: relative;
   overflow: hidden;
   touch-action: none;
@@ -200,21 +213,52 @@ body.screen-modal-active .mobile-controls { visibility: hidden; }
 .loading-error { color: #ff8298; }
 .menu-pause-button { position: absolute; z-index: 11; top: 20px; right: 18px; }
 body.reduced-effects .front-end-backdrop { animation: none; }
-@media (max-width: 700px) {
-  .front-end { overflow-y: auto; }
-  .front-end { padding: 18px; }
-  .front-end-brand { visibility: hidden; }
-  .front-end-content { margin: auto 0; }
-  .front-end footer { font-size: 0.42rem; }
-  .level-grid { grid-template-columns: repeat(6, minmax(34px, 1fr)); max-height: 32vh; }
+@media (pointer: coarse), (max-width: 768px) {
+  .front-end {
+    overflow-y: auto;
+    padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  }
+  .front-end-brand { visibility: visible; }
+  .front-end-brand > span { width: 34px; height: 34px; font-size: 1.4rem; }
+  .front-end-brand strong { font-size: 0.92rem; }
+  .front-end-content { margin: auto 0; padding: 12px 0; }
+  .front-view h1 { font-size: clamp(2.6rem, 10vw, 4.2rem); }
+  .front-subtitle { font-size: 0.68rem; margin: 8px 0 14px; }
+  .front-end footer { font-size: 0.44rem; }
+  .level-grid {
+    grid-template-columns: repeat(5, minmax(44px, 1fr));
+    gap: 8px;
+    max-height: 44vh;
+  }
+  .level-tile {
+    min-height: 48px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    border-radius: 6px;
+  }
   .armory-layout { grid-template-columns: 1fr; }
-  .weapon-detail { display: grid; grid-template-columns: 54px 1fr; column-gap: 10px; padding: 8px; }
+  .weapon-detail { display: grid; grid-template-columns: 54px 1fr; column-gap: 10px; padding: 10px; }
   .weapon-preview { grid-row: span 4; width: 54px; height: 54px; font-size: 2.5rem; }
-  .weapon-detail > p { min-height: 0; margin: 3px 0; }
+  .weapon-detail > p { min-height: 0; margin: 3px 0; font-size: 0.6rem; }
   .weapon-stats { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); }
-  .weapon-detail button { grid-column: 1 / -1; }
-  .front-actions { grid-template-columns: 1fr 1fr; }
-  .selection-detail { align-items: stretch; flex-direction: column; }
+  .weapon-detail button { grid-column: 1 / -1; min-height: 48px; }
+  .front-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    max-width: 440px;
+  }
+  .front-actions button {
+    min-height: 48px;
+    font-size: clamp(0.66rem, 2.8vw, 0.76rem);
+    letter-spacing: 0.05rem;
+    padding: 8px 6px;
+    white-space: normal;
+  }
+  .selection-detail { align-items: stretch; flex-direction: column; gap: 8px; }
+  .selection-detail button { min-height: 48px; }
+  .front-back-button { min-height: 48px; font-size: 0.75rem; padding: 12px; }
+  .modal-button { min-height: 48px; }
 }
 
 .hud-header {
@@ -641,84 +685,7 @@ body.frontend-open #game-root { touch-action: pan-y; }
   border: 1px solid rgba(125, 234, 255, 0.24);
 }
 
-@media (max-width: 880px) {
-  .brand-subtitle { display: none; }
-  .mini-stat { min-width: 80px; }
-  .camera-reset-button { display: none; }
-  .speed-panel { width: 220px; }
-  .objective-panel { display: none; }
-}
-@media (max-width: 620px) {
-  .hud-header { inset: 14px 10px auto 10px; }
-  .brand-title { font-size: 0.88rem; }
-  .brand-mark { width: 30px; height: 30px; font-size: 1.4rem; }
-  .hud-top-right { position: absolute; top: 52px; left: 0; right: 0; width: 100%; gap: 4px; }
-  .mini-stat { min-width: 0; height: 30px; flex: 1; flex-direction: row; align-items: center; padding: 2px 4px; }
-  .level-header-stat { display: none; }
-  .mini-stat span, .mini-stat strong { font-size: 0.46rem; }
-  .mini-stat small { display: none; }
-  .pause-button { width: 30px; height: 30px; flex: 0 0 30px; }
-  .left-panel { top: 98px; left: 10px; }
-  .minimap-panel { width: 106px; padding: 5px; margin-bottom: 7px; }
-  #minimap { width: 94px; height: 94px; }
-  .minimap-label { font-size: 0.45rem; }
-  .portrait-panel { width: 170px; padding: 7px; }
-  .portrait-box { display: none; }
-  .speed-panel { top: 110px; right: 10px; width: 180px; }
-  .campaign-panel { top: 93px; width: min(48vw, 250px); padding: 6px 8px; }
-  .campaign-heading strong { font-size: 0.53rem; letter-spacing: 0.08rem; }
-  .campaign-heading span { font-size: 0.38rem; }
-  .campaign-objective { font-size: 0.43rem; }
-  .campaign-panel small { font-size: 0.38rem; }
-  .speed-header strong { font-size: 1.9rem; }
-  .center-message { inset: 150px auto auto 50%; }
-  .objective-panel { display: none; }
-  .mobile-controls {
-    display: flex;
-    position: absolute;
-    inset: auto 16px 20px;
-    align-items: flex-end;
-    justify-content: space-between;
-    z-index: 15;
-    pointer-events: none;
-  }
-  .move-stick {
-    width: 110px;
-    height: 110px;
-    border: 1px solid #83eaffaa;
-    border-radius: 50%;
-    background: rgba(8, 18, 31, 0.62);
-    position: relative;
-    pointer-events: auto;
-    touch-action: none;
-  }
-  .move-knob {
-    position: absolute;
-    left: 32px;
-    top: 32px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: #49d9ff77;
-    border: 1px solid #a2f3ff;
-    box-shadow: 0 0 16px #4acfff77;
-  }
-  .mobile-actions {
-    display: grid;
-    grid-template-columns: repeat(2, 62px);
-    gap: 8px;
-    pointer-events: auto;
-  }
-  .mobile-actions button {
-    height: 46px;
-    color: var(--white);
-    background: rgba(7, 15, 28, 0.85);
-    border: 1px solid var(--panel-border);
-    font-size: 0.56rem;
-    letter-spacing: 0.08rem;
-    touch-action: none;
-  }
-}
+
 
 .target-info {
   min-width: 116px;
@@ -928,34 +895,61 @@ body.sprint-active:not(.overdrive-active) #game-root::before {
   to { background-position: 42px -4px, -34px 5px; }
 }
 .objective-panel { left: 18px; right: auto; }
-@media (max-width: 880px) {
-  .objective-panel { display: none; }
+
+/* Base Mobile Controls & Steering Buttons */
+.mobile-controls {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  touch-action: none;
 }
-@media (max-width: 620px) {
-  .ability-panel {
-    left: 50%;
-    right: auto;
-    bottom: 270px;
-    transform: translateX(-50%);
-    width: min(92vw, 340px);
-    padding: 7px 9px;
-    background: rgba(8, 12, 24, 0.72);
-  }
-  .ability-heading strong { font-size: 0.72rem; }
-  .ability-kicker, .overdrive-status { font-size: 0.43rem; }
-  .ability-meters { gap: 5px; margin-top: 6px; }
-  .ability-cooldowns { margin-top: 6px; gap: 3px; }
-  .ability-cooldowns span { padding: 3px; font-size: 0.4rem; }
-  .reduce-flash-button { margin-top: 4px; font-size: 0.42rem; }
-  .mobile-controls { inset: auto 10px 14px; }
-  .mobile-actions { gap: 4px; grid-template-columns: repeat(2, 62px); }
-  .mobile-actions button { height: 38px; font-size: 0.48rem; }
-  .combat-message { top: 180px; max-width: calc(100vw - 24px); white-space: normal; text-align: center; }
-  .boss-health-panel { top: 330px; padding: 5px 8px; }
-  .boss-health-panel > div:first-child { font-size: 0.52rem; }
-  .boss-health-track { height: 6px; margin-top: 4px; }
-  .boss-health-panel small { margin-top: 2px; font-size: 0.4rem; }
+
+.steering-button {
+  position: absolute;
+  width: clamp(94px, 24vw, 130px);
+  min-height: clamp(68px, 15vw, 85px);
+  color: #eaffff;
+  background: rgba(7, 18, 32, 0.92);
+  border: 2px solid #56edff;
+  border-radius: 14px;
+  box-shadow: 0 0 20px rgba(86, 237, 255, 0.45), inset 0 0 14px rgba(86, 237, 255, 0.18);
+  font-size: clamp(0.82rem, 2.9vw, 1rem);
+  font-weight: 900;
+  letter-spacing: 0.12rem;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.08s ease, background 0.08s ease, box-shadow 0.08s ease;
+  z-index: 16;
 }
+
+.steering-button-left {
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.steering-button-right {
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.steering-button.pressed {
+  color: #02121e;
+  background: linear-gradient(135deg, #0988cc 0%, #30d7ff 100%);
+  box-shadow: 0 0 35px #56edff, inset 0 0 20px #a4f5ff;
+  transform: scale(0.96);
+}
+
+.move-stick { display: none; }
+
+/* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   .charge-full.visible { animation: none; }
   body.overdrive-active #game-root::after { animation-duration: 0.8s; opacity: 0.2; }
@@ -964,101 +958,196 @@ body.sprint-active:not(.overdrive-active) #game-root::before {
   .loading-particles i, .tutorial-demo * { animation-duration: 4s !important; }
 }
 
-@media (pointer: coarse), (max-width: 620px) {
+/* Mobile & Touch Layout */
+@media (pointer: coarse), (max-width: 768px) {
   .mobile-controls {
     display: block;
-    position: absolute;
-    inset: 0;
-    z-index: 15;
-    pointer-events: none;
-    touch-action: none;
   }
-  .move-stick {
-    position: absolute;
-    left: max(12px, env(safe-area-inset-left));
-    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 76px);
-    width: clamp(88px, 14vw, 112px);
-    height: clamp(88px, 14vw, 112px);
-    border: 1px solid #83eaffaa;
-    border-radius: 50%;
-    background: rgba(8, 18, 31, 0.62);
-    touch-action: none;
+
+  .hud-header {
+    inset: max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) auto max(10px, env(safe-area-inset-left));
+    align-items: center;
   }
-  .move-knob {
-    position: absolute;
-    left: 32px;
-    top: 32px;
+  .brand-block { padding: 4px 8px; gap: 6px; }
+  .brand-mark { width: 30px; height: 30px; font-size: 1.3rem; }
+  .brand-title { font-size: 0.82rem; }
+  .brand-subtitle { display: none; }
+  .camera-reset-button { display: none; }
+  .controls-hint { display: none; }
+  .objective-panel { display: none; }
+  .ability-panel { display: none; }
+
+  .hud-top-right { gap: 6px; }
+  .mini-stat {
+    min-width: 0;
+    padding: 3px 6px;
+    height: 32px;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    background: rgba(7, 12, 22, 0.72);
+  }
+  .mini-stat span { font-size: 0.42rem; }
+  .mini-stat strong { font-size: 0.65rem; }
+  .mini-stat small { display: none; }
+  .mini-stat.level-header-stat { display: none; }
+  .pause-button {
     width: 44px;
     height: 44px;
-    border: 1px solid #a2f3ff;
-    border-radius: 50%;
-    background: #49d9ff77;
-    box-shadow: 0 0 16px #4acfff77;
+    flex: 0 0 44px;
+    font-size: 1.1rem;
+    background: rgba(18, 27, 43, 0.9);
+    border-color: rgba(86, 237, 255, 0.6);
   }
-  .steering-button {
-    position: absolute;
-    bottom: max(12px, env(safe-area-inset-bottom));
-    width: clamp(64px, 10vw, 76px);
-    min-height: 56px;
-    color: var(--white);
-    background: rgba(7, 15, 28, 0.9);
+
+  .left-panel {
+    top: calc(max(6px, env(safe-area-inset-top)) + 46px);
+    left: max(10px, env(safe-area-inset-left));
+    pointer-events: none;
+  }
+  .minimap-panel { display: none; }
+  .portrait-panel {
+    width: clamp(130px, 36vw, 175px);
+    padding: 6px 8px;
+    background: rgba(7, 14, 26, 0.82);
     border: 1px solid var(--panel-border);
-    box-shadow: 0 0 16px rgba(61, 195, 255, 0.2);
-    font-size: 0.62rem;
-    font-weight: 800;
-    letter-spacing: 0.08rem;
-    pointer-events: auto;
-    touch-action: none;
-    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 0 14px rgba(24, 120, 255, 0.16);
   }
-  .steering-button-left { left: max(12px, env(safe-area-inset-left)); }
-  .steering-button-right { right: max(12px, env(safe-area-inset-right)); }
-  .steering-button.pressed {
-    color: #06121c;
-    background: linear-gradient(100deg, #65e7ff, #a87aff);
-    box-shadow: 0 0 22px rgba(86, 237, 255, 0.58);
+  .portrait-box { display: none; }
+  .health-row, .energy-row { font-size: 0.48rem; margin-bottom: 2px; }
+  .bar { height: 7px; margin-bottom: 4px; }
+
+  .speed-panel {
+    top: calc(max(6px, env(safe-area-inset-top)) + 46px);
+    right: max(10px, env(safe-area-inset-right));
+    width: clamp(100px, 28vw, 130px);
+    padding: 6px 8px;
+    background: rgba(7, 14, 26, 0.82);
+    pointer-events: none;
   }
+  .speed-header strong { font-size: 1.35rem; }
+  .speed-header span { font-size: 0.45rem; }
+  .meter-wrap { margin-top: 3px; }
+  .meter-track { height: 6px; }
+  .speed-label-row { font-size: 0.42rem; margin-top: 3px; }
+  .speed-label-row #damageMultiplier { font-size: 0.42rem; margin-right: 0; }
+  #maxSpeedStatus { display: none; }
+
+  .campaign-panel {
+    top: calc(max(6px, env(safe-area-inset-top)) + 46px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(34vw, 160px);
+    padding: 4px 6px;
+    background: rgba(5, 10, 20, 0.82);
+    pointer-events: none;
+  }
+  .campaign-heading strong { font-size: 0.52rem; }
+  .campaign-heading span { display: none; }
+  .campaign-objective { display: none; }
+  .campaign-progress-track { height: 4px; margin-top: 3px; }
+
+  @media (orientation: portrait) {
+    .hud-top-right .mini-stat:not(:first-child) { display: none; }
+    .campaign-panel {
+      top: calc(max(6px, env(safe-area-inset-top)) + 90px);
+      width: clamp(160px, 48vw, 210px);
+    }
+  }
+  .campaign-panel small { font-size: 0.42rem; margin-top: 2px; }
+
+  .boss-health-panel {
+    top: calc(max(6px, env(safe-area-inset-top)) + 98px);
+    width: min(92vw, 380px);
+    padding: 6px 10px;
+    background: rgba(14, 8, 22, 0.9);
+  }
+  .boss-health-panel > div:first-child { font-size: 0.65rem; }
+  .boss-health-track { height: 8px; }
+
+  .combat-message {
+    top: calc(max(6px, env(safe-area-inset-top)) + 145px);
+    max-width: calc(100vw - 24px);
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .center-message {
+    top: calc(max(6px, env(safe-area-inset-top)) + 120px);
+    font-size: 0.85rem;
+    padding: 6px 12px;
+  }
+
+  /* Action buttons clustered on right side above RIGHT steering button */
   .mobile-actions {
     display: grid;
     position: absolute;
-    right: calc(max(12px, env(safe-area-inset-right)) + clamp(64px, 10vw, 76px) + 10px);
-    bottom: max(12px, env(safe-area-inset-bottom));
-    grid-template-columns: repeat(2, clamp(52px, 8vw, 64px));
-    gap: 8px;
-    width: max-content;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + clamp(68px, 15vw, 85px) + 10px);
+    grid-template-columns: repeat(3, clamp(48px, 12vw, 62px));
+    gap: 6px;
     pointer-events: auto;
-  }
-  .mobile-actions button {
-    min-height: 42px;
-    color: var(--white);
-    background: rgba(7, 15, 28, 0.85);
-    border: 1px solid var(--panel-border);
-    font-size: 0.56rem;
-    letter-spacing: 0.08rem;
     touch-action: none;
-    -webkit-tap-highlight-color: transparent;
+    z-index: 16;
   }
+
+  .mobile-actions button {
+    min-height: 40px;
+    color: var(--white);
+    background: rgba(8, 16, 30, 0.88);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    font-size: 0.54rem;
+    font-weight: 800;
+    letter-spacing: 0.06rem;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.08s ease, background 0.08s ease;
+  }
+
   .mobile-actions button.pressed {
     background: linear-gradient(100deg, #087bcb, #5845ce);
+    box-shadow: 0 0 16px rgba(88, 69, 206, 0.6);
+    transform: scale(0.95);
   }
-  .move-stick, .mobile-actions, .steering-button { pointer-events: auto; }
+
+  .mobile-actions button[data-action="jump"] { border-color: rgba(86, 237, 255, 0.7); color: #d6f8ff; }
+  .mobile-actions button[data-action="dash"] { border-color: rgba(184, 109, 255, 0.7); color: #ebd8ff; }
+  .mobile-actions button[data-action="sprint"] { border-color: rgba(74, 223, 255, 0.7); color: #c6faff; }
+  .mobile-actions button[data-ability="strike"], .mobile-actions button[data-ability="slash"] {
+    border-color: rgba(94, 185, 255, 0.7);
+  }
+  .mobile-actions button[data-ability="charge"], .mobile-actions button[data-ability="overdrive"] {
+    border-color: rgba(210, 122, 255, 0.7);
+  }
 }
 
-@media (pointer: coarse) and (orientation: landscape) and (max-height: 520px) {
-  .ability-panel { display: none; }
+/* Landscape Mode Refinement */
+@media (pointer: coarse) and (orientation: landscape), (max-height: 520px) and (orientation: landscape) {
+  .left-panel {
+    top: calc(max(4px, env(safe-area-inset-top)) + 40px);
+    left: max(10px, env(safe-area-inset-left));
+  }
+  .speed-panel {
+    top: calc(max(4px, env(safe-area-inset-top)) + 40px);
+    right: max(10px, env(safe-area-inset-right));
+  }
+  .campaign-panel {
+    top: calc(max(4px, env(safe-area-inset-top)) + 40px);
+    width: min(32vw, 200px);
+  }
+  .boss-health-panel {
+    top: calc(max(4px, env(safe-area-inset-top)) + 80px);
+  }
   .mobile-actions {
-    grid-template-columns: repeat(4, clamp(44px, 7vw, 58px));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    right: calc(max(16px, env(safe-area-inset-right)) + clamp(94px, 24vw, 130px) + 12px);
+    grid-template-columns: repeat(4, clamp(44px, 7vw, 56px));
     gap: 4px;
   }
-  .mobile-actions button { min-height: 36px; }
-  .ability-panel {
-    bottom: 155px;
-    left: 50%;
-    right: auto;
-    width: min(54vw, 460px);
-    max-height: 125px;
-    overflow: auto;
-    transform: translateX(-50%);
-  }
-  .ability-cooldowns { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .mobile-actions button { min-height: 36px; font-size: 0.5rem; }
 }
