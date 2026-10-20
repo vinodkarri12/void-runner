@@ -31,6 +31,7 @@
           <div class="mini-stat"><span>Defeated</span><strong id="defeatedValue">0</strong></div>
           <div class="mini-stat"><span>Enemies Remaining</span><strong id="enemyValue">0 LEFT</strong></div>
           <div class="mini-stat level-header-stat"><span>Campaign</span><strong id="levelValue">LEVEL: 01 / 15</strong></div>
+          <div class="mini-stat movement-stat"><span>Movement</span><strong id="hudMovementState" class="state-stopped">STOPPED</strong></div>
           <button id="cameraResetButton" class="camera-reset-button" type="button" title="Reset camera (C)">CAM RESET</button>
           <button id="pauseButton" class="pause-button">II</button>
         </div>
@@ -147,6 +148,17 @@
             <h1>VOID<br><em>RUNNER</em></h1>
             <p class="front-subtitle">MOMENTUM IS YOUR WEAPON</p>
             <div class="front-save-status" id="frontSaveStatus">LEVEL 01 / 15 // NEW CAMPAIGN</div>
+            <div class="front-controls-card">
+              <div class="fcc-col">
+                <div class="fcc-badge"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01" stroke-linecap="round"/></svg> MOBILE CONTROLS</div>
+                <p>Hold <strong class="fcc-run">RUN</strong> (bottom-right) to sprint forward. Hold <strong class="fcc-steer">LEFT / RIGHT</strong> to steer. Release RUN to stop safely immediately.</p>
+              </div>
+              <div class="fcc-divider"></div>
+              <div class="fcc-col">
+                <div class="fcc-badge"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8.01"/><line x1="10" y1="8" x2="10" y2="8.01"/><line x1="14" y1="8" x2="14" y2="8.01"/><line x1="18" y1="8" x2="18" y2="8.01"/><line x1="8" y1="16" x2="16" y2="16"/></svg> DESKTOP CONTROLS</div>
+                <p>Press <strong class="fcc-key">W</strong> or hold <strong class="fcc-key">SHIFT</strong> to RUN. <strong class="fcc-key">A / D</strong> to steer. <strong class="fcc-key">SPACE</strong> Jump &middot; <strong class="fcc-key">CTRL</strong> Slide &middot; <strong class="fcc-key">Q / F / R</strong> Combat.</p>
+              </div>
+            </div>
             <div class="front-actions">
               <button data-menu-action="start">NEW GAME</button>
               <button data-menu-action="continue">CONTINUE</button>
@@ -219,21 +231,21 @@
           <section class="front-view" data-view="how">
             <p class="front-eyebrow">FIELD MANUAL // VOID RUNNER</p><h2>HOW TO PLAY</h2>
             <div class="tutorial-demo" aria-hidden="true"><span></span><i></i><b>MOVE // BUILD MOMENTUM // STRIKE</b></div>
-            <div class="how-to-play"><table><thead><tr><th>KEY</th><th>ACTION</th><th>EFFECT</th></tr></thead><tbody>
-              <tr><td>W A S D / ARROWS</td><td>Move</td><td>Steer and build speed</td></tr>
-              <tr><td>MOUSE</td><td>Look</td><td>Orbit the third-person camera</td></tr>
-              <tr><td>C / HOME</td><td>Reset camera</td><td>Recenter behind movement</td></tr>
-              <tr><td>SHIFT</td><td>Sprint</td><td>Build momentum faster</td></tr>
-              <tr><td>SPACE</td><td>Jump</td><td>Leap; use movement input for air control</td></tr>
-              <tr><td>CTRL</td><td>Slide</td><td>Slide under obstacles while retaining speed</td></tr>
-              <tr><td>E</td><td>Phantom Dash</td><td>Burst forward and damage crossed enemies</td></tr>
-              <tr><td>Q</td><td>Weapon attack</td><td>Strike; Orbital Drones fire a manual energy bolt</td></tr>
-              <tr><td>F</td><td>Void Slash</td><td>Manual melee sweep</td></tr>
+            <div class="how-to-play"><table><thead><tr><th>CONTROL</th><th>ACTION</th><th>EFFECT</th></tr></thead><tbody>
+              <tr><td>HOLD RUN (Mobile) / W / SHIFT</td><td>Run</td><td>Hold to accelerate forward down the corridor; release to stop immediately</td></tr>
+              <tr><td>LEFT / RIGHT (Mobile) / A D</td><td>Steer</td><td>Steer character left / right across the track while running</td></tr>
+              <tr><td>MOUSE</td><td>Look</td><td>Orbit the third-person camera (desktop)</td></tr>
+              <tr><td>C / HOME</td><td>Reset camera</td><td>Recenter camera behind operative</td></tr>
+              <tr><td>SPACE / JUMP</td><td>Jump</td><td>Leap; steer while airborne for aerial control</td></tr>
+              <tr><td>CTRL / SLIDE</td><td>Slide</td><td>Slide under obstacles while maintaining momentum</td></tr>
+              <tr><td>E / DASH</td><td>Phantom Dash</td><td>Burst forward and damage crossed enemies</td></tr>
+              <tr><td>Q / STRIKE</td><td>Weapon attack</td><td>Strike; Orbital Drones fire a manual energy bolt</td></tr>
+              <tr><td>F / SLASH</td><td>Void Slash</td><td>Manual high-damage melee sweep</td></tr>
               <tr><td>HOLD / RELEASE R</td><td>Impact Discharge</td><td>Charge, then release a speed-scaled blast</td></tr>
-              <tr><td>T</td><td>Overdrive</td><td>Spend charge for a speed and damage boost</td></tr>
+              <tr><td>T / OVERDRIVE</td><td>Overdrive</td><td>Spend charge for a speed and damage surge</td></tr>
               <tr><td>G / V / X / Z</td><td>Ninja abilities</td><td>Clone / chain / anchor / execution</td></tr>
               <tr><td>1–6</td><td>Switch weapon</td><td>Equip an unlocked weapon from the armory</td></tr>
-              <tr><td>ESC</td><td>Pause / resume</td><td>Open or close the pause menu</td></tr>
+              <tr><td>ESC / II</td><td>Pause / resume</td><td>Open or close the tactical pause console</td></tr>
             </tbody></table></div>
             <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
           </section>
@@ -242,22 +254,58 @@
       </section>
 
       <div class="mobile-controls" aria-label="Touch controls">
-        <div id="moveStick" class="move-stick"><div id="moveKnob" class="move-knob"></div></div>
-        <button id="steeringLeft" class="steering-button steering-button-left" type="button" data-steer="left" aria-label="Move character left" aria-pressed="false">&#9664; LEFT</button>
-        <button id="steeringRight" class="steering-button steering-button-right" type="button" data-steer="right" aria-label="Move character right" aria-pressed="false">RIGHT &#9654;</button>
-        <div class="mobile-actions">
-          <button data-action="slide">SLIDE</button>
-          <button data-action="dash">DASH</button>
-          <button data-action="sprint">RUN</button>
-          <button data-action="jump">JUMP</button>
-          <button data-ability="strike">Q STRIKE</button>
-          <button data-ability="slash">F SLASH</button>
-          <button data-ability="charge">HOLD R</button>
-          <button data-ability="overdrive">T OVERDRIVE</button>
-          <button data-ability="clone">G CLONE</button>
-          <button data-ability="chain">V CHAIN</button>
-          <button data-ability="anchor">X ANCHOR</button>
-          <button data-ability="execute">Z FINISH</button>
+        <div id="moveStick" class="move-stick" hidden><div id="moveKnob" class="move-knob"></div></div>
+
+        <!-- Left Side: Steering Cluster (LEFT and RIGHT side-by-side) -->
+        <div class="steering-cluster" aria-label="Steering controls">
+          <button id="steeringLeft" class="steering-button steering-button-left" type="button" data-steer="left" aria-label="Move character left" aria-pressed="false">
+            <svg class="steer-arrow" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>LEFT</span>
+          </button>
+          <button id="steeringRight" class="steering-button steering-button-right" type="button" data-steer="right" aria-label="Move character right" aria-pressed="false">
+            <span>RIGHT</span>
+            <svg class="steer-arrow" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Left Side: Mobility Actions (JUMP, DASH, SLIDE) above steering -->
+        <div class="mobile-mobility" aria-label="Movement actions">
+          <button class="mobile-action-btn action-jump" data-action="jump" type="button" aria-label="Jump">JUMP</button>
+          <button class="mobile-action-btn action-dash" data-action="dash" type="button" aria-label="Phantom Dash">DASH</button>
+          <button class="mobile-action-btn action-slide" data-action="slide" type="button" aria-label="Slide">SLIDE</button>
+        </div>
+
+        <!-- Right Side: Dedicated Prominent Hold-to-Run Button -->
+        <div class="run-control-wrap" aria-label="Hold to Run control">
+          <button id="runButton" class="run-button" type="button" aria-label="Hold to Run" aria-pressed="false">
+            <div class="run-glow-ring" aria-hidden="true"></div>
+            <div class="run-btn-inner">
+              <svg class="run-icon" viewBox="0 0 24 24" width="34" height="34" fill="currentColor">
+                <path d="M13 2L3 14h7l-2 8 10-12h-7l2-8z"/>
+              </svg>
+              <div class="run-label-group">
+                <strong class="run-main-label">RUN</strong>
+                <span class="run-sub-label" id="runSubLabel">HOLD TO MOVE</span>
+              </div>
+            </div>
+            <div class="run-status-badge status-stopped" id="runStatusBadge">STOPPED</div>
+          </button>
+        </div>
+
+        <!-- Right Side: Combat Abilities above RUN button -->
+        <div class="mobile-combat" aria-label="Combat abilities">
+          <button class="mobile-ability-btn ability-strike" data-ability="strike" type="button" aria-label="Reaver Strike">Q STRIKE</button>
+          <button class="mobile-ability-btn ability-slash" data-ability="slash" type="button" aria-label="Void Slash">F SLASH</button>
+          <button class="mobile-ability-btn ability-charge" data-ability="charge" type="button" aria-label="Hold R Charge">HOLD R</button>
+          <button class="mobile-ability-btn ability-overdrive" data-ability="overdrive" type="button" aria-label="Overdrive">T OVERDRIVE</button>
+          <button class="mobile-ability-btn ability-clone" data-ability="clone" type="button" aria-label="Shadow Clone">G CLONE</button>
+          <button class="mobile-ability-btn ability-chain" data-ability="chain" type="button" aria-label="Void Chain">V CHAIN</button>
+          <button class="mobile-ability-btn ability-anchor" data-ability="anchor" type="button" aria-label="Kinetic Anchor">X ANCHOR</button>
+          <button class="mobile-ability-btn ability-execute" data-ability="execute" type="button" aria-label="Ninja Execution">Z FINISH</button>
         </div>
       </div>
 

@@ -32,7 +32,11 @@ export class AudioManager {
       hit: [300, 95, 0.12, 'square'],
       defeat: [430, 75, 0.3, 'triangle'],
       heal: [480, 880, 0.24, 'sine'],
-      'player-hit': [160, 70, 0.16, 'square']
+      'player-hit': [160, 70, 0.16, 'square'],
+      button: [520, 760, 0.05, 'sine'],
+      'run-start': [140, 320, 0.14, 'triangle'],
+      'run-stop': [260, 90, 0.10, 'sine'],
+      step: [95, 55, 0.06, 'triangle']
     }[kind];
     if (!settings) return;
     oscillator.type = settings[3];

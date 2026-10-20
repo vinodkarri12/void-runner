@@ -265,6 +265,8 @@ export class Player {
     this.wallRun = false;
     this.wallRunSide = 0;
     this.speed = 0;
+    this.isRunning = false;
+    this.movementState = 'STOPPED';
     this.isSprinting = false;
     this.isMaxSpeed = false;
     this.landingCrouch = 0;
@@ -309,20 +311,30 @@ export class Player {
     this.weaponSwitchTimer = Math.max(0, this.weaponSwitchTimer - dt);
     const hitPose = this.hitReactionTimer > 0 ? Math.sin(this.hitReactionTimer / 0.34 * Math.PI) : 0;
     const airPose = !this.grounded && !this.wallRun ? 1 : 0;
-    this.torso.scale.y = THREE.MathUtils.lerp(this.torso.scale.y, 1 - crouch * 0.28, blend);
-    this.head.position.y = THREE.MathUtils.lerp(this.head.position.y, 2.02 - crouch * 0.48, blend);
+    const isStationary = speedFactor < 0.05 && !sliding;
+    const idleBreathe = isStationary ? Math.sin(time * 2.1) * 0.025 : 0;
+    this.torso.scale.y = THREE.MathUtils.lerp(this.torso.scale.y, 1 - crouch * 0.28 + idleBreathe, blend);
+    this.head.position.y = THREE.MathUtils.lerp(this.head.position.y, 2.02 - crouch * 0.48 + idleBreathe * 0.4, blend);
     this.legs.forEach((leg, index) => {
       const target = sliding
         ? 0.62
-        : Math.sin(runCycle + index * Math.PI) * speedFactor * (0.72 + sprintLean * 0.3) +
-          crouch * 0.25 + airPose * 0.42 + (this.defeatPose ? 0.85 : 0);
+        : isStationary
+          ? crouch * 0.25 + airPose * 0.42 + (this.defeatPose ? 0.85 : 0)
+          : Math.sin(runCycle + index * Math.PI) * speedFactor * (0.72 + sprintLean * 0.3) +
+            crouch * 0.25 + airPose * 0.42 + (this.defeatPose ? 0.85 : 0);
       leg.rotation.x = THREE.MathUtils.lerp(leg.rotation.x, target, blend);
     });
     this.arms.forEach((arm, index) => {
-      const target = sliding
-        ? -0.75
-        : -Math.sin(runCycle + index * Math.PI) * speedFactor * (0.5 + sprintLean * 0.22) -
+      let target = 0;
+      if (sliding) {
+        target = -0.75;
+      } else if (isStationary) {
+        // Tactical idle ready stance
+        target = index === 0 ? -0.24 + Math.sin(time * 1.9) * 0.03 : -0.12;
+      } else {
+        target = -Math.sin(runCycle + index * Math.PI) * speedFactor * (0.5 + sprintLean * 0.22) -
           sprintLean * 0.34 - hitPose * 0.85 + airPose * (index ? -0.38 : 0.25);
+      }
       arm.rotation.x = THREE.MathUtils.lerp(arm.rotation.x, target, blend);
     });
     const rightArm = this.arms[1];
@@ -507,6 +519,9 @@ export class Player {
     this.slideTimer = 0;
     this.wallRun = false;
     this.wallRunSide = 0;
+    this.speed = 0;
+    this.isRunning = false;
+    this.movementState = 'STOPPED';
     this.isSprinting = false;
     this.isMaxSpeed = false;
     this.landingCrouch = 0;

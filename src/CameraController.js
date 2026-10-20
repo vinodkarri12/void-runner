@@ -27,7 +27,7 @@ export class CameraController {
   }
 
   addMouseLook(deltaX, deltaY = 0) {
-    const isMobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700;
+    const isMobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 768 || ('ontouchstart' in window);
     if (isMobile) return;
     this.lookYaw -= deltaX * 0.0028 * this.sensitivity;
     this.targetPitch = THREE.MathUtils.clamp(this.targetPitch - deltaY * 0.0018 * this.sensitivity, -0.12, 0.62);
@@ -35,7 +35,7 @@ export class CameraController {
 
   reset() {
     this.lookYaw = Math.PI;
-    const isMobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700;
+    const isMobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 768 || ('ontouchstart' in window);
     this.targetPitch = isMobile && this.camera.aspect < 1.0 ? 0.32 : 0.26;
     this.lookPitch = this.targetPitch;
   }
@@ -44,7 +44,7 @@ export class CameraController {
     const velocity = this.player.velocity;
     const speed = this.player.horizontalSpeed;
     const speedRatio = THREE.MathUtils.clamp(speed / 38, 0, 1);
-    const mobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700;
+    const mobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 768 || ('ontouchstart' in window);
     const isPortrait = this.camera.aspect < 1.0;
 
     if (mobile) {

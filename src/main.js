@@ -60,6 +60,7 @@ const energyOrbs = [];
 const getGroundHeight = worldChunks.getHeight.bind(worldChunks);
 const keys = new Set();
 const touch = {
+  run: false,
   moveX: 0,
   moveY: 0,
   left: false,
@@ -98,6 +99,7 @@ let lastTrailTime = 0;
 let lastBootParticleTime = 0;
 let lastFootprintTime = 0;
 let lastAfterimageTime = 0;
+let lastFootstepSoundTime = 0;
 let waveState = 'intro';
 let levelDefinition = createLevelDefinition(wave);
 let levelKills = 0;
@@ -1053,6 +1055,7 @@ const bindInput = () => {
   window.addEventListener('blur', () => {
     keys.clear();
     for (const release of heldControlReleases) release();
+    touch.run = false;
     touch.moveX = 0;
     touch.moveY = 0;
     touch.left = false;
@@ -1062,9 +1065,20 @@ const bindInput = () => {
     touch.slide = false;
     touch.dash = false;
     touch.charge = false;
-    document.getElementById('moveKnob').style.transform = '';
+    const knob = document.getElementById('moveKnob');
+    if (knob) knob.style.transform = '';
     combat.cancelVoidCharge(player);
     if (!isPaused) pauseGame();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      keys.clear();
+      for (const release of heldControlReleases) release();
+      touch.run = false;
+      touch.left = false;
+      touch.right = false;
+      if (!isPaused) pauseGame();
+    }
   });
   window.addEventListener('mousemove', (event) => {
     if (event.movementX || event.movementY) cameraController.addMouseLook(event.movementX || 0, event.movementY || 0);
@@ -1093,6 +1107,7 @@ const bindInput = () => {
   const knob = document.getElementById('moveKnob');
   let stickPointer = null;
   const moveStick = (event) => {
+    if (!stick || !knob) return;
     const rect = stick.getBoundingClientRect();
     const dx = event.clientX - (rect.left + rect.width / 2);
     const dy = event.clientY - (rect.top + rect.height / 2);
@@ -1103,24 +1118,26 @@ const bindInput = () => {
     touch.moveX = dx * scale / max;
     touch.moveY = -dy * scale / max;
   };
-  stick.addEventListener('pointerdown', (event) => {
-    stickPointer = event.pointerId;
-    stick.setPointerCapture(event.pointerId);
-    moveStick(event);
-  });
-  stick.addEventListener('pointermove', (event) => {
-    if (event.pointerId === stickPointer) moveStick(event);
-  });
-  const endStick = (event) => {
-    if (event.pointerId !== stickPointer) return;
-    stickPointer = null;
-    touch.moveX = 0;
-    touch.moveY = 0;
-    knob.style.transform = '';
-  };
-  stick.addEventListener('pointerup', endStick);
-  stick.addEventListener('pointercancel', endStick);
-  stick.addEventListener('lostpointercapture', endStick);
+  if (stick && knob) {
+    stick.addEventListener('pointerdown', (event) => {
+      stickPointer = event.pointerId;
+      stick.setPointerCapture(event.pointerId);
+      moveStick(event);
+    });
+    stick.addEventListener('pointermove', (event) => {
+      if (event.pointerId === stickPointer) moveStick(event);
+    });
+    const endStick = (event) => {
+      if (event.pointerId !== stickPointer) return;
+      stickPointer = null;
+      touch.moveX = 0;
+      touch.moveY = 0;
+      knob.style.transform = '';
+    };
+    stick.addEventListener('pointerup', endStick);
+    stick.addEventListener('pointercancel', endStick);
+    stick.addEventListener('lostpointercapture', endStick);
+  }
 
   const leftSteerBtn = document.getElementById('steeringLeft') || document.querySelector('[data-steer="left"]');
   const rightSteerBtn = document.getElementById('steeringRight') || document.querySelector('[data-steer="right"]');
@@ -1148,14 +1165,14 @@ const bindInput = () => {
   const determineSteerDirection = (clientX, clientY) => {
     if (leftSteerBtn) {
       const rectL = leftSteerBtn.getBoundingClientRect();
-      if (clientX >= rectL.left - 20 && clientX <= rectL.right + 25 &&
+      if (clientX >= rectL.left - 25 && clientX <= rectL.right + 25 &&
           clientY >= rectL.top - 25 && clientY <= rectL.bottom + 25) {
         return 'left';
       }
     }
     if (rightSteerBtn) {
       const rectR = rightSteerBtn.getBoundingClientRect();
-      if (clientX >= rectR.left - 25 && clientX <= rectR.right + 20 &&
+      if (clientX >= rectR.left - 25 && clientX <= rectR.right + 25 &&
           clientY >= rectR.top - 25 && clientY <= rectR.bottom + 25) {
         return 'right';
       }
@@ -1169,6 +1186,7 @@ const bindInput = () => {
   const handleSteerDown = (event, initialDir) => {
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
+    event.stopPropagation();
     const btn = event.currentTarget;
     if (btn && btn.setPointerCapture) {
       try { btn.setPointerCapture(event.pointerId); } catch (_) {}
@@ -1187,14 +1205,16 @@ const bindInput = () => {
   };
 
   const handleSteerEnd = (event) => {
-    if (activeSteerPointers.has(event.pointerId)) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
       activeSteerPointers.delete(event.pointerId);
-      syncSteerState();
+      const btn = event.currentTarget;
+      if (btn && btn.releasePointerCapture) {
+        try { btn.releasePointerCapture(event.pointerId); } catch (_) {}
+      }
     }
-    const btn = event.currentTarget;
-    if (btn && btn.releasePointerCapture) {
-      try { btn.releasePointerCapture(event.pointerId); } catch (_) {}
-    }
+    syncSteerState();
   };
 
   if (leftSteerBtn) {
@@ -1217,6 +1237,81 @@ const bindInput = () => {
     activeSteerPointers.clear();
     syncSteerState();
   });
+
+  // Dedicated RUN Button (Hold-to-run control)
+  const runBtn = document.getElementById('runButton');
+  const runStatusBadge = document.getElementById('runStatusBadge');
+  const runSubLabel = document.getElementById('runSubLabel');
+  const activeRunPointers = new Set();
+
+  const syncRunState = (active) => {
+    touch.run = Boolean(active);
+    if (runBtn) {
+      runBtn.classList.toggle('pressed', active);
+      runBtn.classList.toggle('is-running', active);
+      runBtn.setAttribute('aria-pressed', String(active));
+    }
+    if (runStatusBadge) {
+      runStatusBadge.textContent = active ? 'RUNNING' : 'STOPPED';
+      runStatusBadge.className = 'run-status-badge ' + (active ? 'status-running' : 'status-stopped');
+    }
+    if (runSubLabel) {
+      runSubLabel.textContent = active ? 'RELEASE TO STOP' : 'HOLD TO RUN';
+    }
+    const hudState = document.getElementById('hudMovementState');
+    if (hudState) {
+      const stateLabel = active ? (player.isSprinting ? 'SPRINT' : 'RUNNING') : 'STOPPED';
+      hudState.textContent = stateLabel;
+      hudState.className = 'movement-state-badge ' + (active ? 'state-running' : 'state-stopped');
+    }
+    if (!active && player && player.velocity && player.grounded) {
+      player.velocity.x *= 0.12;
+      player.velocity.z *= 0.12;
+    }
+  };
+
+  const handleRunDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    activeRunPointers.add(event.pointerId);
+    if (runBtn && runBtn.setPointerCapture) {
+      try { runBtn.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+    syncRunState(true);
+    audio.init();
+    audio.play('run-start');
+  };
+
+  const handleRunEnd = (event) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      activeRunPointers.delete(event.pointerId);
+      if (runBtn && runBtn.releasePointerCapture) {
+        try { runBtn.releasePointerCapture(event.pointerId); } catch (_) {}
+      }
+    }
+    if (activeRunPointers.size === 0) {
+      syncRunState(false);
+      audio.play('run-stop');
+    }
+  };
+
+  if (runBtn) {
+    runBtn.addEventListener('pointerdown', handleRunDown);
+    runBtn.addEventListener('pointerup', handleRunEnd);
+    runBtn.addEventListener('pointercancel', handleRunEnd);
+    runBtn.addEventListener('lostpointercapture', handleRunEnd);
+    runBtn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); activeRunPointers.clear(); syncRunState(false); }, { passive: false });
+    runBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); e.stopPropagation(); activeRunPointers.clear(); syncRunState(false); }, { passive: false });
+  }
+
+  const clearRunControl = () => {
+    activeRunPointers.clear();
+    syncRunState(false);
+  };
+  heldControlReleases.add(clearRunControl);
 
   document.querySelectorAll('[data-action]').forEach((button) => {
     const action = button.dataset.action;
@@ -1263,6 +1358,19 @@ function pauseGame() {
   isPaused = true;
   screenState = 'pause';
   inMainMenu = false;
+  touch.run = false;
+  const runBtn = document.getElementById('runButton');
+  if (runBtn) {
+    runBtn.classList.remove('pressed', 'is-running');
+    runBtn.setAttribute('aria-pressed', 'false');
+  }
+  const runStatusBadge = document.getElementById('runStatusBadge');
+  if (runStatusBadge) {
+    runStatusBadge.textContent = 'STOPPED';
+    runStatusBadge.className = 'run-status-badge status-stopped';
+  }
+  const runSubLabel = document.getElementById('runSubLabel');
+  if (runSubLabel) runSubLabel.textContent = 'HOLD TO RUN';
   document.getElementById('frontEnd').hidden = true;
   document.body.classList.remove('frontend-open');
   document.body.classList.add('screen-modal-active');
@@ -1344,6 +1452,18 @@ function resetGame(keepPaused = false, checkpoint = null) {
   worldChunks.resetOrigin(scene, camera);
   keys.clear();
   for (const action of Object.keys(touch)) touch[action] = false;
+  const runBtn = document.getElementById('runButton');
+  if (runBtn) {
+    runBtn.classList.remove('pressed', 'is-running');
+    runBtn.setAttribute('aria-pressed', 'false');
+  }
+  const runStatusBadge = document.getElementById('runStatusBadge');
+  if (runStatusBadge) {
+    runStatusBadge.textContent = 'STOPPED';
+    runStatusBadge.className = 'run-status-badge status-stopped';
+  }
+  const runSubLabel = document.getElementById('runSubLabel');
+  if (runSubLabel) runSubLabel.textContent = 'HOLD TO RUN';
   movementSystem.dashHeld = false;
   movementSystem.jumpHeld = false;
   movementSystem.slideHeld = false;
@@ -1596,26 +1716,47 @@ function updateEnergyOrbs(dt, time) {
 
 function readInput() {
   const isMobile = isMobileViewport();
-  const forwardInput = Number(keys.has('KeyW') || keys.has('ArrowUp')) -
-    Number(keys.has('KeyS') || keys.has('ArrowDown'));
-  const sideInput = Number(keys.has('KeyD') || keys.has('ArrowRight')) -
-    Number(keys.has('KeyA') || keys.has('ArrowLeft'));
+  
+  // Single, reliable RUN state:
+  // On mobile: movement is strictly gated by the hold-to-run control
+  const mobileRun = Boolean(touch.run);
+  const desktopRun = Boolean(
+    touch.run ||
+    keys.has('ShiftLeft') || keys.has('ShiftRight') ||
+    keys.has('KeyW') || keys.has('ArrowUp')
+  );
+  const runActive = isMobile ? mobileRun : desktopRun;
 
-  const steerX = Number(touch.right) - Number(touch.left) + touch.moveX;
-  const moveX = sideInput + steerX;
-
-  // On mobile, the runner maintains forward momentum down the corridor during gameplay
-  let mobileForward = 0;
-  if (isMobile && player.isAlive && !isPaused && screenState === 'gameplay') {
-    mobileForward = 1;
-  }
-  const moveY = forwardInput + touch.moveY + mobileForward;
+  player.isRunning = runActive && player.isAlive && !isPaused && screenState === 'gameplay';
 
   if (isMobile) {
-    // Direct path-aligned movement along the track (+Z is forward, +X is right, -X is left):
-    movementSystem.input.moveX = THREE.MathUtils.clamp(moveX, -1, 1);
-    movementSystem.input.moveY = THREE.MathUtils.clamp(moveY, -1, 1);
+    if (runActive && player.isAlive && !isPaused && screenState === 'gameplay') {
+      // Steer left (-1) or right (+1) while running down the corridor
+      const steerX = (touch.right ? 1 : 0) - (touch.left ? 1 : 0) + touch.moveX;
+      movementSystem.input.moveX = THREE.MathUtils.clamp(steerX, -1, 1);
+      movementSystem.input.moveY = 1; // forward along track (+Z)
+    } else {
+      // Stationary: character must NOT move forward or steer without RUN
+      movementSystem.input.moveX = 0;
+      movementSystem.input.moveY = 0;
+    }
   } else {
+    // Desktop movement
+    const forwardInput = Number(keys.has('KeyW') || keys.has('ArrowUp')) -
+      Number(keys.has('KeyS') || keys.has('ArrowDown'));
+    const sideInput = Number(keys.has('KeyD') || keys.has('ArrowRight')) -
+      Number(keys.has('KeyA') || keys.has('ArrowLeft'));
+
+    let moveX = sideInput;
+    let moveY = forwardInput;
+
+    // Holding Shift or touching RUN on desktop without WASD runs forward
+    if ((keys.has('ShiftLeft') || keys.has('ShiftRight') || touch.run) && forwardInput === 0 && sideInput === 0) {
+      moveY = 1;
+    } else if (touch.run && forwardInput === 0) {
+      moveY = 1;
+    }
+
     const yaw = cameraController.lookYaw;
     const forwardX = -Math.sin(yaw);
     const forwardZ = -Math.cos(yaw);
@@ -1788,6 +1929,10 @@ function updateGame(dt, time) {
       ));
       effects.footprint(foot, trailColor, 0.72 + runRatio * 0.55);
     }
+  }
+  if (player.grounded && player.horizontalSpeed > 4 && time - lastFootstepSoundTime > (sprinting ? 220 : 320)) {
+    lastFootstepSoundTime = time;
+    audio.play('step');
   }
   if (player.horizontalSpeed > 2.2 && time - lastBootParticleTime > (sprinting ? 72 : 150)) {
     lastBootParticleTime = time;

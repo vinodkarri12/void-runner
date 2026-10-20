@@ -20,6 +20,7 @@ export class HUD {
     this.maxSpeedStatus = document.getElementById('maxSpeedStatus');
     this.momentumBar = document.getElementById('momentumBar');
     this.momentumState = document.getElementById('momentumState');
+    this.hudMovementState = document.getElementById('hudMovementState');
     this.damageMultiplier = document.getElementById('damageMultiplier');
     this.centerMessage = document.getElementById('centerMessage');
     this.overlay = document.getElementById('overlay');
@@ -136,11 +137,12 @@ export class HUD {
     const kineticMultiplier = 0.45 + Math.min(1.6, player.horizontalSpeed / 30) * 0.62;
     this.damageMultiplier.textContent = `KINETIC DMG x${(kineticMultiplier * (player.overdriveTimer > 0 ? 1.25 : 1)).toFixed(2)}`;
     this.momentumBar.style.width = `${pct * 100}%`;
-    this.momentumState.textContent = player.overdriveTimer > 0
-      ? 'OVERDRIVE'
-      : player.isMaxSpeed ? 'MAX VELOCITY'
-        : player.isSprinting ? 'SPRINT'
-          : player.horizontalSpeed > 0.4 ? 'RUN' : 'IDLE';
+    const movementLabel = player.movementState || (player.horizontalSpeed > 0.4 ? 'RUNNING' : 'STOPPED');
+    this.momentumState.textContent = movementLabel;
+    if (this.hudMovementState) {
+      this.hudMovementState.textContent = movementLabel;
+      this.hudMovementState.className = 'movement-state-badge ' + (movementLabel === 'STOPPED' ? 'state-stopped' : 'state-running');
+    }
     this.maxSpeedStatus.classList.toggle('active', player.isMaxSpeed);
 
     this.centerMessage.textContent = `LEVEL ${String(wave).padStart(2, '0')} / 15`;
@@ -320,6 +322,14 @@ export class HUD {
     this.mainMenuButton.style.display = title === 'RUN TERMINATED' || title === 'PAUSED' ? '' : 'none';
     this.continueButton.style.display = 'none';
     this.restartButton.textContent = title === 'MAIN MENU' ? 'START RUN' : 'RESTART';
+    this.overlay.classList.remove('modal-paused', 'modal-game-over', 'modal-victory');
+    if (title === 'PAUSED') {
+      this.overlay.classList.add('modal-paused');
+    } else if (title === 'RUN TERMINATED') {
+      this.overlay.classList.add('modal-game-over');
+    } else if (title === 'LEVEL COMPLETE' || title === 'VOID OVERLORD DEFEATED') {
+      this.overlay.classList.add('modal-victory');
+    }
     this.overlay.classList.remove('hidden');
   }
 

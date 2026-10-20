@@ -60,12 +60,16 @@ export class MovementSystem {
       player.velocity.z = THREE.MathUtils.lerp(player.velocity.z, targetZ, response);
       player.facing.lerp(this.direction, 1 - Math.exp(-dt * (sprinting ? 13 : 18))).normalize();
     } else if (player.grounded) {
-      const deceleration = this.input.sprint ? 21 : 17;
+      const deceleration = 28;
       const damping = Math.exp(-deceleration * dt);
       player.velocity.x *= damping;
       player.velocity.z *= damping;
+      if (Math.hypot(player.velocity.x, player.velocity.z) < 0.12) {
+        player.velocity.x = 0;
+        player.velocity.z = 0;
+      }
     } else {
-      const damping = Math.exp(-1.35 * dt);
+      const damping = Math.exp(-2.2 * dt);
       player.velocity.x *= damping;
       player.velocity.z *= damping;
     }
@@ -223,5 +227,17 @@ export class MovementSystem {
     player.speed = player.horizontalSpeed;
     player.isSprinting = sprinting;
     player.isMaxSpeed = player.horizontalSpeed >= (overdrive ? 35 : SPRINT_SPEED * 0.92);
+    player.isRunning = moving && player.horizontalSpeed > 0.3;
+    if (overdrive) {
+      player.movementState = 'OVERDRIVE';
+    } else if (player.isMaxSpeed) {
+      player.movementState = 'MAX VELOCITY';
+    } else if (sprinting) {
+      player.movementState = 'SPRINT';
+    } else if (player.horizontalSpeed > 0.4) {
+      player.movementState = 'RUNNING';
+    } else {
+      player.movementState = 'STOPPED';
+    }
   }
 }
