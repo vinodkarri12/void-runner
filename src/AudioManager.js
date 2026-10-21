@@ -36,6 +36,8 @@ export class AudioManager {
       button: [520, 760, 0.05, 'sine'],
       'run-start': [140, 320, 0.14, 'triangle'],
       'run-stop': [260, 90, 0.10, 'sine'],
+      'boost-start': [210, 580, 0.24, 'triangle'],
+      'boost-exhaust': [190, 80, 0.18, 'sawtooth'],
       step: [95, 55, 0.06, 'triangle']
     }[kind];
     if (!settings) return;
