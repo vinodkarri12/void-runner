@@ -2,38 +2,38 @@ const STORAGE_KEY = 'void-runner-weapons-v1';
 
 export const WEAPONS = [
   {
-    id: 'void-reaver', name: 'VOID REAVER', type: 'ENERGY BLADE',
-    description: 'Balanced violet blade with a wide signature slash.',
+    id: 'void-reaver', name: 'SHADOW KATANA', type: 'FORGED KATANA',
+    description: 'Forged steel katana with midnight temper line and sweeping slashes.',
     unlockLevel: 1, color: 0xb66aff, damage: 1, range: 1, cooldown: 1,
-    icon: '◇'
+    icon: '⚔'
   },
   {
-    id: 'phantom-katana', name: 'PHANTOM KATANA', type: 'QUICK KATANA',
-    description: 'Fast cyan cuts and a quick dash-slash rhythm.',
+    id: 'phantom-katana', name: 'MURAMASA BLADE', type: 'QUICK KATANA',
+    description: 'Quick-draw cursed katana with swift forward dash-strikes.',
     unlockLevel: 4, color: 0x50eaff, damage: 0.88, range: 1.08, cooldown: 0.68,
     icon: '╱'
   },
   {
-    id: 'twin-shadow-blades', name: 'TWIN SHADOW BLADES', type: 'DUAL BLADES',
-    description: 'Alternating strikes trade reach for rapid combos.',
+    id: 'twin-shadow-blades', name: 'TWIN KODACHI', type: 'DUAL BLADES',
+    description: 'Dual short swords trading reach for furious combination cuts.',
     unlockLevel: 7, color: 0xd86cff, damage: 0.68, range: 0.86, cooldown: 0.52,
     icon: '⚔'
   },
   {
-    id: 'kinetic-gauntlets', name: 'KINETIC GAUNTLETS', type: 'IMPACT FISTS',
-    description: 'Heavy close-range blows with amplified knockback.',
+    id: 'kinetic-gauntlets', name: 'TEKKO-KAGI CLAWS', type: 'IRON CLAWS',
+    description: 'Iron ninja claw gauntlets delivering bone-crushing impact.',
     unlockLevel: 10, color: 0xff637f, damage: 1.42, range: 0.84, cooldown: 1.28,
     icon: '◈'
   },
   {
-    id: 'arc-spear', name: 'ARC SPEAR', type: 'ENERGY SPEAR',
-    description: 'Extended reach for deliberate thrusts and sweeps.',
+    id: 'arc-spear', name: 'SHINOBI NAGINATA', type: 'POLEARM BLADE',
+    description: 'Curved samurai polearm with long reach for wide perimeter sweeps.',
     unlockLevel: 12, color: 0x7df3ff, damage: 1.16, range: 1.42, cooldown: 1.12,
     icon: '↟'
   },
   {
-    id: 'orbital-drones', name: 'ORBITAL DRONES', type: 'REMOTE ENERGY',
-    description: 'Orbiting emitters. Q fires a manual energy bolt.',
+    id: 'orbital-drones', name: 'SHADOW KUNAI FAN', type: 'PHANTOM BLADES',
+    description: 'Floating enchanted kunai blades with piercing ranged strikes.',
     unlockLevel: 14, color: 0xff62dc, damage: 0.82, range: 1, cooldown: 1,
     icon: '◎'
   }

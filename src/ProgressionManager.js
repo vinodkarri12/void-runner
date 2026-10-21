@@ -3,23 +3,23 @@ export const MASTER_LEVEL_COUNT = 1;
 
 const STORAGE_KEY = 'void-runner-campaign-v1';
 const SAVE_VERSION = 2;
-const ENEMIES_PER_LEVEL = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 12, 13, 14];
+const ENEMIES_PER_LEVEL = [10, 10, 10, 10, 10, 11, 11, 11, 11, 11, 12, 12, 12, 12, 12];
 const LEVEL_TITLES = [
-  'REFINERY APPROACH',
-  'BROKEN CAUSEWAY',
-  'OUTER REFINERY',
-  'HUNTER GRID',
-  'ASHEN TRANSIT',
-  'IRON DISTRICT',
-  'FORGE PERIMETER',
-  'BLACKOUT ZONE',
-  'RUINED EXCHANGE',
-  'CINDER YARD',
-  'FALLEN INDUSTRIES',
-  'VOID FRONTIER',
-  'OVERLORD TERRITORY',
-  'THE LAST BREACH',
-  'VOID OVERLORD'
+  'BAMBOO GROVE SANCTUARY',
+  'TORII MIST PATH',
+  'MOONLIT COURTYARD',
+  'LANTERN SHRINE',
+  'WHISPERING PINES GATE',
+  'SHADOWED PAGODA BRIDGE',
+  'OUTER CASTLE WALLS',
+  'NIGHT GAUNTLET COURTYARD',
+  'TRADITIONAL ROOFTOPS',
+  'IRON SHINOBI BARRACKS',
+  'CRIMSON MAPLE GROVE',
+  'ASURA CASTLE GROUNDS',
+  'SHADOW FORTRESS BREACH',
+  'HALL OF FALLEN MASTERS',
+  'SHADOW SHOGUN THRONE'
 ];
 
 export function isMasterLevel(level) {
@@ -32,33 +32,59 @@ export function createLevelDefinition(level) {
     : 1;
   const finalBoss = safeLevel === CAMPAIGN_LEVELS;
   const master = finalBoss;
-  const phase = safeLevel <= 3 ? 0 : safeLevel <= 6 ? 1 : safeLevel <= 9 ? 2 : safeLevel <= 12 ? 3 : 4;
-  const difficulty = Number((1 + (safeLevel - 1) * 0.32).toFixed(1));
+  const phase = safeLevel <= 5 ? 0 : safeLevel <= 10 ? 1 : 2;
+  const difficulty = Number((1 + (safeLevel - 1) * 0.35).toFixed(1));
   const seed = Math.imul(safeLevel, 2654435761) >>> 0;
-  const typePool = safeLevel <= 3
-    ? ['scout']
+  
+  // Shinobi archetype pools matching difficulty tiers:
+  // Levels 1-5 (Hard): Shadow Assassins (scout) & Heavy Ronin (guardian)
+  // Levels 6-10 (Very Hard): Assassins, Heavy Ronin, and Shuriken Shinobi (ranged)
+  // Levels 11-15 (Extreme): Shuriken Shinobi, Armored Samurai, and Elite Shadow Reapers (elite)
+  const typePool = safeLevel <= 2
+    ? ['scout', 'scout', 'guardian']
     : safeLevel <= 5
-      ? ['scout', 'guardian']
+      ? ['scout', 'guardian', 'scout']
       : safeLevel <= 7
         ? ['scout', 'guardian', 'ranged']
-        : safeLevel <= 9
+        : safeLevel <= 10
           ? ['scout', 'guardian', 'ranged', 'elite']
-          : ['scout', 'guardian', 'ranged', 'elite', 'elite'];
-  const enemyTypes = finalBoss
-    ? [
-      ...Array.from({ length: 14 }, (_, index) =>
+          : ['guardian', 'ranged', 'elite', 'elite'];
+
+  const totalEnemies = safeLevel <= 5 ? 10 : safeLevel <= 10 ? 11 : 12;
+
+  let enemyTypes;
+  if (finalBoss) {
+    // Exactly 12 enemies for level 15: 11 elite shinobi guards + 1 Shadow Shogun boss (colossus)
+    enemyTypes = [
+      ...Array.from({ length: 11 }, (_, index) =>
         ['guardian', 'ranged', 'elite'][(index + Math.floor(seed / 997)) % 3]
       ),
       'colossus'
-    ]
-    : Array.from({ length: ENEMIES_PER_LEVEL[safeLevel - 1] }, (_, index) =>
+    ];
+  } else {
+    enemyTypes = Array.from({ length: totalEnemies }, (_, index) =>
       typePool[(index * 3 + Math.floor(seed / 997)) % typePool.length]
     );
-  const waves = [];
-  const groupSize = safeLevel <= 3 ? 3 : safeLevel <= 7 ? 4 : 5;
-  for (let index = 0; index < enemyTypes.length; index += groupSize) {
-    waves.push(enemyTypes.slice(index, index + groupSize));
   }
+
+  // Coordinated group waves
+  const waves = [];
+  if (totalEnemies === 10) {
+    // 2 waves of 5 coordinated attackers
+    waves.push(enemyTypes.slice(0, 5));
+    waves.push(enemyTypes.slice(5, 10));
+  } else if (totalEnemies === 11) {
+    // 3 waves: 4, 4, 3
+    waves.push(enemyTypes.slice(0, 4));
+    waves.push(enemyTypes.slice(4, 8));
+    waves.push(enemyTypes.slice(8, 11));
+  } else {
+    // 12 enemies: 3 waves of 4 (final boss in wave 3 with elite retinue)
+    waves.push(enemyTypes.slice(0, 4));
+    waves.push(enemyTypes.slice(4, 8));
+    waves.push(enemyTypes.slice(8, 12));
+  }
+
   return {
     level: safeLevel,
     master,
@@ -66,7 +92,7 @@ export function createLevelDefinition(level) {
     phase,
     difficulty,
     title: LEVEL_TITLES[safeLevel - 1],
-    objective: finalBoss ? 'DEFEAT THE VOID OVERLORD' : 'DEFEAT ALL HOSTILES',
+    objective: finalBoss ? 'DEFEAT THE SHADOW SHOGUN' : 'DEFEAT ALL HOSTILE SHINOBI',
     enemyTypes,
     waves,
     requiredKills: enemyTypes.length,

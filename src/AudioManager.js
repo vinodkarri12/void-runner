@@ -38,7 +38,12 @@ export class AudioManager {
       'run-stop': [260, 90, 0.10, 'sine'],
       'boost-start': [210, 580, 0.24, 'triangle'],
       'boost-exhaust': [190, 80, 0.18, 'sawtooth'],
-      step: [95, 55, 0.06, 'triangle']
+      step: [95, 55, 0.06, 'triangle'],
+      'sword-swing': [540, 190, 0.14, 'sawtooth'],
+      'sword-swing-2': [680, 260, 0.13, 'sawtooth'],
+      'sword-finisher': [780, 110, 0.30, 'sawtooth'],
+      'katana-hit': [880, 120, 0.14, 'square'],
+      'enemy-smoke': [220, 60, 0.26, 'sine']
     }[kind];
     if (!settings) return;
     oscillator.type = settings[3];

@@ -3,305 +3,291 @@ import * as THREE from 'three';
 export class World {
   constructor() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x080e18);
-    this.scene.fog = new THREE.Fog(0x111820, 150, 650);
+    this.scene.background = new THREE.Color(0x070b14);
+    this.scene.fog = new THREE.Fog(0x0c111c, 110, 560);
     this.obstacles = [];
     this.addLighting();
-    this.addHorizon();
-    this.addPortal();
+    this.addMoon();
+    this.addMountainHorizon();
+    this.addGrandToriiGate();
   }
 
   setCampaignMood(level) {
-    const mood = level >= 15
-      ? { background: 0x100b18, fog: 0x17101e, far: 410 }
-      : level >= 11
-        ? { background: 0x111018, fog: 0x21171c, far: 480 }
-        : level >= 6
-          ? { background: 0x10151b, fog: 0x1d2224, far: 540 }
-          : { background: 0x080e18, fog: 0x111820, far: 650 };
+    // 3 Distinct Ninja Environments:
+    // Levels 1-5: Moonlit Bamboo Grove Sanctuary (Deep Indigo Night)
+    // Levels 6-10: Shadow Pagoda & Castle Courtyards (Charcoal Mist & Slate)
+    // Levels 11-15: Crimson Demon Fortress (Blood Moon & Ashen Fog)
+    const mood = level >= 11
+      ? { background: 0x14070c, fog: 0x1d0a12, far: 440, moonColor: 0xff3b52, lightColor: 0xdb8290 }
+      : level >= 6
+        ? { background: 0x0a0d14, fog: 0x121620, far: 500, moonColor: 0xd6e4f0, lightColor: 0x9fb5cc }
+        : { background: 0x070b14, fog: 0x0c111c, far: 560, moonColor: 0xe8f0f8, lightColor: 0xa8c2dd };
+
     this.scene.background.setHex(mood.background);
     this.scene.fog.color.setHex(mood.fog);
     this.scene.fog.far = mood.far;
+
+    if (this.moonMesh) {
+      this.moonMesh.material.color.setHex(mood.moonColor);
+    }
+    if (this.moonCorona) {
+      this.moonCorona.material.color.setHex(mood.moonColor);
+    }
+    if (this.moonLight) {
+      this.moonLight.color.setHex(mood.lightColor);
+    }
   }
 
   addLighting() {
-    this.scene.add(new THREE.HemisphereLight(0x9aaab6, 0x252c30, 1.35));
+    // Deep atmospheric ambient light
+    this.ambientLight = new THREE.HemisphereLight(0x7896b0, 0x12161c, 1.25);
+    this.scene.add(this.ambientLight);
 
-    const sun = new THREE.DirectionalLight(0xd2d5d2, 2.1);
-    sun.position.set(-48, 92, -58);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.camera.left = -90;
-    sun.shadow.camera.right = 90;
-    sun.shadow.camera.top = 90;
-    sun.shadow.camera.bottom = -90;
-    this.scene.add(sun);
+    // Dramatic moonlight casting crisp shadow silhouettes
+    this.moonLight = new THREE.DirectionalLight(0xa8c2dd, 2.2);
+    this.moonLight.position.set(-52, 98, -62);
+    this.moonLight.castShadow = true;
+    this.moonLight.shadow.mapSize.set(1024, 1024);
+    this.moonLight.shadow.camera.left = -95;
+    this.moonLight.shadow.camera.right = 95;
+    this.moonLight.shadow.camera.top = 95;
+    this.moonLight.shadow.camera.bottom = -95;
+    this.moonLight.shadow.bias = -0.0005;
+    this.scene.add(this.moonLight);
 
-    const fill = new THREE.DirectionalLight(0x9fb5c2, 1.05);
-    fill.position.set(66, 30, 54);
-    this.scene.add(fill);
+    // Warm lantern fill light (simulating Japanese lanterns along the path)
+    const lanternFill = new THREE.DirectionalLight(0xff9438, 0.45);
+    lanternFill.position.set(40, 25, 45);
+    this.scene.add(lanternFill);
 
-    const rim = new THREE.DirectionalLight(0xd18c59, 0.42);
-    rim.position.set(20, 20, 130);
-    this.scene.add(rim);
+    // Cool rim light for ninja silhouette separation
+    const rimLight = new THREE.DirectionalLight(0x4a7a9e, 0.55);
+    rimLight.position.set(15, 18, 120);
+    this.scene.add(rimLight);
   }
 
-  addHorizon() {
-    const structureMaterial = new THREE.MeshStandardMaterial({
-      color: 0x30383d,
+  addMoon() {
+    // Large luminous Japanese moon in the night sky
+    const moonGroup = new THREE.Group();
+    moonGroup.position.set(-180, 240, -420);
+
+    const moonGeo = new THREE.CircleGeometry(42, 48);
+    const moonMat = new THREE.MeshBasicMaterial({
+      color: 0xe8f0f8,
+      transparent: true,
+      opacity: 0.95,
+      depthWrite: false
+    });
+    this.moonMesh = new THREE.Mesh(moonGeo, moonMat);
+    moonGroup.add(this.moonMesh);
+
+    // Soft luminous lunar halo / corona
+    const coronaGeo = new THREE.RingGeometry(40, 72, 48);
+    const coronaMat = new THREE.MeshBasicMaterial({
+      color: 0x9fb8d4,
+      transparent: true,
+      opacity: 0.28,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    this.moonCorona = new THREE.Mesh(coronaGeo, coronaMat);
+    moonGroup.add(this.moonCorona);
+
+    this.scene.add(moonGroup);
+  }
+
+  addMountainHorizon() {
+    // Ancient Japanese mountain ridges & traditional pagoda silhouettes
+    const mountainMat = new THREE.MeshStandardMaterial({
+      color: 0x111620,
+      roughness: 0.95,
+      metalness: 0.2,
+      flatShading: true
+    });
+    const darkRidgeMat = new THREE.MeshStandardMaterial({
+      color: 0x0a0d14,
       roughness: 0.9,
-      metalness: 0.38,
+      metalness: 0.15,
       flatShading: true
     });
-    const darkMaterial = new THREE.MeshStandardMaterial({
-      color: 0x141a1e,
-      roughness: 0.82,
-      metalness: 0.42,
-      flatShading: true
+    const pagodaMat = new THREE.MeshStandardMaterial({
+      color: 0x08090d,
+      roughness: 0.85,
+      metalness: 0.25
     });
-    const beaconMaterial = new THREE.MeshStandardMaterial({
-      color: 0x93a7a4,
-      emissive: 0x33534e,
-      emissiveIntensity: 0.52,
-      roughness: 0.5,
-      metalness: 0.42
-    });
-    const towerGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const stackGeometry = new THREE.CylinderGeometry(0.5, 0.68, 1, 7);
-    const braceGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const towerCount = 104;
-    const stackCount = 38;
-    const braceCount = 54;
-    const beaconCount = 28;
-    const towers = new THREE.InstancedMesh(towerGeometry, structureMaterial, towerCount);
-    const stacks = new THREE.InstancedMesh(stackGeometry, darkMaterial, stackCount);
-    const braces = new THREE.InstancedMesh(braceGeometry, darkMaterial, braceCount);
-    const beacons = new THREE.InstancedMesh(braceGeometry, beaconMaterial, beaconCount);
+
+    const coneGeo = new THREE.ConeGeometry(1, 1, 6);
+    const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+    const mountainCount = 68;
+    const pagodaCount = 24;
+
+    const mountains = new THREE.InstancedMesh(coneGeo, mountainMat, mountainCount);
+    const darkRidges = new THREE.InstancedMesh(coneGeo, darkRidgeMat, mountainCount);
+    const pagodas = new THREE.InstancedMesh(boxGeo, pagodaMat, pagodaCount * 4);
+
     const transform = new THREE.Object3D();
-    const random = this.random(73031);
+    const random = this.random(84921);
 
-    for (let i = 0; i < towerCount; i++) {
-      const angle = random() * Math.PI * 2;
-      const distance = 205 + random() * 250;
-      const height = 34 + Math.pow(random(), 1.35) * 158;
-      const width = 10 + random() * 29;
-      transform.position.set(Math.cos(angle) * distance, height / 2 - 5, Math.sin(angle) * distance);
-      transform.scale.set(width, height, 10 + random() * 28);
-      transform.rotation.set(0, Math.round(random() * 3) * Math.PI / 2, 0);
-      transform.updateMatrix();
-      towers.setMatrixAt(i, transform.matrix);
-    }
+    // Far mountain peaks
+    for (let i = 0; i < mountainCount; i++) {
+      const angle = (i / mountainCount) * Math.PI * 2 + (random() - 0.5) * 0.12;
+      const distance = 240 + random() * 220;
+      const height = 75 + Math.pow(random(), 1.2) * 160;
+      const radius = 45 + random() * 65;
 
-    for (let i = 0; i < stackCount; i++) {
-      const angle = random() * Math.PI * 2;
-      const distance = 225 + random() * 215;
-      const height = 36 + random() * 92;
-      transform.position.set(Math.cos(angle) * distance, height / 2 - 3, Math.sin(angle) * distance);
-      transform.scale.set(5 + random() * 9, height, 5 + random() * 9);
+      transform.position.set(Math.cos(angle) * distance, height / 2 - 12, Math.sin(angle) * distance);
+      transform.scale.set(radius, height, radius);
       transform.rotation.set(0, random() * Math.PI, 0);
       transform.updateMatrix();
-      stacks.setMatrixAt(i, transform.matrix);
-    }
+      mountains.setMatrixAt(i, transform.matrix);
 
-    for (let i = 0; i < braceCount; i++) {
-      const angle = (i / braceCount) * Math.PI * 2;
-      const distance = 190 + random() * 190;
-      const height = 24 + random() * 70;
-      transform.position.set(Math.cos(angle) * distance, height, Math.sin(angle) * distance);
-      transform.scale.set(18 + random() * 35, 1.2 + random() * 2, 1.5 + random() * 3);
-      transform.rotation.set(0, -angle, (random() - 0.5) * 0.18);
+      // Closer darker mountain layer
+      const closeDist = 180 + random() * 140;
+      const closeHeight = 45 + random() * 85;
+      const closeRadius = 35 + random() * 50;
+      transform.position.set(Math.cos(angle + 0.05) * closeDist, closeHeight / 2 - 10, Math.sin(angle + 0.05) * closeDist);
+      transform.scale.set(closeRadius, closeHeight, closeRadius);
+      transform.rotation.set(0, random() * Math.PI, 0);
       transform.updateMatrix();
-      braces.setMatrixAt(i, transform.matrix);
+      darkRidges.setMatrixAt(i, transform.matrix);
     }
 
-    for (let i = 0; i < beaconCount; i++) {
-      const angle = (i / beaconCount) * Math.PI * 2 + 0.04;
-      const distance = 220 + random() * 190;
-      const height = 3 + random() * 4;
-      transform.position.set(Math.cos(angle) * distance, height + 2, Math.sin(angle) * distance);
-      transform.scale.set(0.7, height, 0.7);
-      transform.rotation.set(0, -angle, 0);
-      transform.updateMatrix();
-      beacons.setMatrixAt(i, transform.matrix);
-    }
+    // Distant Pagoda towers silhouetted against the moonlit horizon
+    let pagodaIdx = 0;
+    for (let i = 0; i < pagodaCount; i++) {
+      const angle = (i / pagodaCount) * Math.PI * 2 + random() * 0.2;
+      const dist = 210 + random() * 170;
+      const baseHeight = 12 + random() * 18;
+      const px = Math.cos(angle) * dist;
+      const pz = Math.sin(angle) * dist;
 
-    const skyline = new THREE.Group();
-    for (const mesh of [towers, stacks, braces, beacons]) {
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.frustumCulled = false;
-      skyline.add(mesh);
-    }
-    this.scene.add(skyline);
-    this.addRefinerySilhouettes();
-  }
+      // 4-tiered pagoda tower
+      for (let tier = 0; tier < 4; tier++) {
+        const tierScale = (4 - tier) * 1.8;
+        const tierY = baseHeight + tier * 5.2;
 
-  addRefinerySilhouettes() {
-    const steel = new THREE.MeshStandardMaterial({
-      color: 0x566266,
-      roughness: 0.76,
-      metalness: 0.5,
-      flatShading: true
-    });
-    const darkSteel = new THREE.MeshStandardMaterial({
-      color: 0x303a3e,
-      roughness: 0.8,
-      metalness: 0.46
-    });
-    const tankMaterial = new THREE.MeshStandardMaterial({
-      color: 0x4a5150,
-      roughness: 0.82,
-      metalness: 0.36
-    });
-    const workLight = new THREE.MeshStandardMaterial({
-      color: 0xa28a61,
-      emissive: 0x6d4a20,
-      emissiveIntensity: 0.72,
-      roughness: 0.42,
-      metalness: 0.3
-    });
-    const postGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const pipeGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 10);
-    const tankGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 12);
-    const stackGeometry = new THREE.CylinderGeometry(0.5, 0.62, 1, 9);
-    const posts = new THREE.InstancedMesh(postGeometry, steel, 32);
-    const beams = new THREE.InstancedMesh(postGeometry, steel, 32);
-    const pipes = new THREE.InstancedMesh(pipeGeometry, darkSteel, 48);
-    const tanks = new THREE.InstancedMesh(tankGeometry, tankMaterial, 8);
-    const stacks = new THREE.InstancedMesh(stackGeometry, darkSteel, 16);
-    const lights = new THREE.InstancedMesh(postGeometry, workLight, 16);
-    const transform = new THREE.Object3D();
-    let postIndex = 0;
-    let beamIndex = 0;
-    let pipeIndex = 0;
-    let tankIndex = 0;
-    let stackIndex = 0;
-    let lightIndex = 0;
-
-    // Keep the foreground outside the playable corridor while framing both the
-    // initial view toward the portal and the opposite approach.
-    for (const direction of [-1, 1]) {
-      for (const bay of [0, 1, 2, 3]) {
-        const z = direction * (22 + bay * 31);
-        for (const side of [-1, 1]) {
-          const centerX = side * (21.5 + (bay % 2) * 8);
-          const height = 22 + (bay % 3) * 4;
-          for (const offsetX of [-8, 8]) {
-            transform.position.set(centerX + offsetX, height / 2, z);
-            transform.scale.set(1.1, height, 1.2);
-            transform.rotation.set(0, 0, 0);
-            transform.updateMatrix();
-            posts.setMatrixAt(postIndex++, transform.matrix);
-          }
-          transform.position.set(centerX, height, z);
-          transform.scale.set(17.5, 1.2, 1.3);
-          transform.updateMatrix();
-          beams.setMatrixAt(beamIndex++, transform.matrix);
-          transform.position.set(centerX, 4.2, z);
-          transform.scale.set(17.5, 0.72, 0.86);
-          transform.updateMatrix();
-          beams.setMatrixAt(beamIndex++, transform.matrix);
-
-          transform.position.set(centerX, height + 0.72, z);
-          transform.scale.set(0.68, 0.55, 0.68);
-          transform.updateMatrix();
-          lights.setMatrixAt(lightIndex++, transform.matrix);
-
-          if (bay % 2 === 0) {
-            const tankX = centerX + side * 13;
-            const tankHeight = 16 + (bay % 3) * 2;
-            transform.position.set(tankX, tankHeight / 2, z + direction * 8);
-            transform.scale.set(13, tankHeight, 13);
-            transform.updateMatrix();
-            tanks.setMatrixAt(tankIndex++, transform.matrix);
-
-            transform.position.set(tankX - side * 8, (27 + bay * 2) / 2, z + direction * 11);
-            transform.scale.set(4.6, 27 + bay * 2, 4.6);
-            transform.updateMatrix();
-            stacks.setMatrixAt(stackIndex++, transform.matrix);
-            transform.position.y = 27 + bay * 2;
-            transform.scale.set(5.4, 0.9, 5.4);
-            transform.updateMatrix();
-            stacks.setMatrixAt(stackIndex++, transform.matrix);
-          }
-
-          for (const level of [7.8, 11.2, 14.6]) {
-            transform.position.set(centerX, level, z);
-            transform.rotation.set(Math.PI / 2, 0, 0);
-            transform.scale.set(0.88, 17.2, 0.88);
-            transform.updateMatrix();
-            pipes.setMatrixAt(pipeIndex++, transform.matrix);
-          }
-        }
+        transform.position.set(px, tierY, pz);
+        transform.scale.set(tierScale * 1.4, 0.6, tierScale * 1.4);
+        transform.rotation.set(0, angle, 0);
+        transform.updateMatrix();
+        pagodas.setMatrixAt(pagodaIdx++, transform.matrix);
       }
     }
 
-    for (const mesh of [posts, beams, pipes, tanks, stacks, lights]) {
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.frustumCulled = false;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      this.scene.add(mesh);
-    }
+    mountains.instanceMatrix.needsUpdate = true;
+    darkRidges.instanceMatrix.needsUpdate = true;
+    pagodas.instanceMatrix.needsUpdate = true;
+    mountains.frustumCulled = false;
+    darkRidges.frustumCulled = false;
+    pagodas.frustumCulled = false;
+
+    this.scene.add(mountains);
+    this.scene.add(darkRidges);
+    this.scene.add(pagodas);
   }
 
-  addPortal() {
-    const portal = new THREE.Group();
-    portal.position.set(0, 27, 210);
+  addGrandToriiGate() {
+    // Grand Ancient Torii Gate marking the end of the sacred shrine path
+    const toriiGroup = new THREE.Group();
+    toriiGroup.position.set(0, 0, 215);
 
-    const frameMaterial = new THREE.MeshStandardMaterial({
-      color: 0x30383b,
-      emissive: 0x120d09,
-      emissiveIntensity: 0.2,
-      roughness: 0.58,
-      metalness: 0.78
+    const vermilionMat = new THREE.MeshStandardMaterial({
+      color: 0xb52424,
+      emissive: 0x3d0808,
+      emissiveIntensity: 0.35,
+      metalness: 0.25,
+      roughness: 0.65
     });
-    const hotMetal = new THREE.MeshStandardMaterial({
-      color: 0x98815c,
-      emissive: 0x45351c,
-      emissiveIntensity: 0.42,
-      roughness: 0.42,
-      metalness: 0.68
+    const charcoalMat = new THREE.MeshStandardMaterial({
+      color: 0x121418,
+      metalness: 0.55,
+      roughness: 0.4
     });
-    const energyMaterial = new THREE.MeshBasicMaterial({
-      color: 0x8ba6a8,
+    const goldMat = new THREE.MeshStandardMaterial({
+      color: 0xbfa054,
+      emissive: 0x423210,
+      emissiveIntensity: 0.4,
+      metalness: 0.85,
+      roughness: 0.25
+    });
+    const spiritEnergyMat = new THREE.MeshBasicMaterial({
+      color: 0x82b4dc,
       transparent: true,
-      opacity: 0.1,
+      opacity: 0.18,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
-    const outerRing = new THREE.Mesh(new THREE.TorusGeometry(20, 2.2, 12, 72), frameMaterial);
-    portal.add(outerRing);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(17, 0.72, 12, 72), hotMetal);
-    portal.add(ring);
-    const innerRing = new THREE.Mesh(new THREE.TorusGeometry(14.9, 0.18, 8, 64), hotMetal);
-    portal.add(innerRing);
 
-    const core = new THREE.Mesh(new THREE.CircleGeometry(14.8, 48), energyMaterial);
-    core.scale.set(1, 1, 0.12);
-    portal.add(core);
+    // Main Hashira (Pillars)
+    for (const side of [-1, 1]) {
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.85, 34, 16), vermilionMat);
+      pillar.position.set(side * 22, 17, 0);
+      pillar.castShadow = true;
+      toriiGroup.add(pillar);
 
-    const braceGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const braceTransforms = new THREE.Object3D();
-    const braces = new THREE.InstancedMesh(braceGeometry, frameMaterial, 8);
-    for (let i = 0; i < 8; i++) {
-      const angle = i / 8 * Math.PI * 2;
-      braceTransforms.position.set(Math.cos(angle) * 18.1, Math.sin(angle) * 18.1, 0);
-      braceTransforms.rotation.z = angle;
-      braceTransforms.scale.set(3.2, 0.62, 1.25);
-      braceTransforms.updateMatrix();
-      braces.setMatrixAt(i, braceTransforms.matrix);
+      // Stone base (Daiishi)
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.7, 4, 12), charcoalMat);
+      base.position.set(side * 22, 2, 0);
+      toriiGroup.add(base);
+
+      // Black lacquered nemaki sleeve
+      const nemaki = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.95, 4.5, 16), charcoalMat);
+      nemaki.position.set(side * 22, 6, 0);
+      toriiGroup.add(nemaki);
     }
-    braces.instanceMatrix.needsUpdate = true;
-    portal.add(braces);
 
-    const light = new THREE.PointLight(0x8ba6a8, 28, 220, 2);
-    light.position.set(0, 0, 0);
-    portal.add(light);
-    const warningLight = new THREE.PointLight(0xc8844c, 22, 110, 2);
-    warningLight.position.set(0, 21, -5);
-    portal.add(warningLight);
-    this.scene.add(portal);
-    this.portal = portal;
+    // Top Kasagi curved lintel beam
+    const kasagi = new THREE.Mesh(new THREE.BoxGeometry(58, 2.6, 3.8), charcoalMat);
+    kasagi.position.set(0, 34.2, 0);
+    toriiGroup.add(kasagi);
+
+    // Shimaki beam below
+    const shimaki = new THREE.Mesh(new THREE.BoxGeometry(54, 2.2, 3.2), vermilionMat);
+    shimaki.position.set(0, 31.8, 0);
+    toriiGroup.add(shimaki);
+
+    // Nuki cross-beam tying pillars
+    const nuki = new THREE.Mesh(new THREE.BoxGeometry(49, 1.9, 2.2), vermilionMat);
+    nuki.position.set(0, 26.5, 0);
+    toriiGroup.add(nuki);
+
+    // Gakuzuka tablet at center
+    const tablet = new THREE.Mesh(new THREE.BoxGeometry(3.6, 5.2, 0.6), charcoalMat);
+    tablet.position.set(0, 29.2, 0.4);
+    toriiGroup.add(tablet);
+    const clanGold = new THREE.Mesh(new THREE.OctahedronGeometry(1.2), goldMat);
+    clanGold.position.set(0, 29.2, 0.85);
+    toriiGroup.add(clanGold);
+
+    // Spirit Rift Portal inside the Torii Gate
+    const portalRift = new THREE.Mesh(new THREE.PlaneGeometry(36, 28), spiritEnergyMat);
+    portalRift.position.set(0, 16, 0.1);
+    toriiGroup.add(portalRift);
+
+    // Warm Hanging Lanterns
+    for (const side of [-1, 1]) {
+      const lantern = new THREE.Group();
+      lantern.position.set(side * 14, 24.5, 0);
+      const paper = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 2.4, 10), new THREE.MeshStandardMaterial({
+        color: 0xcc2626,
+        emissive: 0xff3b3b,
+        emissiveIntensity: 0.85,
+        roughness: 0.6
+      }));
+      lantern.add(paper);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.35, 10), charcoalMat);
+      cap.position.y = 1.3;
+      lantern.add(cap);
+      toriiGroup.add(lantern);
+
+      const lanternLight = new THREE.PointLight(0xff5533, 14, 38, 2);
+      lanternLight.position.set(side * 14, 23.5, 1);
+      toriiGroup.add(lanternLight);
+    }
+
+    this.scene.add(toriiGroup);
+    this.portal = toriiGroup;
   }
 
   random(seed) {

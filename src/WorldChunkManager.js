@@ -25,8 +25,8 @@ function smoothNoise(x, z, scale) {
 }
 
 function terrainHeight(x, z) {
-  const hills = smoothNoise(x, z, 80) * 4.8 + smoothNoise(x, z, 30) * 1.5;
-  const roadBlend = THREE.MathUtils.smoothstep(Math.abs(x), 9, 17);
+  const hills = smoothNoise(x, z, 75) * 4.5 + smoothNoise(x, z, 28) * 1.6;
+  const roadBlend = THREE.MathUtils.smoothstep(Math.abs(x), 8.8, 16.5);
   return routeHeight(z) + hills * roadBlend;
 }
 
@@ -47,106 +47,116 @@ export class WorldChunkManager {
     this.scene = scene;
     this.chunks = new Map();
     this.worldOffset = new THREE.Vector2();
+
+    // Japanese Shinobi World Materials
     this.terrainMaterial = new THREE.MeshStandardMaterial({
-      color: 0xa0a8ae,
+      color: 0x1a211e, // Dark mossy forest earth / fallen pine needles
       roughness: 0.94,
-      metalness: 0.12,
+      metalness: 0.08,
       vertexColors: true
     });
     this.roadMaterial = new THREE.MeshStandardMaterial({
-      color: 0x42484a,
-      roughness: 0.82,
-      metalness: 0.38,
-      emissive: 0x080b0d,
-      emissiveIntensity: 0.16
+      color: 0x22262a, // Weathered ancient Japanese slate flagstones
+      roughness: 0.84,
+      metalness: 0.22,
+      emissive: 0x07090b,
+      emissiveIntensity: 0.2
     });
     this.edgeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x576164,
-      emissive: 0x111719,
-      emissiveIntensity: 0.26,
+      color: 0x8a1c22, // Lacquered vermilion / dark crimson wood railing
+      emissive: 0x240608,
+      emissiveIntensity: 0.35,
+      roughness: 0.65,
+      metalness: 0.32
+    });
+    this.toriiMaterial = new THREE.MeshStandardMaterial({
+      color: 0xa82020, // Sacred Torii red lacquer
+      emissive: 0x360808,
+      emissiveIntensity: 0.32,
       roughness: 0.58,
-      metalness: 0.7
+      metalness: 0.24
     });
-    this.steelMaterial = new THREE.MeshStandardMaterial({
-      color: 0x596367,
-      roughness: 0.74,
-      metalness: 0.48
+    this.charcoalWoodMaterial = new THREE.MeshStandardMaterial({
+      color: 0x14161a, // Dark burnt cedar (Yakisugi)
+      roughness: 0.88,
+      metalness: 0.18
     });
-    this.roadDetailMaterial = new THREE.MeshStandardMaterial({
-      color: 0x7b8281,
-      emissive: 0x151a19,
-      emissiveIntensity: 0.2,
-      roughness: 0.62,
-      metalness: 0.64
+    this.lanternStoneMaterial = new THREE.MeshStandardMaterial({
+      color: 0x3c4248, // Carved Japanese stone lantern (Tōrō)
+      roughness: 0.82,
+      metalness: 0.15
     });
-    this.utilityLightMaterial = new THREE.MeshStandardMaterial({
-      color: 0x8a785c,
-      emissive: 0x65451f,
-      emissiveIntensity: 0.62,
-      roughness: 0.48,
-      metalness: 0.35
+    this.lanternLightMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffa43b, // Warm flickering firelight / candle flame
+      emissive: 0xff8820,
+      emissiveIntensity: 1.85,
+      roughness: 0.35,
+      metalness: 0.1
+    });
+    this.bambooMaterial = new THREE.MeshStandardMaterial({
+      color: 0x344b32, // Bamboo green & stalk wood
+      roughness: 0.65,
+      metalness: 0.14
     });
     this.wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0x353d40,
-      emissive: 0x0b0e0f,
-      emissiveIntensity: 0.2,
-      metalness: 0.66,
-      roughness: 0.68,
+      color: 0x2b3036, // Interlocking Japanese castle stone (Ishigaki)
+      roughness: 0.88,
+      metalness: 0.2,
       side: THREE.DoubleSide
     });
+    this.shojiPaperMaterial = new THREE.MeshStandardMaterial({
+      color: 0xdde2dc,
+      emissive: 0x2a2820,
+      emissiveIntensity: 0.25,
+      roughness: 0.72,
+      metalness: 0.05
+    });
+
     this.featureMaterials = [
-      new THREE.MeshStandardMaterial({ color: 0x3b4244, roughness: 0.84, metalness: 0.48 }),
-      new THREE.MeshStandardMaterial({ color: 0x414648, roughness: 0.78, metalness: 0.62 }),
-      new THREE.MeshStandardMaterial({ color: 0x242c30, roughness: 0.72, metalness: 0.7 })
+      new THREE.MeshStandardMaterial({ color: 0x25201c, roughness: 0.88, metalness: 0.14 }), // Cedar crate
+      new THREE.MeshStandardMaterial({ color: 0x353a40, roughness: 0.82, metalness: 0.22 }), // Temple stone
+      new THREE.MeshStandardMaterial({ color: 0x851c22, roughness: 0.68, metalness: 0.3 })   // Lacquered shrine accent
     ];
+
+    // Shared geometries
     this.utilityBlockGeometry = new THREE.BoxGeometry(1, 1, 1);
-    this.pillarGeometry = new THREE.BoxGeometry(2.4, 5, 2.4);
-    this.hazardStripeGeometry = new THREE.BoxGeometry(1.9, 0.16, 0.14);
+    this.pillarGeometry = new THREE.BoxGeometry(2.4, 4.8, 2.4);
+    this.hazardStripeGeometry = new THREE.BoxGeometry(1.8, 0.16, 0.14);
     this.braceGeometry = new THREE.BoxGeometry(1, 0.22, 0.28);
-    this.roadMarkGeometry = new THREE.BoxGeometry(0.16, 0.025, 4.4);
-    this.wallMarkerGeometry = new THREE.BoxGeometry(0.09, 1.7, 0.12);
-    this.padArrowGeometry = new THREE.BoxGeometry(0.12, 0.035, 1.1);
-    this.runeGeometry = new THREE.BoxGeometry(0.11, 2.1, 0.09);
-    this.roadMarkMaterial = new THREE.MeshStandardMaterial({
-      color: 0x727b7e,
-      roughness: 0.74,
-      metalness: 0.52
-    });
-    this.hazardMaterial = new THREE.MeshStandardMaterial({
-      color: 0xb17c4b,
-      emissive: 0x482d17,
-      emissiveIntensity: 0.38,
-      roughness: 0.64,
-      metalness: 0.48
-    });
-    this.deckJointGeometry = new THREE.BoxGeometry(16.7, 0.06, 0.16);
+    this.roadMarkGeometry = new THREE.BoxGeometry(0.18, 0.025, 4.2);
+    this.wallMarkerGeometry = new THREE.BoxGeometry(0.18, 0.85, 0.18);
+    this.padArrowGeometry = new THREE.BoxGeometry(0.14, 0.035, 1.1);
+    this.runeGeometry = new THREE.BoxGeometry(0.12, 1.9, 0.1);
+    this.deckJointGeometry = new THREE.BoxGeometry(16.7, 0.06, 0.18);
     this.gantryGeometry = new THREE.BoxGeometry(1, 1, 1);
-    this.pipeGeometry = new THREE.CylinderGeometry(0.48, 0.48, 1, 10);
+    this.pipeGeometry = new THREE.CylinderGeometry(0.24, 0.24, 1, 8); // Used for bamboo stalks
     this.pipeSupportGeometry = new THREE.BoxGeometry(1, 1, 1);
     this.roadHatchGeometry = new THREE.BoxGeometry(0.3, 0.055, 1.45);
     this.wallRailGeometry = new THREE.BoxGeometry(0.32, 0.3, CHUNK_SIZE);
+
+    // Shadow Dash / Velocity Pad
     this.velocityPadGeometry = new THREE.BoxGeometry(4.2, 0.08, 3.2);
     this.velocityPadMaterial = new THREE.MeshStandardMaterial({
-      color: 0x686b62,
-      emissive: 0x25261c,
-      emissiveIntensity: 0.32,
-      metalness: 0.76,
-      roughness: 0.52
+      color: 0x1e1520,
+      emissive: 0x7a2245,
+      emissiveIntensity: 0.85,
+      metalness: 0.6,
+      roughness: 0.4
     });
   }
 
   setCampaignPhase(level) {
-    const palette = level >= 15
-      ? { terrain: 0x73757d, road: 0x302b37, steel: 0x5e4e64, light: 0xb078d0 }
-      : level >= 11
-        ? { terrain: 0x777473, road: 0x393334, steel: 0x665354, light: 0xc27a52 }
-        : level >= 6
-          ? { terrain: 0x89847a, road: 0x3c3c39, steel: 0x625d52, light: 0xc3975e }
-          : { terrain: 0xa0a8ae, road: 0x42484a, steel: 0x596367, light: 0x8a785c };
+    const palette = level >= 11
+      ? { terrain: 0x180f12, road: 0x1a1215, wall: 0x221318, light: 0xff3b52 }
+      : level >= 6
+        ? { terrain: 0x161c1b, road: 0x202428, wall: 0x282e34, light: 0xffa43b }
+        : { terrain: 0x142119, road: 0x22282e, wall: 0x2d343c, light: 0xffaa44 };
+
     this.terrainMaterial.color.setHex(palette.terrain);
     this.roadMaterial.color.setHex(palette.road);
-    this.steelMaterial.color.setHex(palette.steel);
-    this.utilityLightMaterial.color.setHex(palette.light);
+    this.wallMaterial.color.setHex(palette.wall);
+    this.lanternLightMaterial.color.setHex(palette.light);
+    this.lanternLightMaterial.emissive.setHex(palette.light);
   }
 
   getHeight(x, z) {
@@ -318,7 +328,7 @@ export class WorldChunkManager {
   }
 
   damageBreakableAt(position, impactSpeed) {
-    if (impactSpeed < 12) return null;
+    if (impactSpeed < 10) return null;
     const worldX = position.x + this.worldOffset.x;
     const worldZ = position.z + this.worldOffset.y;
     for (const group of this.chunks.values()) {
@@ -377,13 +387,15 @@ export class WorldChunkManager {
 
   createChunk(cx, cz) {
     const group = new THREE.Group();
-    group.name = `terrain-chunk-${cx}-${cz}`;
+    group.name = `shinobi-chunk-${cx}-${cz}`;
     group.userData.solidFeatures = [];
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
     const originX = worldOriginX - this.worldOffset.x;
     const originZ = worldOriginZ - this.worldOffset.y;
     group.position.set(originX, 0, originZ);
+
+    // Terrain mesh
     const positions = [];
     const colors = [];
     const indices = [];
@@ -391,12 +403,13 @@ export class WorldChunkManager {
 
     for (let iz = 0; iz <= GRID_SEGMENTS; iz++) {
       for (let ix = 0; ix <= GRID_SEGMENTS; ix++) {
-        const x = worldOriginX + ix / GRID_SEGMENTS * CHUNK_SIZE;
-        const z = worldOriginZ + iz / GRID_SEGMENTS * CHUNK_SIZE;
+        const x = worldOriginX + (ix / GRID_SEGMENTS) * CHUNK_SIZE;
+        const z = worldOriginZ + (iz / GRID_SEGMENTS) * CHUNK_SIZE;
         const y = terrainHeight(x, z) - 0.3;
-        positions.push(ix / GRID_SEGMENTS * CHUNK_SIZE, y, iz / GRID_SEGMENTS * CHUNK_SIZE);
-        const variation = smoothNoise(x, z, 13) * 0.06;
-        color.setRGB(0.34 + variation, 0.38 + variation, 0.42 + variation);
+        positions.push((ix / GRID_SEGMENTS) * CHUNK_SIZE, y, (iz / GRID_SEGMENTS) * CHUNK_SIZE);
+        const variation = smoothNoise(x, z, 14) * 0.05;
+        // Deep mossy dark earth tones
+        color.setRGB(0.12 + variation, 0.16 + variation, 0.14 + variation);
         colors.push(color.r, color.g, color.b);
         if (ix < GRID_SEGMENTS && iz < GRID_SEGMENTS) {
           const a = iz * (GRID_SEGMENTS + 1) + ix;
@@ -417,18 +430,22 @@ export class WorldChunkManager {
 
     if (cx === 0) {
       const roadCenterX = -worldOriginX;
+      // Ancient stone pathway surface
       const roadGeometry = this.createRouteSurface(worldOriginZ, roadCenterX, 17);
       const road = new THREE.Mesh(roadGeometry, this.roadMaterial);
       road.receiveShadow = true;
       group.add(road);
+
+      // Vermilion wooden border curbs
       for (const xOffset of [-8.15, 8.15]) {
-        const edge = new THREE.Mesh(this.createRouteSurface(worldOriginZ, roadCenterX + xOffset, 0.12, 0.03), this.edgeMaterial);
+        const edge = new THREE.Mesh(
+          this.createRouteSurface(worldOriginZ, roadCenterX + xOffset, 0.15, 0.04),
+          this.edgeMaterial
+        );
         group.add(edge);
       }
-      const wallMarkers = new THREE.InstancedMesh(this.wallMarkerGeometry, this.utilityLightMaterial, 8);
-      const hazardMarkers = new THREE.InstancedMesh(this.wallMarkerGeometry, this.hazardMaterial, 4);
-      const markerTransform = new THREE.Object3D();
-      let markerIndex = 0;
+
+      // Traditional Japanese Castle Walls (Ishigaki) & Wooden Boundary Railings
       for (const side of [-1, 1]) {
         const wallWorldX = side * 10.4;
         const wallX = wallWorldX - worldOriginX;
@@ -437,134 +454,47 @@ export class WorldChunkManager {
           x: wallWorldX,
           z: worldOriginZ + CHUNK_SIZE / 2,
           halfLength: CHUNK_SIZE / 2,
-          halfThickness: 0.22
+          halfThickness: 0.25
         });
-        const wall = new THREE.Mesh(this.createRouteWall(worldOriginZ, wallX, 4.2, wallWorldX), this.steelMaterial);
+
+        // Castle stone wall
+        const wall = new THREE.Mesh(this.createRouteWall(worldOriginZ, wallX, 4.4, wallWorldX), this.wallMaterial);
+        wall.receiveShadow = true;
+        wall.castShadow = true;
         group.add(wall);
-        for (let marker = 0; marker < 4; marker++) {
-          const panelZ = worldOriginZ + marker * 24 + 12;
-          markerTransform.position.set(wallX - side * 0.28, terrainHeight(wallWorldX, panelZ) + 2.3, marker * 24 + 12);
-          markerTransform.scale.set(1, 1, 1);
-          markerTransform.updateMatrix();
-          wallMarkers.setMatrixAt(markerIndex++, markerTransform.matrix);
-          if (marker % 2 === 0) {
-            markerTransform.position.x = wallX - side * 0.31;
-            markerTransform.position.y += 0.18;
-            markerTransform.scale.set(1.15, 0.62, 1.1);
-            markerTransform.updateMatrix();
-            hazardMarkers.setMatrixAt((side === -1 ? 0 : 2) + marker / 2, markerTransform.matrix);
-          }
-        }
-        const rail = new THREE.Mesh(this.wallRailGeometry, this.steelMaterial);
-        rail.position.set(wallX - side * 0.35, 3.95, CHUNK_SIZE / 2);
+
+        // Dark timber coping rail on top
+        const rail = new THREE.Mesh(this.wallRailGeometry, this.charcoalWoodMaterial);
+        rail.position.set(wallX - side * 0.32, 4.15, CHUNK_SIZE / 2);
         group.add(rail);
       }
-      wallMarkers.instanceMatrix.needsUpdate = true;
-      group.add(wallMarkers);
-      hazardMarkers.instanceMatrix.needsUpdate = true;
-      group.add(hazardMarkers);
 
-      const gantryBeams = new THREE.InstancedMesh(this.gantryGeometry, this.steelMaterial, 3);
-      const gantrySupports = new THREE.InstancedMesh(this.gantryGeometry, this.steelMaterial, 6);
-      const gantryBraces = new THREE.InstancedMesh(this.gantryGeometry, this.steelMaterial, 12);
-      const gantryLights = new THREE.InstancedMesh(this.gantryGeometry, this.utilityLightMaterial, 3);
-      const gantryTransform = new THREE.Object3D();
-      let braceIndex = 0;
-      const gantryPositions = [24, 52, 80];
-      for (let index = 0; index < gantryPositions.length; index++) {
-        const gantryZ = gantryPositions[index];
-        gantryTransform.position.set(0, 18.2, gantryZ);
-        gantryTransform.scale.set(32, 1.35, 1.45);
-        gantryTransform.updateMatrix();
-        gantryBeams.setMatrixAt(index, gantryTransform.matrix);
-        gantryTransform.position.set(0, 17.48, gantryZ);
-        gantryTransform.scale.set(20, 0.14, 0.2);
-        gantryTransform.updateMatrix();
-        gantryLights.setMatrixAt(index, gantryTransform.matrix);
+      // === JAPANESE TORII GATES ACROSS PATH ===
+      // Place beautiful red Torii gates at regular intervals in each chunk
+      const toriiPositions = [28, 76];
+      for (const tZ of toriiPositions) {
+        this.addToriiGate(group, roadCenterX, tZ, worldOriginZ);
+      }
+
+      // === JAPANESE STONE LANTERNS (TŌRŌ) LINING THE PATH ===
+      const lanternPositions = [12, 38, 62, 88];
+      for (const lZ of lanternPositions) {
         for (const side of [-1, 1]) {
-          gantryTransform.position.set(side * 12.8, 9.1, gantryZ);
-          gantryTransform.scale.set(1.35, 18.2, 1.5);
-          gantryTransform.updateMatrix();
-          gantrySupports.setMatrixAt(index * 2 + (side === 1 ? 1 : 0), gantryTransform.matrix);
-          for (const direction of [-1, 1]) {
-            const startX = side * (direction < 0 ? 8.4 : 12.2);
-            const endX = side * (direction < 0 ? 12.2 : 8.4);
-            const startY = 5.5;
-            const endY = 17.5;
-            const dx = endX - startX;
-            const dy = endY - startY;
-            gantryTransform.position.set((startX + endX) / 2, (startY + endY) / 2, gantryZ);
-            gantryTransform.scale.set(Math.hypot(dx, dy), 0.48, 0.55);
-            gantryTransform.rotation.set(0, 0, Math.atan2(dy, dx));
-            gantryTransform.updateMatrix();
-            gantryBraces.setMatrixAt(braceIndex++, gantryTransform.matrix);
-          }
+          const lX = roadCenterX + side * 8.6;
+          this.addStoneLantern(group, lX, lZ, worldOriginZ);
         }
       }
-      gantryBeams.instanceMatrix.needsUpdate = true;
-      gantrySupports.instanceMatrix.needsUpdate = true;
-      gantryBraces.instanceMatrix.needsUpdate = true;
-      gantryLights.instanceMatrix.needsUpdate = true;
-      group.add(gantryBeams, gantrySupports, gantryBraces, gantryLights);
-      this.addIndustrialCorridor(group, worldOriginX, worldOriginZ);
 
-      const roadMarks = new THREE.InstancedMesh(this.roadMarkGeometry, this.roadMarkMaterial, 8);
-      const deckJoints = new THREE.InstancedMesh(this.deckJointGeometry, this.roadDetailMaterial, 16);
-      const roadHatches = new THREE.InstancedMesh(this.roadHatchGeometry, this.steelMaterial, 8);
+      // === BAMBOO FORESTS FLANKING THE PATHWAY ===
+      this.addBambooGrove(group, worldOriginX, worldOriginZ);
+
+      // Shadow Dash Vector Pads (Ninja Momentum Seals)
+      const padArrows = new THREE.InstancedMesh(this.padArrowGeometry, this.lanternLightMaterial, 12);
       const markTransform = new THREE.Object3D();
-      for (const seamX of [-5.65, 5.65]) {
-        const seam = new THREE.Mesh(
-          this.createRouteSurface(worldOriginZ, roadCenterX + seamX, 0.13, 0.03),
-          this.roadDetailMaterial
-        );
-        group.add(seam);
-      }
-      for (let plate = 0; plate < 16; plate++) {
-        const jointZ = 2 + plate * 6;
-        const slope = (routeHeight(worldOriginZ + jointZ + 0.1) - routeHeight(worldOriginZ + jointZ - 0.1)) / 0.2;
-        markTransform.position.set(roadCenterX, routeHeight(worldOriginZ + jointZ) + 0.045, jointZ);
-        markTransform.rotation.set(-Math.atan(slope), 0, 0);
-        markTransform.scale.set(1, 1, 1);
-        markTransform.updateMatrix();
-        deckJoints.setMatrixAt(plate, markTransform.matrix);
-
-        if (plate % 2 === 0) {
-          for (const side of [-1, 1]) {
-            markTransform.position.set(side * 7.15, routeHeight(worldOriginZ + jointZ) + 0.048, jointZ);
-            markTransform.rotation.set(-Math.atan(slope), 0, 0);
-            markTransform.updateMatrix();
-            roadHatches.setMatrixAt(plate + (side === 1 ? 1 : 0), markTransform.matrix);
-          }
-        }
-      }
-      for (let mark = 0; mark < 8; mark++) {
-        const dashZ = mark * 12 + 4;
-        markTransform.position.set(roadCenterX, routeHeight(worldOriginZ + dashZ) + 0.036, dashZ);
-        markTransform.rotation.set(
-          -Math.atan((routeHeight(worldOriginZ + dashZ + 0.1) - routeHeight(worldOriginZ + dashZ - 0.1)) / 0.2),
-          0,
-          0
-        );
-        markTransform.updateMatrix();
-        roadMarks.setMatrixAt(mark, markTransform.matrix);
-        markTransform.position.set(roadCenterX, routeHeight(worldOriginZ + dashZ) + 0.09, mark * 12 + 10);
-        markTransform.rotation.set(
-          -Math.atan((routeHeight(worldOriginZ + mark * 12 + 10.1) - routeHeight(worldOriginZ + mark * 12 + 9.9)) / 0.2),
-          0,
-          0
-        );
-        markTransform.updateMatrix();
-      }
-      roadMarks.instanceMatrix.needsUpdate = true;
-      deckJoints.instanceMatrix.needsUpdate = true;
-      roadHatches.instanceMatrix.needsUpdate = true;
-      group.add(roadMarks);
-      group.add(deckJoints, roadHatches);
-      const padArrows = new THREE.InstancedMesh(this.padArrowGeometry, this.edgeMaterial, 12);
       let arrowIndex = 0;
       for (let padIndex = 0; padIndex < 4; padIndex++) {
         const padZ = worldOriginZ + 30 + padIndex * 24;
-        const directionX = padIndex % 2 === 0 ? 0 : 0.28;
+        const directionX = padIndex % 2 === 0 ? 0 : 0.26;
         const pad = {
           id: `${cz}:${padIndex}`,
           type: 'velocity-pad',
@@ -579,11 +509,12 @@ export class WorldChunkManager {
         padMesh.position.set(roadCenterX, routeHeight(padZ) + 0.1, padZ - worldOriginZ);
         padMesh.rotation.y = Math.atan2(pad.directionX, pad.directionZ);
         group.add(padMesh);
+
         for (let stripe = -1; stripe <= 1; stripe++) {
           const angle = padMesh.rotation.y;
           markTransform.position.set(
             roadCenterX + stripe * 0.72 * Math.cos(angle),
-            routeHeight(padZ) + 0.17,
+            routeHeight(padZ) + 0.18,
             padZ - worldOriginZ - stripe * 0.72 * Math.sin(angle)
           );
           markTransform.rotation.set(0, angle, 0);
@@ -600,84 +531,141 @@ export class WorldChunkManager {
     return group;
   }
 
-  addIndustrialCorridor(group, worldOriginX, worldOriginZ) {
-    const pipeCount = 18;
-    const pipes = new THREE.InstancedMesh(this.pipeGeometry, this.steelMaterial, pipeCount);
-    const columns = new THREE.InstancedMesh(this.pipeSupportGeometry, this.steelMaterial, 12);
-    const crossbeams = new THREE.InstancedMesh(this.pipeSupportGeometry, this.steelMaterial, 6);
-    const longitudinalRails = new THREE.InstancedMesh(this.gantryGeometry, this.steelMaterial, 8);
-    const transform = new THREE.Object3D();
-    let pipeIndex = 0;
-    let columnIndex = 0;
-    let crossbeamIndex = 0;
-    let railIndex = 0;
+  addToriiGate(group, centerX, localZ, worldOriginZ) {
+    const torii = new THREE.Group();
+    const groundY = routeHeight(worldOriginZ + localZ);
+    torii.position.set(centerX, groundY, localZ);
 
+    const red = this.toriiMaterial;
+    const dark = this.charcoalWoodMaterial;
+
+    // Two main pillars spanning the corridor
     for (const side of [-1, 1]) {
-      const rackXs = [side * 13.8, side * 16.2, side * 18.6];
-      for (const x of rackXs) {
-        for (const level of [6.6, 8.9, 11.2]) {
-          const worldX = worldOriginX + x;
-          const baseY = terrainHeight(worldX, worldOriginZ + CHUNK_SIZE / 2);
-          transform.position.set(x, baseY + level, CHUNK_SIZE / 2);
-          transform.rotation.set(Math.PI / 2, 0, 0);
-          transform.scale.set(1, CHUNK_SIZE - 3, 1);
-          transform.updateMatrix();
-          pipes.setMatrixAt(pipeIndex++, transform.matrix);
-        }
-      }
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.44, 11.5, 12), red);
+      pillar.position.set(side * 8.6, 5.75, 0);
+      pillar.castShadow = true;
+      torii.add(pillar);
 
-      for (const frameZ of [8, 48, 88]) {
-        const worldZ = worldOriginZ + frameZ;
-        const outerX = side * 19.8;
-        const innerX = side * 13.0;
-        for (const x of [innerX, outerX]) {
-          const baseY = terrainHeight(worldOriginX + x, worldZ);
-          transform.position.set(x, baseY + 5.9, frameZ);
-          transform.scale.set(0.62, 11.8, 0.72);
-          transform.rotation.set(0, 0, 0);
-          transform.updateMatrix();
-          columns.setMatrixAt(columnIndex++, transform.matrix);
-        }
-        const beamY = terrainHeight(worldOriginX + side * 16.4, worldZ) + 11.8;
-        transform.position.set(side * 16.4, beamY, frameZ);
-        transform.scale.set(7.3, 0.72, 0.78);
-        transform.updateMatrix();
-        crossbeams.setMatrixAt(crossbeamIndex++, transform.matrix);
-      }
-
-      for (const x of [side * 13.0, side * 19.8]) {
-        for (const level of [1.4, 10.9]) {
-          const baseY = terrainHeight(worldOriginX + x, worldOriginZ + CHUNK_SIZE / 2);
-          transform.position.set(x, baseY + level, CHUNK_SIZE / 2);
-          transform.scale.set(0.42, 0.42, CHUNK_SIZE - 3);
-          transform.rotation.set(0, 0, 0);
-          transform.updateMatrix();
-          longitudinalRails.setMatrixAt(railIndex++, transform.matrix);
-        }
-      }
+      // Stone base (Daiishi)
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 1.4, 10), this.lanternStoneMaterial);
+      base.position.set(side * 8.6, 0.7, 0);
+      torii.add(base);
     }
 
-    for (const mesh of [pipes, columns, crossbeams, longitudinalRails]) {
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      group.add(mesh);
-    }
+    // Top curved Kasagi beam
+    const kasagi = new THREE.Mesh(new THREE.BoxGeometry(20.4, 0.72, 0.95), dark);
+    kasagi.position.set(0, 11.5, 0);
+    kasagi.castShadow = true;
+    torii.add(kasagi);
+
+    // Shimaki beam below
+    const shimaki = new THREE.Mesh(new THREE.BoxGeometry(19.2, 0.65, 0.8), red);
+    shimaki.position.set(0, 10.75, 0);
+    torii.add(shimaki);
+
+    // Nuki cross-beam
+    const nuki = new THREE.Mesh(new THREE.BoxGeometry(17.8, 0.55, 0.6), red);
+    nuki.position.set(0, 9.1, 0);
+    torii.add(nuki);
+
+    // Center tablet with clan emblem
+    const tablet = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.6, 0.2), dark);
+    tablet.position.set(0, 9.9, 0.15);
+    torii.add(tablet);
+
+    group.add(torii);
   }
 
-  createRouteSurface(worldStartZ, centerX, width, offsetY = 0.02) {
+  addStoneLantern(group, localX, localZ, worldOriginZ) {
+    const lantern = new THREE.Group();
+    const groundY = routeHeight(worldOriginZ + localZ);
+    lantern.position.set(localX, groundY, localZ);
+
+    const stone = this.lanternStoneMaterial;
+    const light = this.lanternLightMaterial;
+
+    // Base pediment
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.35, 0.9), stone);
+    base.position.y = 0.18;
+    lantern.add(base);
+
+    // Pole / pillar
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 1.4, 8), stone);
+    post.position.y = 1.05;
+    lantern.add(post);
+
+    // Firebox platform (Chūdai)
+    const platform = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.22, 0.85), stone);
+    platform.position.y = 1.86;
+    lantern.add(platform);
+
+    // Hibukuro (Hollow light chamber with glowing fire)
+    const firebox = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.55, 0.48), light);
+    firebox.position.y = 2.24;
+    lantern.add(firebox);
+
+    // Stone umbrella roof (Kasa) with curved corners
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.88, 0.48, 4), stone);
+    roof.position.y = 2.75;
+    roof.rotation.y = Math.PI / 4;
+    lantern.add(roof);
+
+    // Jewel finial (Hōju)
+    const finial = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), stone);
+    finial.position.y = 3.1;
+    lantern.add(finial);
+
+    lantern.castShadow = true;
+    group.add(lantern);
+  }
+
+  addBambooGrove(group, worldOriginX, worldOriginZ) {
+    const bambooCount = 32;
+    const bambooStalks = new THREE.InstancedMesh(this.pipeGeometry, this.bambooMaterial, bambooCount);
+    const transform = new THREE.Object3D();
+    const random = seededRandom(hash2(worldOriginX, worldOriginZ) * 0x61a8c2);
+
+    let stalkIdx = 0;
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < bambooCount / 2; i++) {
+        const xOffset = side * (12.5 + random() * 8.5);
+        const zOffset = random() * CHUNK_SIZE;
+        const worldX = worldOriginX + xOffset;
+        const worldZ = worldOriginZ + zOffset;
+        const baseY = terrainHeight(worldX, worldZ);
+        const height = 9 + random() * 7;
+        const lean = (random() - 0.5) * 0.12;
+
+        transform.position.set(xOffset, baseY + height / 2, zOffset);
+        transform.scale.set(1, height, 1);
+        transform.rotation.set(lean, random() * Math.PI, (random() - 0.5) * 0.08);
+        transform.updateMatrix();
+        bambooStalks.setMatrixAt(stalkIdx++, transform.matrix);
+      }
+    }
+
+    bambooStalks.instanceMatrix.needsUpdate = true;
+    bambooStalks.castShadow = true;
+    group.add(bambooStalks);
+  }
+
+  createRouteSurface(worldStartZ, centerX, width, thickness = 0.04) {
+    const across = 4;
     const vertices = [];
     const indices = [];
-    const across = 1;
-    const length = GRID_SEGMENTS;
-    for (let iz = 0; iz <= length; iz++) {
-      const localZ = iz / length * CHUNK_SIZE;
-      const height = routeHeight(worldStartZ + localZ) + offsetY;
+    const halfWidth = width / 2;
+    for (let iz = 0; iz <= GRID_SEGMENTS; iz++) {
+      const localZ = (iz / GRID_SEGMENTS) * CHUNK_SIZE;
+      const worldZ = worldStartZ + localZ;
+      const y = routeHeight(worldZ) + thickness;
       for (let ix = 0; ix <= across; ix++) {
-        vertices.push(centerX - width / 2 + ix * width / across, height, localZ);
+        const x = centerX - halfWidth + (ix / across) * width;
+        vertices.push(x, y, localZ);
       }
-      if (iz < length) {
-        const a = iz * (across + 1);
+    }
+    for (let iz = 0; iz < GRID_SEGMENTS; iz++) {
+      for (let ix = 0; ix < across; ix++) {
+        const a = iz * (across + 1) + ix;
         const b = a + across + 1;
         indices.push(a, b, a + 1, b, b + 1, a + 1);
       }
@@ -693,12 +681,12 @@ export class WorldChunkManager {
     const vertices = [];
     const indices = [];
     for (let iz = 0; iz <= GRID_SEGMENTS; iz++) {
-      const localZ = iz / GRID_SEGMENTS * CHUNK_SIZE;
+      const localZ = (iz / GRID_SEGMENTS) * CHUNK_SIZE;
       const baseY = terrainHeight(worldX, worldStartZ + localZ);
-      vertices.push(centerX - 0.22, baseY, localZ);
-      vertices.push(centerX + 0.22, baseY, localZ);
-      vertices.push(centerX - 0.22, baseY + height, localZ);
-      vertices.push(centerX + 0.22, baseY + height, localZ);
+      vertices.push(centerX - 0.25, baseY, localZ);
+      vertices.push(centerX + 0.25, baseY, localZ);
+      vertices.push(centerX - 0.25, baseY + height, localZ);
+      vertices.push(centerX + 0.25, baseY + height, localZ);
       if (iz < GRID_SEGMENTS) {
         const a = iz * 4;
         const b = a + 4;
@@ -716,95 +704,77 @@ export class WorldChunkManager {
 
   addFeatures(group, cx, cz, solidFeatures) {
     const random = seededRandom(hash2(cx, cz) * 0xffffffff);
-    const utilityBlockMatrices = [[], [], []];
-    const framePostMatrices = [];
-    const braceMatrices = [];
+    const crateMatrices = [];
+    const pagodaMatrices = [];
     const transform = new THREE.Object3D();
+
     for (let i = 0; i < 9; i++) {
       const worldX = cx * CHUNK_SIZE + random() * CHUNK_SIZE;
       const worldZ = cz * CHUNK_SIZE + random() * CHUNK_SIZE;
       if (Math.abs(worldX) < 14 || random() < 0.25) continue;
       const groundY = terrainHeight(worldX, worldZ);
 
-      if (i % 4 === 0) {
-        const pillar = new THREE.Mesh(this.pillarGeometry, this.featureMaterials[1]);
-        pillar.position.set(worldX - cx * CHUNK_SIZE, groundY + 2.5, worldZ - cz * CHUNK_SIZE);
-        pillar.rotation.z = (random() - 0.5) * 0.13;
-        pillar.castShadow = true;
-        for (const stripeHeight of [-1.3, 1.3]) {
-          const stripe = new THREE.Mesh(this.hazardStripeGeometry, this.hazardMaterial);
-          stripe.position.set(0, stripeHeight, 1.22);
-          pillar.add(stripe);
-        }
-        group.add(pillar);
-        const rune = new THREE.Mesh(
-          this.runeGeometry,
-          this.edgeMaterial
-        );
-        rune.position.set(pillar.position.x + 0.66, groundY + 2.6, pillar.position.z);
-        group.add(rune);
+      if (i % 3 === 0) {
+        // Breakable Japanese Cedar Weapon Crate / Supply Chest
+        const crate = new THREE.Mesh(this.utilityBlockGeometry, this.featureMaterials[0]);
+        crate.scale.set(2.2, 2.2, 2.2);
+        crate.position.set(worldX - cx * CHUNK_SIZE, groundY + 1.1, worldZ - cz * CHUNK_SIZE);
+        crate.rotation.y = random() * Math.PI;
+        crate.castShadow = true;
+        group.add(crate);
+
+        // Gold clan seal
+        const seal = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), this.featureMaterials[2]);
+        seal.position.set(crate.position.x, groundY + 1.1, crate.position.z + 1.12);
+        group.add(seal);
+
         solidFeatures.push({
           type: 'breakable',
           x: worldX,
           z: worldZ,
-          radius: 2.1,
-          object: pillar,
-          accent: rune
+          radius: 1.8,
+          object: crate,
+          accent: seal
         });
-      } else if (i % 4 === 1) {
-        solidFeatures.push({ x: worldX, z: worldZ, radius: 1.15 });
+      } else if (i % 3 === 1) {
+        // Temple Pagoda Shrine alongside the ridge
+        const scale = 2.4 + random() * 2.8;
+        solidFeatures.push({ x: worldX, z: worldZ, radius: scale * 0.95 });
         const localX = worldX - cx * CHUNK_SIZE;
         const localZ = worldZ - cz * CHUNK_SIZE;
-        const yaw = random() * Math.PI;
-        const lean = (random() - 0.5) * 0.08;
-        const braceWidth = 1.6 + random() * 0.5;
-        transform.position.set(localX, groundY + 2.1, localZ);
-        transform.rotation.set(0, yaw, lean);
-        transform.scale.set(0.64, 4.2, 0.64);
+
+        transform.position.set(localX, groundY + scale * 0.8, localZ);
+        transform.scale.set(scale * 1.3, scale * 1.6, scale * 1.3);
+        transform.rotation.set(0, Math.round(random() * 3) * (Math.PI / 2), 0);
         transform.updateMatrix();
-        framePostMatrices.push(transform.matrix.clone());
-        for (const height of [1.7, 3.5]) {
-          transform.position.set(localX, groundY + height, localZ);
-          transform.rotation.set(0, yaw, 0);
-          transform.scale.set(braceWidth, 1, 1);
-          transform.updateMatrix();
-          braceMatrices.push(transform.matrix.clone());
-        }
+        pagodaMatrices.push(transform.matrix.clone());
       } else {
-        const scale = 1.5 + random() * 4.5;
-        solidFeatures.push({ x: worldX, z: worldZ, radius: scale * 0.9 });
-        transform.position.set(worldX - cx * CHUNK_SIZE, groundY + scale * 0.38, worldZ - cz * CHUNK_SIZE);
-        transform.scale.set(scale, scale * (0.6 + random() * 0.8), scale * (0.7 + random() * 0.6));
-        transform.rotation.set(0, Math.round(random() * 3) * Math.PI / 2, 0);
+        // Stone lanterns / garden boulders
+        const scale = 1.6 + random() * 2.5;
+        solidFeatures.push({ x: worldX, z: worldZ, radius: scale * 0.85 });
+        transform.position.set(worldX - cx * CHUNK_SIZE, groundY + scale * 0.45, worldZ - cz * CHUNK_SIZE);
+        transform.scale.set(scale, scale * 0.9, scale);
+        transform.rotation.set(0, random() * Math.PI, 0);
         transform.updateMatrix();
-        utilityBlockMatrices[i % this.featureMaterials.length].push(transform.matrix.clone());
+        crateMatrices.push(transform.matrix.clone());
       }
     }
 
-    if (framePostMatrices.length) {
-      const framePosts = new THREE.InstancedMesh(this.utilityBlockGeometry, this.steelMaterial, framePostMatrices.length);
-      framePostMatrices.forEach((matrix, index) => framePosts.setMatrixAt(index, matrix));
-      framePosts.instanceMatrix.needsUpdate = true;
-      framePosts.castShadow = true;
-      group.add(framePosts);
-      const braces = new THREE.InstancedMesh(this.braceGeometry, this.steelMaterial, braceMatrices.length);
-      braceMatrices.forEach((matrix, index) => braces.setMatrixAt(index, matrix));
-      braces.instanceMatrix.needsUpdate = true;
-      group.add(braces);
+    if (pagodaMatrices.length) {
+      const pagodas = new THREE.InstancedMesh(this.utilityBlockGeometry, this.featureMaterials[1], pagodaMatrices.length);
+      pagodaMatrices.forEach((mat, idx) => pagodas.setMatrixAt(idx, mat));
+      pagodas.instanceMatrix.needsUpdate = true;
+      pagodas.castShadow = true;
+      pagodas.receiveShadow = true;
+      group.add(pagodas);
     }
-    for (let materialIndex = 0; materialIndex < utilityBlockMatrices.length; materialIndex++) {
-      if (!utilityBlockMatrices[materialIndex].length) continue;
-      const utilityBlocks = new THREE.InstancedMesh(
-        this.utilityBlockGeometry,
-        this.featureMaterials[materialIndex],
-        utilityBlockMatrices[materialIndex].length
-      );
-      utilityBlockMatrices[materialIndex].forEach((matrix, index) => utilityBlocks.setMatrixAt(index, matrix));
-      utilityBlocks.instanceMatrix.needsUpdate = true;
-      utilityBlocks.castShadow = true;
-      utilityBlocks.receiveShadow = true;
-      group.add(utilityBlocks);
+    if (crateMatrices.length) {
+      const stones = new THREE.InstancedMesh(this.utilityBlockGeometry, this.featureMaterials[0], crateMatrices.length);
+      crateMatrices.forEach((mat, idx) => stones.setMatrixAt(idx, mat));
+      stones.instanceMatrix.needsUpdate = true;
+      stones.castShadow = true;
+      stones.receiveShadow = true;
+      group.add(stones);
     }
-
   }
 }

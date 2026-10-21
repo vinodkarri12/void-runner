@@ -61,6 +61,7 @@ const getGroundHeight = worldChunks.getHeight.bind(worldChunks);
 const keys = new Set();
 const touch = {
   run: false,
+  boost: false,
   moveX: 0,
   moveY: 0,
   left: false,
@@ -269,7 +270,7 @@ function handleEnemyKill(enemy) {
     player.energy = Math.min(100, player.energy + 38);
     spawnEnergyOrb(enemy.root.position, true);
     combatFeedback.slowMotion(0.42);
-    combatFeedback.message(`${enemy.isFinalBoss ? 'VOID OVERLORD' : 'VOID COLOSSUS'} DEFEATED // +1200`, 1600);
+    combatFeedback.message(`${enemy.isFinalBoss ? 'SHADOW SHOGUN' : 'SHINOBI WARLORD'} DEFEATED // +1200`, 1600);
   } else {
     spawnEnergyOrb(enemy.root.position);
     combatFeedback.message(healed > 0 ? `ENEMY DEFEATED // +${Math.round(healed)} HP` : 'ENEMY DEFEATED // HP FULL', 1000);
@@ -426,23 +427,29 @@ function spawnWave(level = wave, checkpoint = null) {
     const position = new THREE.Vector3(x, getGroundHeight(x, z), z);
     const type = types[index] || 'scout';
     const masterBoss = type === 'colossus';
-    const healthScale = 0.74 + (wave - 1) * 0.055;
-    const speedScale = 0.9 + (wave - 1) * 0.035;
-    const attackScale = 0.72 + (wave - 1) * 0.075;
-    const baseHealth = { scout: 72, guardian: 145, ranged: 112, elite: 230, colossus: 780 }[type] || 72;
-    const baseSpeed = { scout: 4.2, guardian: 2.35, ranged: 2.8, elite: 3.1, colossus: 1.45 }[type] || 4.2;
+    const healthScale = 0.85 + (wave - 1) * 0.055;
+    const speedScale = 0.95 + (wave - 1) * 0.035;
+    // Scaled shinobi attack damage across level groups:
+    // Levels 1-5 (Hard): 14 - 18 damage
+    // Levels 6-10 (Very Hard): 18 - 28 damage
+    // Levels 11-15 (Extreme): 22 - 36 damage. Boss: 42 damage!
+    const tierScale = wave <= 5 ? 1.0 : wave <= 10 ? 1.3 : 1.6;
+    const baseDamageMap = { scout: 14, guardian: 18, ranged: 14, elite: 22, colossus: 42 };
+    const scaledAttackDamage = Math.round((baseDamageMap[type] || 14) * tierScale);
+    const baseHealth = { scout: 76, guardian: 155, ranged: 115, elite: 240, colossus: 850 }[type] || 76;
+    const baseSpeed = { scout: 4.4, guardian: 2.45, ranged: 2.95, elite: 3.3, colossus: 1.6 }[type] || 4.4;
     const options = {
       arrivalDelay: levelDefinition.finalBoss ? 1.8 : 1.05,
       arrivalDuration: levelDefinition.finalBoss ? 1.5 : 1.05,
       masterLevel: masterBoss ? wave : 0,
       isFinalBoss: levelDefinition.finalBoss && masterBoss,
-      name: levelDefinition.finalBoss && masterBoss ? 'VOID OVERLORD' : undefined,
+      name: levelDefinition.finalBoss && masterBoss ? 'SHADOW SHOGUN' : undefined,
       spec: {
         ...(levelDefinition.finalBoss && masterBoss
-          ? { scale: 2.8, health: 150, speed: 2.05, attackDamage: 15, armor: 0x493b54 }
+          ? { scale: 2.8, health: 350, speed: 2.1, attackDamage: 42, armor: 0x221326 }
           : { health: Math.round(baseHealth * healthScale), speed: baseSpeed * speedScale,
-            attackDamage: Math.round(({ scout: 6, guardian: 7, ranged: 7, elite: 9 }[type] || 6) * attackScale),
-            attackCooldownScale: Math.max(0.5, 1 - (wave - 1) * 0.035) })
+            attackDamage: scaledAttackDamage,
+            attackCooldownScale: Math.max(0.45, 1 - (wave - 1) * 0.038) })
       }
     };
     const enemy = new Enemy(position, type, options);
@@ -543,7 +550,7 @@ function beginNextEncounterWave() {
   });
   combatFeedback.message(
     levelDefinition.master && encounterWaveIndex === encounterQueues.length - 1
-      ? 'MASTER BOSS // BREACH DETECTED'
+      ? 'SHADOW SHOGUN // BREACH DETECTED'
       : `WAVE ${encounterWaveIndex + 1} / ${encounterQueues.length} // HOSTILES INBOUND`,
     1300
   );
@@ -566,7 +573,7 @@ function completeLevel() {
     effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1.4, 0)), levelDefinition.finalBoss ? 0xffd16f : 0xbf72ff, 42, 9);
     effects.floatingText(
       player.root.position.clone().add(new THREE.Vector3(0, 2.4, 0)),
-      levelDefinition.finalBoss ? 'VOID OVERLORD // DEFEATED' : 'MASTER TRIAL // CLEARED',
+      levelDefinition.finalBoss ? 'SHADOW SHOGUN // DEFEATED' : 'SHINOBI TRIAL // CLEARED',
       '#d9b6ff'
     );
     audio.play('overdrive');
@@ -660,7 +667,7 @@ function refreshHomeMenu() {
   const checkpoint = progression.checkpoint;
   const campaignComplete = progression.completedLevels.has(CAMPAIGN_LEVELS) && !checkpoint;
   document.getElementById('frontSaveStatus').textContent = campaignComplete
-    ? 'CAMPAIGN COMPLETE // VOID OVERLORD DEFEATED'
+    ? 'CAMPAIGN COMPLETE // SHADOW SHOGUN DEFEATED'
     : hasProgress
     ? `CHECKPOINT // LEVEL ${String(checkpoint?.level ?? progression.unlockedLevel).padStart(2, '0')} / 15 // ${progression.completedCount} CLEARED`
     : 'LEVEL 01 / 15 // NEW CAMPAIGN';
@@ -774,6 +781,7 @@ function applySettings() {
   document.body.classList.toggle('reduced-flash', reduceFlash);
   document.body.classList.toggle('reduced-effects', reduceFlash);
   document.body.style.setProperty('--motion-intensity', String(settings.motionBlur));
+  document.documentElement.style.setProperty('--mobile-control-scale', String(settings.controlScale || 1));
   document.getElementById('reduceFlashButton').textContent = `REDUCE FLASH / SHAKE: ${reduceFlash ? 'ON' : 'OFF'}`;
   document.getElementById('reduceFlashButton').setAttribute('aria-pressed', String(reduceFlash));
   const quality = settings.graphics;
@@ -996,6 +1004,45 @@ const bindInput = () => {
     return clear;
   };
 
+  const attackBtn = document.getElementById('attackButton');
+  const attackStatusBadge = document.getElementById('attackStatusBadge');
+  const attackComboLabel = document.getElementById('attackComboLabel');
+
+  const triggerKatanaAttack = () => {
+    audio.init();
+    if (isPaused || !player.isAlive) return;
+    const executed = combat.performKatanaCombo(player, enemies, combatFeedback);
+    if (executed) {
+      const step = player.comboStep;
+      if (attackStatusBadge) {
+        attackStatusBadge.textContent = step === 3 ? 'FINISHER!' : `COMBO ${step}`;
+        attackStatusBadge.className = 'attack-status-badge ' + (step === 3 ? 'status-finisher' : 'status-combo');
+      }
+      if (attackComboLabel) {
+        attackComboLabel.textContent = step === 3 ? 'LEAP CLEAVE' : step === 2 ? 'CROSS SLASH' : 'KATANA SLASH';
+      }
+    }
+  };
+
+  if (attackBtn) {
+    attackBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      attackBtn.classList.add('pressed');
+      triggerKatanaAttack();
+    });
+    const endAttack = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      attackBtn.classList.remove('pressed');
+    };
+    attackBtn.addEventListener('pointerup', endAttack);
+    attackBtn.addEventListener('pointercancel', endAttack);
+    attackBtn.addEventListener('lostpointercapture', endAttack);
+  }
+
   window.addEventListener('keydown', (event) => {
     if (event.code === 'Escape') {
       if (isPaused && menuReturnToPause) {
@@ -1024,13 +1071,17 @@ const bindInput = () => {
       }
       return;
     }
-    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) {
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyB', 'KeyJ', 'KeyK'].includes(event.code)) {
       event.preventDefault();
     }
     if (keys.has(event.code)) return;
     keys.add(event.code);
     audio.init();
     if (isPaused) return;
+    if (event.code === 'KeyJ' || event.code === 'Space') {
+      triggerKatanaAttack();
+      return;
+    }
     if (event.code === 'KeyQ') combat.performKineticStrike(player, enemies, combatFeedback);
     if (event.code === 'KeyF') combat.performEnergySlash(player, enemies, combatFeedback);
     if (event.code === 'KeyR') combat.beginVoidCharge(player);
@@ -1056,6 +1107,7 @@ const bindInput = () => {
     keys.clear();
     for (const release of heldControlReleases) release();
     touch.run = false;
+    touch.boost = false;
     touch.moveX = 0;
     touch.moveY = 0;
     touch.left = false;
@@ -1066,7 +1118,9 @@ const bindInput = () => {
     touch.dash = false;
     touch.charge = false;
     const knob = document.getElementById('moveKnob');
-    if (knob) knob.style.transform = '';
+    if (knob) knob.style.transform = 'translate3d(0, 0, 0)';
+    const stick = document.getElementById('moveStick');
+    if (stick) stick.classList.remove('active');
     combat.cancelVoidCharge(player);
     if (!isPaused) pauseGame();
   });
@@ -1075,8 +1129,15 @@ const bindInput = () => {
       keys.clear();
       for (const release of heldControlReleases) release();
       touch.run = false;
+      touch.boost = false;
+      touch.moveX = 0;
+      touch.moveY = 0;
       touch.left = false;
       touch.right = false;
+      const knob = document.getElementById('moveKnob');
+      if (knob) knob.style.transform = 'translate3d(0, 0, 0)';
+      const stick = document.getElementById('moveStick');
+      if (stick) stick.classList.remove('active');
       if (!isPaused) pauseGame();
     }
   });
@@ -1103,42 +1164,91 @@ const bindInput = () => {
     applySettings();
   });
 
+  // 1. Professional Virtual Joystick on Mobile
   const stick = document.getElementById('moveStick');
   const knob = document.getElementById('moveKnob');
   let stickPointer = null;
-  const moveStick = (event) => {
+
+  const processJoystick = (clientX, clientY) => {
     if (!stick || !knob) return;
     const rect = stick.getBoundingClientRect();
-    const dx = event.clientX - (rect.left + rect.width / 2);
-    const dy = event.clientY - (rect.top + rect.height / 2);
-    const max = rect.width * 0.34;
-    const length = Math.hypot(dx, dy) || 1;
-    const scale = Math.min(1, max / length);
-    knob.style.transform = `translate(${dx * scale}px, ${dy * scale}px)`;
-    touch.moveX = dx * scale / max;
-    touch.moveY = -dy * scale / max;
-  };
-  if (stick && knob) {
-    stick.addEventListener('pointerdown', (event) => {
-      stickPointer = event.pointerId;
-      stick.setPointerCapture(event.pointerId);
-      moveStick(event);
-    });
-    stick.addEventListener('pointermove', (event) => {
-      if (event.pointerId === stickPointer) moveStick(event);
-    });
-    const endStick = (event) => {
-      if (event.pointerId !== stickPointer) return;
-      stickPointer = null;
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = clientX - centerX;
+    const dy = clientY - centerY;
+    const maxRadius = (rect.width / 2) * 0.72;
+    const distance = Math.hypot(dx, dy);
+
+    // Visual knob translation (strictly clamped inside circular base)
+    const clampedDist = Math.min(distance, maxRadius);
+    if (distance > 0.001) {
+      const visualRatio = clampedDist / distance;
+      knob.style.transform = `translate3d(${dx * visualRatio}px, ${dy * visualRatio}px, 0)`;
+    } else {
+      knob.style.transform = 'translate3d(0, 0, 0)';
+    }
+
+    // Configurable Deadzone and Sensitivity
+    const normalizedDist = Math.min(1, distance / maxRadius);
+    const deadzone = settingsManager.values.joystickDeadzone ?? 0.15;
+    const sensitivity = settingsManager.values.joystickSensitivity ?? 1.0;
+
+    if (normalizedDist < deadzone) {
       touch.moveX = 0;
       touch.moveY = 0;
-      knob.style.transform = '';
-    };
-    stick.addEventListener('pointerup', endStick);
-    stick.addEventListener('pointercancel', endStick);
-    stick.addEventListener('lostpointercapture', endStick);
+    } else {
+      const remappedStrength = (normalizedDist - deadzone) / (1 - deadzone);
+      const angle = Math.atan2(dy, dx);
+      // Horizontal steering (-1 to +1)
+      touch.moveX = THREE.MathUtils.clamp(Math.cos(angle) * remappedStrength * sensitivity, -1, 1);
+      // Vertical throttle / lean (+1 forward, -1 backward)
+      touch.moveY = THREE.MathUtils.clamp(-Math.sin(angle) * remappedStrength * sensitivity, -1, 1);
+    }
+  };
+
+  const handleStickDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    stickPointer = event.pointerId;
+    if (stick && stick.setPointerCapture) {
+      try { stick.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+    stick?.classList.add('active');
+    processJoystick(event.clientX, event.clientY);
+  };
+
+  const handleStickMove = (event) => {
+    if (event.pointerId !== stickPointer) return;
+    event.preventDefault();
+    processJoystick(event.clientX, event.clientY);
+  };
+
+  const handleStickEnd = (event) => {
+    if (event && event.pointerId !== stickPointer) return;
+    stickPointer = null;
+    touch.moveX = 0;
+    touch.moveY = 0;
+    if (knob) knob.style.transform = 'translate3d(0, 0, 0)';
+    stick?.classList.remove('active');
+    if (stick && event && stick.releasePointerCapture) {
+      try { stick.releasePointerCapture(event.pointerId); } catch (_) {}
+    }
+  };
+
+  if (stick) {
+    stick.addEventListener('pointerdown', handleStickDown);
+    stick.addEventListener('pointermove', handleStickMove);
+    stick.addEventListener('pointerup', handleStickEnd);
+    stick.addEventListener('pointercancel', handleStickEnd);
+    stick.addEventListener('lostpointercapture', handleStickEnd);
   }
 
+  heldControlReleases.add(() => {
+    handleStickEnd(null);
+  });
+
+  // Optional button steering fallback if buttons exist
   const leftSteerBtn = document.getElementById('steeringLeft') || document.querySelector('[data-steer="left"]');
   const rightSteerBtn = document.getElementById('steeringRight') || document.querySelector('[data-steer="right"]');
   const activeSteerPointers = new Map();
@@ -1162,75 +1272,31 @@ const bindInput = () => {
     }
   };
 
-  const determineSteerDirection = (clientX, clientY) => {
-    if (leftSteerBtn) {
-      const rectL = leftSteerBtn.getBoundingClientRect();
-      if (clientX >= rectL.left - 25 && clientX <= rectL.right + 25 &&
-          clientY >= rectL.top - 25 && clientY <= rectL.bottom + 25) {
-        return 'left';
-      }
-    }
-    if (rightSteerBtn) {
-      const rectR = rightSteerBtn.getBoundingClientRect();
-      if (clientX >= rectR.left - 25 && clientX <= rectR.right + 25 &&
-          clientY >= rectR.top - 25 && clientY <= rectR.bottom + 25) {
-        return 'right';
-      }
-    }
-    const el = document.elementFromPoint(clientX, clientY);
-    const steerEl = el?.closest('[data-steer]');
-    if (steerEl) return steerEl.dataset.steer;
-    return null;
-  };
-
-  const handleSteerDown = (event, initialDir) => {
-    if (event.button !== undefined && event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const btn = event.currentTarget;
-    if (btn && btn.setPointerCapture) {
-      try { btn.setPointerCapture(event.pointerId); } catch (_) {}
-    }
-    activeSteerPointers.set(event.pointerId, initialDir);
-    syncSteerState();
-  };
-
-  const handleSteerMove = (event) => {
-    if (!activeSteerPointers.has(event.pointerId)) return;
-    const newDir = determineSteerDirection(event.clientX, event.clientY);
-    if (newDir && newDir !== activeSteerPointers.get(event.pointerId)) {
-      activeSteerPointers.set(event.pointerId, newDir);
-      syncSteerState();
-    }
-  };
-
-  const handleSteerEnd = (event) => {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-      activeSteerPointers.delete(event.pointerId);
-      const btn = event.currentTarget;
-      if (btn && btn.releasePointerCapture) {
-        try { btn.releasePointerCapture(event.pointerId); } catch (_) {}
-      }
-    }
-    syncSteerState();
-  };
-
   if (leftSteerBtn) {
-    leftSteerBtn.addEventListener('pointerdown', (e) => handleSteerDown(e, 'left'));
-    leftSteerBtn.addEventListener('pointermove', handleSteerMove);
-    leftSteerBtn.addEventListener('pointerup', handleSteerEnd);
-    leftSteerBtn.addEventListener('pointercancel', handleSteerEnd);
-    leftSteerBtn.addEventListener('lostpointercapture', handleSteerEnd);
+    leftSteerBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      activeSteerPointers.set(e.pointerId, 'left');
+      syncSteerState();
+    });
+    const endLeft = (e) => {
+      activeSteerPointers.delete(e.pointerId);
+      syncSteerState();
+    };
+    leftSteerBtn.addEventListener('pointerup', endLeft);
+    leftSteerBtn.addEventListener('pointercancel', endLeft);
   }
-
   if (rightSteerBtn) {
-    rightSteerBtn.addEventListener('pointerdown', (e) => handleSteerDown(e, 'right'));
-    rightSteerBtn.addEventListener('pointermove', handleSteerMove);
-    rightSteerBtn.addEventListener('pointerup', handleSteerEnd);
-    rightSteerBtn.addEventListener('pointercancel', handleSteerEnd);
-    rightSteerBtn.addEventListener('lostpointercapture', handleSteerEnd);
+    rightSteerBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      activeSteerPointers.set(e.pointerId, 'right');
+      syncSteerState();
+    });
+    const endRight = (e) => {
+      activeSteerPointers.delete(e.pointerId);
+      syncSteerState();
+    };
+    rightSteerBtn.addEventListener('pointerup', endRight);
+    rightSteerBtn.addEventListener('pointercancel', endRight);
   }
 
   heldControlReleases.add(() => {
@@ -1238,7 +1304,7 @@ const bindInput = () => {
     syncSteerState();
   });
 
-  // Dedicated RUN Button (Hold-to-run control)
+  // 2. Dedicated RUN Button (Hold-to-run control)
   const runBtn = document.getElementById('runButton');
   const runStatusBadge = document.getElementById('runStatusBadge');
   const runSubLabel = document.getElementById('runSubLabel');
@@ -1260,7 +1326,7 @@ const bindInput = () => {
     }
     const hudState = document.getElementById('hudMovementState');
     if (hudState) {
-      const stateLabel = active ? (player.isSprinting ? 'SPRINT' : 'RUNNING') : 'STOPPED';
+      const stateLabel = active ? (player.isBoosting ? 'BOOST' : player.isSprinting ? 'SPRINT' : 'RUNNING') : 'STOPPED';
       hudState.textContent = stateLabel;
       hudState.className = 'movement-state-badge ' + (active ? 'state-running' : 'state-stopped');
     }
@@ -1307,11 +1373,68 @@ const bindInput = () => {
     runBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); e.stopPropagation(); activeRunPointers.clear(); syncRunState(false); }, { passive: false });
   }
 
-  const clearRunControl = () => {
+  heldControlReleases.add(() => {
     activeRunPointers.clear();
     syncRunState(false);
+  });
+
+  // 3. Dedicated RUN BOOST Button
+  const boostBtn = document.getElementById('boostButton');
+  const activeBoostPointers = new Set();
+
+  const syncBoostState = (active) => {
+    touch.boost = Boolean(active);
+    if (boostBtn) {
+      boostBtn.classList.toggle('pressed', active);
+      boostBtn.setAttribute('aria-pressed', String(active));
+    }
+    if (active) {
+      audio.init();
+      if (touch.run && player.boostEnergy > 0 && player.boostCooldownTimer <= 0) {
+        audio.play('boost-start');
+        combatFeedback.message('RUN BOOST ACTIVE', 450);
+      }
+    }
   };
-  heldControlReleases.add(clearRunControl);
+
+  const handleBoostDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    activeBoostPointers.add(event.pointerId);
+    if (boostBtn && boostBtn.setPointerCapture) {
+      try { boostBtn.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+    syncBoostState(true);
+  };
+
+  const handleBoostEnd = (event) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      activeBoostPointers.delete(event.pointerId);
+      if (boostBtn && boostBtn.releasePointerCapture) {
+        try { boostBtn.releasePointerCapture(event.pointerId); } catch (_) {}
+      }
+    }
+    if (activeBoostPointers.size === 0) {
+      syncBoostState(false);
+    }
+  };
+
+  if (boostBtn) {
+    boostBtn.addEventListener('pointerdown', handleBoostDown);
+    boostBtn.addEventListener('pointerup', handleBoostEnd);
+    boostBtn.addEventListener('pointercancel', handleBoostEnd);
+    boostBtn.addEventListener('lostpointercapture', handleBoostEnd);
+    boostBtn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); activeBoostPointers.clear(); syncBoostState(false); }, { passive: false });
+    boostBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); e.stopPropagation(); activeBoostPointers.clear(); syncBoostState(false); }, { passive: false });
+  }
+
+  heldControlReleases.add(() => {
+    activeBoostPointers.clear();
+    syncBoostState(false);
+  });
 
   document.querySelectorAll('[data-action]').forEach((button) => {
     const action = button.dataset.action;
@@ -1359,10 +1482,22 @@ function pauseGame() {
   screenState = 'pause';
   inMainMenu = false;
   touch.run = false;
+  touch.boost = false;
+  touch.moveX = 0;
+  touch.moveY = 0;
+  const knob = document.getElementById('moveKnob');
+  if (knob) knob.style.transform = 'translate3d(0, 0, 0)';
+  const stick = document.getElementById('moveStick');
+  if (stick) stick.classList.remove('active');
   const runBtn = document.getElementById('runButton');
   if (runBtn) {
     runBtn.classList.remove('pressed', 'is-running');
     runBtn.setAttribute('aria-pressed', 'false');
+  }
+  const boostBtn = document.getElementById('boostButton');
+  if (boostBtn) {
+    boostBtn.classList.remove('pressed');
+    boostBtn.setAttribute('aria-pressed', 'false');
   }
   const runStatusBadge = document.getElementById('runStatusBadge');
   if (runStatusBadge) {
@@ -1714,7 +1849,7 @@ function updateEnergyOrbs(dt, time) {
   }
 }
 
-function readInput() {
+function readInput(dt = 1 / 60) {
   const isMobile = isMobileViewport();
   
   // Single, reliable RUN state:
@@ -1722,19 +1857,60 @@ function readInput() {
   const mobileRun = Boolean(touch.run);
   const desktopRun = Boolean(
     touch.run ||
-    keys.has('ShiftLeft') || keys.has('ShiftRight') ||
     keys.has('KeyW') || keys.has('ArrowUp')
   );
   const runActive = isMobile ? mobileRun : desktopRun;
 
   player.isRunning = runActive && player.isAlive && !isPaused && screenState === 'gameplay';
 
+  // Dedicated RUN BOOST:
+  // Holding BOOST while RUN is active temporarily increases speed.
+  // Gating: BOOST must NOT activate ordinary RUN. If RUN is not active, BOOST does not move player.
+  const boostRequested = Boolean(
+    touch.boost ||
+    keys.has('ShiftLeft') || keys.has('ShiftRight') ||
+    keys.has('KeyB')
+  );
+
+  const canBoost = runActive && boostRequested && player.boostEnergy > 0 && player.boostCooldownTimer <= 0;
+
+  if (canBoost) {
+    if (!player.isBoosting) {
+      audio.init();
+      audio.play('boost-start');
+    }
+    player.isBoosting = true;
+    player.boostRecoveryDelay = 0.5;
+    player.boostEnergy = Math.max(0, player.boostEnergy - dt * 25); // ~4 seconds duration
+    if (player.boostEnergy <= 0) {
+      player.boostEnergy = 0;
+      player.isBoosting = false;
+      player.boostCooldownTimer = 1.25; // 1.25s penalty cooldown
+      audio.play('boost-exhaust');
+      combatFeedback.message('BOOST EXHAUSTED // COOLING', 700);
+    }
+  } else {
+    player.isBoosting = false;
+    if (player.boostCooldownTimer > 0) {
+      player.boostCooldownTimer = Math.max(0, player.boostCooldownTimer - dt);
+    } else if (!boostRequested || !runActive) {
+      if (player.boostRecoveryDelay > 0) {
+        player.boostRecoveryDelay = Math.max(0, player.boostRecoveryDelay - dt);
+      } else if (player.boostEnergy < player.boostMax) {
+        player.boostEnergy = Math.min(player.boostMax, player.boostEnergy + dt * 28);
+      }
+    }
+  }
+
   if (isMobile) {
     if (runActive && player.isAlive && !isPaused && screenState === 'gameplay') {
-      // Steer left (-1) or right (+1) while running down the corridor
-      const steerX = (touch.right ? 1 : 0) - (touch.left ? 1 : 0) + touch.moveX;
+      // Steer left (-1) or right (+1) using Virtual Joystick with button steer fallback
+      const buttonSteer = (touch.right ? 1 : 0) - (touch.left ? 1 : 0);
+      const steerX = Math.abs(touch.moveX) > 0.01 ? touch.moveX : buttonSteer;
       movementSystem.input.moveX = THREE.MathUtils.clamp(steerX, -1, 1);
-      movementSystem.input.moveY = 1; // forward along track (+Z)
+      // Secondary forward throttle modulation from joystick Y (0.7 to 1.15)
+      const forwardThrottle = touch.moveY > 0 ? (1.0 + touch.moveY * 0.15) : (1.0 + touch.moveY * 0.3);
+      movementSystem.input.moveY = Math.max(0.65, forwardThrottle); // forward along track (+Z)
     } else {
       // Stationary: character must NOT move forward or steer without RUN
       movementSystem.input.moveX = 0;
@@ -1750,10 +1926,7 @@ function readInput() {
     let moveX = sideInput;
     let moveY = forwardInput;
 
-    // Holding Shift or touching RUN on desktop without WASD runs forward
-    if ((keys.has('ShiftLeft') || keys.has('ShiftRight') || touch.run) && forwardInput === 0 && sideInput === 0) {
-      moveY = 1;
-    } else if (touch.run && forwardInput === 0) {
+    if (touch.run && forwardInput === 0) {
       moveY = 1;
     }
 
@@ -1766,16 +1939,15 @@ function readInput() {
     movementSystem.input.moveY = rightZ * moveX + forwardZ * moveY;
   }
 
-  movementSystem.input.sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || touch.sprint;
-  movementSystem.input.jump = keys.has('Space') || touch.jump;
+  movementSystem.input.sprint = player.isBoosting;
+  movementSystem.input.jump = keys.has('KeyK') || touch.jump;
   movementSystem.input.slide = keys.has('ControlLeft') || keys.has('ControlRight') || touch.slide;
   movementSystem.input.dash = keys.has('KeyE') || touch.dash;
 }
 
 function updateEnemies(dt) {
-  combat.resolveDashAttack(player, enemies, combatFeedback);
   for (const enemy of enemies) {
-    enemy.update(dt, player, camera, getGroundHeight, worldChunks);
+    enemy.update(dt, player, camera, getGroundHeight, worldChunks, enemies);
     if (enemy.arrivalTimer > 0) continue;
     if (enemy.breakImpact) {
       effects.burst(new THREE.Vector3(
@@ -1785,33 +1957,35 @@ function updateEnemies(dt) {
       ), 0xffad63, 16, 5);
       enemy.breakImpact = null;
     }
-    if (enemy.hitCooldown <= 0) {
-      const dx = enemy.root.position.x - player.root.position.x;
-      const dz = enemy.root.position.z - player.root.position.z;
-      const horizontal = Math.hypot(dx, dz);
-      const vertical = Math.abs(enemy.root.position.y - player.root.position.y);
-      const segmentX = player.root.position.x - player.previousPosition.x;
-      const segmentZ = player.root.position.z - player.previousPosition.z;
-      const segmentLengthSq = segmentX * segmentX + segmentZ * segmentZ;
-      const along = segmentLengthSq > 0
-        ? THREE.MathUtils.clamp(((enemy.root.position.x - player.previousPosition.x) * segmentX +
-          (enemy.root.position.z - player.previousPosition.z) * segmentZ) / segmentLengthSq, 0, 1)
-        : 0;
-      const closestX = player.previousPosition.x + segmentX * along;
-      const closestZ = player.previousPosition.z + segmentZ * along;
-      const sweptDistance = Math.hypot(enemy.root.position.x - closestX, enemy.root.position.z - closestZ);
-      const radius = 1.25 + enemy.spec.scale * 0.75;
-      if (sweptDistance < radius && vertical < 3.5 * enemy.spec.scale && player.horizontalSpeed > 1.8) {
-        const defeated = combat.resolvePlayerEnemyHit(player, enemy, combatFeedback);
-        enemy.hitCooldown = 0.72;
-        enemy.drawHealth();
-        if (defeated) {
-          if (enemy.type === 'colossus') {
-            slowMotion = 0.4;
-          }
+
+    // Solid character collision detection:
+    // Characters cannot walk through each other incorrectly.
+    // Touching an enemy does NOT trigger an attack or deal damage.
+    if (enemy.alive) {
+      const dx = player.root.position.x - enemy.root.position.x;
+      const dz = player.root.position.z - enemy.root.position.z;
+      const horizontalDist = Math.hypot(dx, dz);
+      const verticalDist = Math.abs(player.root.position.y - enemy.root.position.y);
+      const enemyScale = enemy.spec?.scale || 1;
+      const combinedRadius = 0.95 + 0.85 * enemyScale;
+
+      if (horizontalDist < combinedRadius && verticalDist < 3.2 * enemyScale) {
+        const overlap = combinedRadius - horizontalDist;
+        const nx = horizontalDist > 0.001 ? dx / horizontalDist : Math.sin(player.root.rotation.y + Math.PI);
+        const nz = horizontalDist > 0.001 ? dz / horizontalDist : Math.cos(player.root.rotation.y + Math.PI);
+
+        if (enemy.type === 'colossus') {
+          player.root.position.x += nx * overlap;
+          player.root.position.z += nz * overlap;
+        } else {
+          player.root.position.x += nx * overlap * 0.65;
+          player.root.position.z += nz * overlap * 0.65;
+          enemy.root.position.x -= nx * overlap * 0.35;
+          enemy.root.position.z -= nz * overlap * 0.35;
         }
       }
     }
+
     combat.resolveEnemyHit(player, enemy, dt, combatFeedback);
   }
 
@@ -1856,7 +2030,7 @@ function updateCamera(dt) {
 
 function updateGame(dt, time) {
   levelElapsed += dt;
-  readInput();
+  readInput(dt);
   updateSpawnPortals(dt);
   updateWaveSpawner(dt);
   cloneCooldown = Math.max(0, cloneCooldown - dt);
@@ -1877,7 +2051,8 @@ function updateGame(dt, time) {
   combat.updateAbilityCooldowns(dt, player, keys.has('KeyR') || touch.charge);
   document.body.classList.toggle('overdrive-active', player.overdriveTimer > 0);
   movementSystem.update(player, dt, worldChunks);
-  document.body.classList.toggle('sprint-active', player.isSprinting);
+  document.body.classList.toggle('sprint-active', player.isSprinting || player.isBoosting);
+  document.body.classList.toggle('boost-active', player.isBoosting);
   if (player.padBoostPending) {
     player.padBoostPending = false;
     effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 0.08, 0)), 0x4adfff, 12, 4.5);
@@ -1909,16 +2084,20 @@ function updateGame(dt, time) {
   player.root.updateMatrixWorld(true);
   const runRatio = THREE.MathUtils.clamp(player.horizontalSpeed / 30, 0, 1.3);
   const highSpeed = player.horizontalSpeed >= 27;
-  const sprinting = player.isSprinting || player.overdriveTimer > 0;
+  const sprinting = player.isSprinting || player.isBoosting || player.overdriveTimer > 0;
   const trailInterval = highSpeed ? 48 : sprinting ? 68 : 115;
   if (player.horizontalSpeed > 3.2 && time - lastTrailTime > trailInterval) {
     lastTrailTime = time;
-    const trailColor = highSpeed ? time % 160 < 80 ? 0xd7b3ff : 0x7af4ff : sprinting ? 0xb86dff : 0x64dfff;
+    const trailColor = player.isBoosting ? 0xffb338 : (highSpeed ? (time % 160 < 80 ? 0xd7b3ff : 0x7af4ff) : (sprinting ? 0xb86dff : 0x64dfff));
     const behind = player.root.position.clone().add(new THREE.Vector3(0, 0.88, 0));
     effects.speedStreak(behind, player.facing, trailColor, runRatio);
-    if (highSpeed && time - lastAfterimageTime > 95) {
+    if ((highSpeed || player.isBoosting) && time - lastAfterimageTime > 95) {
       lastAfterimageTime = time;
       effects.afterimage(player.root, trailColor);
+    }
+    if (player.isBoosting && Math.random() < 0.45) {
+      const sparkPos = player.root.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.4 + Math.random() * 0.8, (Math.random() - 0.5) * 0.4));
+      effects.burst(sparkPos, 0xffc44d, 3, 2.2);
     }
     if (player.grounded && sprinting && time - lastFootprintTime > 145) {
       lastFootprintTime = time;
@@ -1951,11 +2130,20 @@ function updateGame(dt, time) {
     effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 0.15, 0)), 0x8edfff, 8 + Math.round(strength * 6), 2 + strength * 2);
     player.landingEffectPending = false;
   }
-  effects.update(dt);
+  effects.update(dt, player.root.position);
   player.energy = Math.min(100, player.energy + dt * (player.horizontalSpeed < 1 ? 12 : 4));
   player.invulnerable = Math.max(0, player.invulnerable - dt);
   damageFlashTimer = Math.max(0, damageFlashTimer - dt);
   if (damageFlashTimer === 0) hud.healthBar.classList.remove('damaged');
+  if (player.comboResetTimer <= 0) {
+    const attackBadge = document.getElementById('attackStatusBadge');
+    if (attackBadge && attackBadge.textContent !== 'READY') {
+      attackBadge.textContent = 'READY';
+      attackBadge.className = 'attack-status-badge status-ready';
+      const comboLabel = document.getElementById('attackComboLabel');
+      if (comboLabel) comboLabel.textContent = 'KATANA';
+    }
+  }
   if (player.comboTimer <= 0) {
     player.scoreMultiplier = player.scoreMultiplierBonus ?? 1;
   } else {

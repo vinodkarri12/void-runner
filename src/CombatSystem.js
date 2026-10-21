@@ -11,13 +11,16 @@ const DAMAGE_CONFIG = Object.freeze({
   speedScale: 0.62,
   speedCap: 1.6,
   attackMultipliers: Object.freeze({
-    'kinetic-collision': 1,
+    'kinetic-collision': 0,
     'kinetic-strike': 1.05,
     'void-slash': 1.15,
     'void-charge': 1.25,
     'void-chain': 0.9,
     'ninja-execution': 1,
-    'phantom-dash': 1.1
+    'phantom-dash': 1.1,
+    'katana-combo-1': 1.1,
+    'katana-combo-2': 1.35,
+    'katana-finisher': 1.85
   }),
   sideMultiplier: 1.25,
   rearMultiplier: 1.5,
@@ -215,6 +218,83 @@ export class CombatSystem {
     if (hits) {
       this.effects.burst(origin.clone().addScaledVector(player.facing, 1.8), 0xd1a0ff, 18, 5.5);
       this.effects.shockwave(origin, 0x9d64ff, 1.05);
+    }
+    return true;
+  }
+
+  performKatanaCombo(player, enemies, feedback = {}) {
+    if (!player.isAlive) return false;
+    const combo = player.performKatanaAttack?.();
+    if (!combo) return false;
+
+    const step = combo.step;
+    const attackId = combo.attackId;
+    const weapon = player.weaponConfig || { damage: 1, range: 1, cooldown: 1 };
+    const weaponColor = weapon.color ?? (step === 3 ? 0xff1744 : step === 2 ? 0xff7043 : 0xff3b52);
+
+    // Audio SFX for sword swings
+    if (step === 3) {
+      this.audio?.play('sword-finisher');
+    } else if (step === 2) {
+      this.audio?.play('sword-swing-2');
+    } else {
+      this.audio?.play('sword-swing');
+    }
+
+    // Glowing sword slash trail effect
+    this.effects?.katanaSlashTrail(player.root.position, player.facing, step, weaponColor);
+
+    // Damage, range, and forward arc settings per combo stage
+    let baseDamage = 38;
+    let range = 4.2 * (weapon.range || 1);
+    let minDot = 0.22;
+    let attackType = 'katana-combo-1';
+
+    if (step === 2) {
+      baseDamage = 54;
+      range = 4.6 * (weapon.range || 1);
+      minDot = 0.16;
+      attackType = 'katana-combo-2';
+    } else if (step === 3) {
+      baseDamage = 96;
+      range = 5.8 * (weapon.range || 1);
+      minDot = -0.15; // Devastating wide ~200 degree cleave
+      attackType = 'katana-finisher';
+    }
+
+    const damage = baseDamage + Math.min(22, player.horizontalSpeed * 0.75);
+    let hits = 0;
+
+    for (const enemy of enemies) {
+      if (!enemy.alive) continue;
+      // Prevent one sword swing from damaging the same enemy multiple times:
+      if (enemy.lastHitAttackId === attackId) continue;
+      if (!this.isInForwardArc(player, enemy, range, minDot, 4.2)) continue;
+
+      // Mark enemy as hit by this specific swing:
+      enemy.lastHitAttackId = attackId;
+
+      if (this.applyDamageToEnemy(player, enemy, damage, attackType, feedback)) {
+        hits++;
+        const hitPoint = enemy.root.position.clone().add(new THREE.Vector3(0, 1.15 * (enemy.spec?.scale || 1), 0));
+        // Sparks and impact effects on connection
+        this.effects?.sparks(hitPoint, 0xffd54f, step === 3 ? 18 : 10, step === 3 ? 6.8 : 4.8);
+        this.effects?.burst(hitPoint, weaponColor, step === 3 ? 20 : 12, 4.5);
+        this.audio?.play('katana-hit');
+
+        if (step === 3) {
+          if (feedback.cameraShake) feedback.cameraShake.value = Math.max(feedback.cameraShake.value, 0.48);
+          feedback.flash?.(0.65, false);
+          feedback.slowMotion?.(0.18);
+        } else {
+          if (feedback.cameraShake) feedback.cameraShake.value = Math.max(feedback.cameraShake.value, 0.22);
+          feedback.flash?.(0.28, false);
+        }
+      }
+    }
+
+    if (hits > 0 && step === 3) {
+      feedback.message?.('KATANA FINISHER // CLEAVE', 850);
     }
     return true;
   }
@@ -455,27 +535,17 @@ export class CombatSystem {
       this.effects.burst(enemy.root.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 0xe875ff, enemy.type === 'colossus' ? 54 : 32, enemy.type === 'colossus' ? 10 : 8);
       this.effects.burst(enemy.root.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 0xff536d, 15, 5);
       this.effects.shockwave(enemy.root.position.clone(), 0xcc78ff, enemy.type === 'colossus' ? 3.4 : 1.8);
+      this.effects?.defeatSmoke(enemy.root.position, enemy.spec.scale);
       this.audio?.play('defeat');
+      this.audio?.play('enemy-smoke');
       this.onEnemyDefeated?.(player, enemy, feedback);
     }
     return true;
   }
 
   resolvePlayerEnemyHit(player, enemy, feedback = {}) {
-    if (!enemy.alive || enemy.hitCooldown > 0) return false;
-    const speed = player.horizontalSpeed;
-    if (speed < 2) return false;
-    const damage = 5 + speed * 2.8 + speed * speed * 0.035;
-    const callbacks = feedback.cameraShake ? feedback : { cameraShake: feedback };
-    const hit = this.applyDamageToEnemy(player, enemy, damage, 'kinetic-collision', callbacks);
-    if (hit && speed > 12) {
-      this.effects.shockwave(enemy.root.position.clone(), speed > 16 ? 0xffffff : 0x98d7ff, 1.2 + speed / 18);
-    }
-    if (hit && speed >= 18) {
-      callbacks.flash?.(0.78, true);
-      callbacks.slowMotion?.(0.18);
-    }
-    return enemy.health <= 0;
+    // Touch-to-attack completely disabled. Touching an enemy must NOT trigger an attack or deal damage.
+    return false;
   }
 
   resolveEnemyHit(player, enemy, dt, feedback = {}) {
@@ -494,23 +564,24 @@ export class CombatSystem {
     const normalHit = enemy.type !== 'colossus' &&
       dist < enemy.attackRange && enemy.attackPhase > 0.25 && !enemy.attackHitDone;
     if ((normalHit || bossHit) && player.invulnerable <= 0) {
-      const damage = enemy.attackDamage ?? (enemy.type === 'colossus' ? 11 : 6);
+      const damage = enemy.attackDamage ?? (enemy.type === 'colossus' ? 38 : 16);
       const applied = feedback.takeDamage
         ? feedback.takeDamage(damage)
         : player.takeDamage(damage);
-      player.invulnerable = 0.85;
+      player.invulnerable = player.damageInvulnerabilityWindow || 0.28;
       enemy.attackHitDone = true;
       if (this.charging) this.cancelVoidCharge(player);
-      this.effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xff4d6e, 12, 5);
+      this.effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 0xd61c2e, 16, 5.5);
+      this.effects.damageNumber(player.root.position, Math.round(damage), '#ff3b4d');
       if (enemy.type === 'colossus') {
-        const impactColor = enemy.attackPattern === 1 ? 0xb765ff : 0xff4968;
-        this.effects.shockwave(player.root.position.clone(), impactColor, enemy.attackPattern === 1 ? 2.4 : 1.3);
-        this.effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 0.3, 0)), impactColor, 16, 6);
+        const impactColor = enemy.attackPattern === 1 ? 0xb765ff : 0xff244a;
+        this.effects.shockwave(player.root.position.clone(), impactColor, enemy.attackPattern === 1 ? 2.6 : 1.5);
+        this.effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 0.3, 0)), impactColor, 20, 7);
       }
       this.audio?.play('player-hit');
       feedback.damageFlash?.();
-      feedback.flash?.(0.3, false);
-      if (feedback.cameraShake) feedback.cameraShake.value = Math.min(1.2, feedback.cameraShake.value + 0.22);
+      feedback.flash?.(0.38, false);
+      if (feedback.cameraShake) feedback.cameraShake.value = Math.min(1.4, feedback.cameraShake.value + 0.32);
     }
   }
 }

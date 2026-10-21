@@ -48,6 +48,37 @@ export class Effects {
       this.scene.add(footprint);
       this.footprints.push(footprint);
     }
+
+    // Drifting Autumn Leaves & Sakura Petals
+    this.leafCount = this.isMobile ? 28 : 52;
+    this.leaves = [];
+    const leafColors = [0xd62432, 0xe67322, 0xc71f38, 0xef8947, 0xe882a7];
+    const leafGeo = new THREE.PlaneGeometry(0.18, 0.24);
+    for (let i = 0; i < this.leafCount; i++) {
+      const col = leafColors[i % leafColors.length];
+      const mat = new THREE.MeshBasicMaterial({
+        color: col,
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const leaf = new THREE.Mesh(leafGeo, mat);
+      leaf.position.set(
+        (Math.random() - 0.5) * 40,
+        2 + Math.random() * 8,
+        (Math.random() - 0.5) * 50
+      );
+      leaf.userData = {
+        phase: Math.random() * Math.PI * 2,
+        fallSpeed: 0.7 + Math.random() * 0.9,
+        driftSpeed: 1.1 + Math.random() * 1.4,
+        rotSpeedX: (Math.random() - 0.5) * 3,
+        rotSpeedY: (Math.random() - 0.5) * 2.5
+      };
+      this.scene.add(leaf);
+      this.leaves.push(leaf);
+    }
   }
 
   createEffectMaterial(color, opacity = 0.9, side = THREE.FrontSide) {
@@ -212,16 +243,84 @@ export class Effects {
     this.trails.push({ mesh: ring, life: 0.62, maxLife: 0.62, ring: true });
   }
 
-  slashArc(position, facing, color = 0xb76dff, scale = 1) {
+  slashArc(position, facing, color = 0xb76dff, scale = 1, tiltAngle = 0.12, rotZ = 0) {
     const mat = this.createEffectMaterial(color, 0.95, THREE.DoubleSide).clone();
     const arc = new THREE.Mesh(this.slashGeometry, mat);
     arc.position.copy(position);
-    arc.position.addScaledVector(facing, 0.85);
+    arc.position.addScaledVector(facing, 0.95);
+    arc.position.y += 0.15;
     arc.rotation.y = Math.atan2(facing.x, facing.z) - Math.PI * 0.59;
-    arc.rotation.x = 0.12;
+    arc.rotation.x = tiltAngle;
+    arc.rotation.z = rotZ;
     arc.scale.setScalar(scale);
     this.scene.add(arc);
-    this.trails.push({ mesh: arc, life: 0.3, maxLife: 0.3, slash: true });
+    this.trails.push({ mesh: arc, life: 0.28, maxLife: 0.28, slash: true });
+  }
+
+  katanaSlashTrail(position, facing, comboIndex = 1, color = 0xff3855, scale = 1.35) {
+    const trailPos = position.clone().add(new THREE.Vector3(0, 1.15, 0));
+    if (comboIndex === 1) {
+      // Horizontal clean Katana sweep
+      this.slashArc(trailPos, facing, color, scale * 1.25, 0.08, -0.15);
+      this.burst(trailPos.clone().addScaledVector(facing, 1.2), color, this.isMobile ? 4 : 7, 3.2);
+    } else if (comboIndex === 2) {
+      // Rising diagonal cross-slash
+      this.slashArc(trailPos, facing, 0xff7043, scale * 1.4, -0.38, 0.65);
+      this.burst(trailPos.clone().addScaledVector(facing, 1.3), 0xff8a50, this.isMobile ? 5 : 9, 3.8);
+    } else {
+      // Powerful leaping finisher: giant crimson-gold crescent wave
+      this.slashArc(trailPos, facing, 0xff1744, scale * 1.95, 0.22, 0.1);
+      this.slashArc(trailPos, facing, 0xffd700, scale * 1.6, -0.15, -0.2);
+      this.shockwave(position, 0xff3d00, 1.8);
+      this.sparks(trailPos.clone().addScaledVector(facing, 1.5), 0xffd54f, this.isMobile ? 8 : 16, 6.2);
+    }
+  }
+
+  sparks(position, color = 0xffdf6d, count = 10, power = 5.5) {
+    const actualCount = this.isMobile ? Math.min(count, 6) : count;
+    for (let i = 0; i < actualCount; i++) {
+      const particle = this.getPooledParticle(color);
+      if (!particle) return;
+      this.scratchVector.set(
+        (Math.random() - 0.5) * 2,
+        Math.random() * 1.8 + 0.4,
+        (Math.random() - 0.5) * 2
+      ).normalize();
+      particle.position.copy(position);
+      particle.userData.velocity = this.scratchVector.multiplyScalar(power * (0.6 + Math.random() * 0.7)).clone();
+      particle.userData.life = 0.2 + Math.random() * 0.22;
+      particle.userData.maxLife = particle.userData.life;
+      particle.userData.gravity = 11;
+      particle.scale.setScalar(0.7);
+      this.particles.push(particle);
+    }
+  }
+
+  defeatSmoke(position, scale = 1) {
+    const smokeColors = [0x15151e, 0x2d172f, 0x471d3a, 0xc42338];
+    const smokeCount = this.isMobile ? 12 : 22;
+    for (let i = 0; i < smokeCount; i++) {
+      const col = smokeColors[i % smokeColors.length];
+      const particle = this.getPooledParticle(col);
+      if (!particle) return;
+      particle.position.copy(position).add(new THREE.Vector3(
+        (Math.random() - 0.5) * 0.7 * scale,
+        0.3 + Math.random() * 1.2 * scale,
+        (Math.random() - 0.5) * 0.7 * scale
+      ));
+      particle.userData.velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 2.2,
+        1.2 + Math.random() * 2.4,
+        (Math.random() - 0.5) * 2.2
+      );
+      particle.userData.life = 0.55 + Math.random() * 0.5;
+      particle.userData.maxLife = particle.userData.life;
+      particle.userData.gravity = -0.5; // gentle upward smoke billow
+      particle.userData.growRate = 1.4;
+      particle.scale.setScalar(0.9 * scale);
+      this.particles.push(particle);
+    }
+    this.shockwave(position, 0x3d1428, 1.2 * scale);
   }
 
   dashStreak(position, facing, color = 0xbf67ff) {
@@ -285,7 +384,29 @@ export class Effects {
     this.burst(position.clone().add(new THREE.Vector3(0, 1.1, 0)), hue, 5 + Math.round(charge * 6), 1.8 + charge * 2);
   }
 
-  update(dt) {
+  update(dt, playerPosition = null) {
+    if (this.leaves && this.leaves.length) {
+      const pX = playerPosition ? playerPosition.x : 0;
+      const pY = playerPosition ? playerPosition.y : 0;
+      const pZ = playerPosition ? playerPosition.z : 0;
+      for (const leaf of this.leaves) {
+        leaf.userData.phase += dt * 2.2;
+        leaf.position.y -= leaf.userData.fallSpeed * dt;
+        leaf.position.x += Math.sin(leaf.userData.phase) * dt * leaf.userData.driftSpeed;
+        leaf.position.z += Math.cos(leaf.userData.phase * 0.7) * dt * 0.8;
+        leaf.rotation.x += leaf.userData.rotSpeedX * dt;
+        leaf.rotation.y += leaf.userData.rotSpeedY * dt;
+
+        if (leaf.position.y < pY - 0.4 || leaf.position.z < pZ - 20) {
+          leaf.position.set(
+            pX + (Math.random() - 0.5) * 36,
+            pY + 3.5 + Math.random() * 7,
+            pZ + 12 + Math.random() * 45
+          );
+        }
+      }
+    }
+
     for (let i = this.trails.length - 1; i >= 0; i--) {
       const item = this.trails[i];
       item.life -= dt;
@@ -324,12 +445,15 @@ export class Effects {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.userData.life -= dt;
-      p.position.addScaledVector(p.userData.velocity, dt);
-      p.userData.velocity.y -= 6 * dt;
+      const gravity = p.userData.gravity !== undefined ? p.userData.gravity : 6;
+      p.userData.velocity.y -= gravity * dt;
+      if (p.userData.growRate) p.scale.addScalar(p.userData.growRate * dt);
       p.material.opacity = Math.max(0, p.userData.life / p.userData.maxLife);
       if (p.userData.life <= 0) {
         p.visible = false;
         p.scale.setScalar(1);
+        p.userData.growRate = 0;
+        p.userData.gravity = 6;
         this.particles.splice(i, 1);
         this.particlePool.push(p);
       }

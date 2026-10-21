@@ -90,6 +90,7 @@ export class CameraController {
     const chargePullback = this.player.chargeLevel * (mobile ? 1.4 : 2.4);
     const overdrivePullback = this.player.overdriveTimer > 0 ? (mobile ? 0.9 : 1.35) : 0;
     const dashPullback = this.player.dashDuration > 0 ? (mobile ? 0.4 : 0.55) : 0;
+    const boostPullback = this.player.isBoosting ? (mobile ? 0.6 : 0.95) : 0;
 
     let target = null;
     let nearest = 42;
@@ -108,7 +109,7 @@ export class CameraController {
 
     const baseDist = mobile ? (isPortrait ? 9.4 : 8.5) : (7.7 + speedRatio * 2.9);
     const targetDistance = baseDist + chargePullback + overdrivePullback +
-      dashPullback + bossPullback + closeCombatPullback;
+      dashPullback + boostPullback + bossPullback + closeCombatPullback;
 
     const baseHeight = mobile ? (isPortrait ? 4.1 : 3.45) : (3.25 + speedRatio * 0.65);
     const targetHeight = baseHeight + Math.max(0, velocity.y) * (mobile ? 0.015 : 0.035) +
@@ -175,6 +176,7 @@ export class CameraController {
 
     const baseFov = mobile ? (isPortrait ? 68 : 60) : 59;
     const targetFov = baseFov + speedRatio * (mobile ? 6 : 18) +
+      (this.player.isBoosting ? (mobile ? 4.5 : 7.5) : 0) +
       (this.player.overdriveTimer > 0 ? (mobile ? 2 : 4) : 0) +
       (this.player.dashDuration > 0 ? (mobile ? 2 : 3) : 0);
     this.currentFov += (targetFov - this.currentFov) * (1 - Math.exp(-dt * (mobile ? 2.5 : 2.8)));

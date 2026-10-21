@@ -21,6 +21,12 @@ export class HUD {
     this.momentumBar = document.getElementById('momentumBar');
     this.momentumState = document.getElementById('momentumState');
     this.hudMovementState = document.getElementById('hudMovementState');
+    this.hudBoostBar = document.getElementById('hudBoostBar');
+    this.hudBoostPercent = document.getElementById('hudBoostPercent');
+    this.hudBoostLabel = document.getElementById('hudBoostLabel');
+    this.boostButton = document.getElementById('boostButton');
+    this.boostMeterFill = document.getElementById('boostMeterFill');
+    this.boostStatusBadge = document.getElementById('boostStatusBadge');
     this.damageMultiplier = document.getElementById('damageMultiplier');
     this.centerMessage = document.getElementById('centerMessage');
     this.overlay = document.getElementById('overlay');
@@ -144,6 +150,58 @@ export class HUD {
       this.hudMovementState.className = 'movement-state-badge ' + (movementLabel === 'STOPPED' ? 'state-stopped' : 'state-running');
     }
     this.maxSpeedStatus.classList.toggle('active', player.isMaxSpeed);
+
+    // Boost meter & status updates
+    const boostEnergy = player.boostEnergy ?? 100;
+    const boostPct = Math.round(boostEnergy);
+    const inCooldown = (player.boostCooldownTimer || 0) > 0;
+    const isBoosting = Boolean(player.isBoosting);
+
+    if (this.hudBoostBar) {
+      this.hudBoostBar.style.width = `${boostPct}%`;
+      this.hudBoostBar.classList.toggle('cooling', inCooldown);
+      this.hudBoostBar.classList.toggle('active', isBoosting);
+    }
+    if (this.hudBoostPercent) {
+      this.hudBoostPercent.textContent = `${boostPct}%`;
+    }
+    if (this.hudBoostLabel) {
+      this.hudBoostLabel.textContent = isBoosting
+        ? 'BOOST SURGE'
+        : inCooldown
+          ? `COOLING ${(player.boostCooldownTimer || 0).toFixed(1)}s`
+          : boostPct < 100
+            ? 'RECHARGING'
+            : 'BOOST READY';
+      this.hudBoostLabel.className = isBoosting ? 'boost-active' : inCooldown ? 'boost-cooling' : '';
+    }
+
+    // Circular mobile boost button indicator
+    if (this.boostMeterFill) {
+      const circumference = 201.06;
+      const offset = circumference * (1 - Math.max(0, Math.min(100, boostEnergy)) / 100);
+      this.boostMeterFill.style.strokeDashoffset = `${offset}`;
+      this.boostMeterFill.style.stroke = inCooldown ? '#ff3b3b' : isBoosting ? '#ffffff' : '#ffd060';
+    }
+    if (this.boostStatusBadge) {
+      if (isBoosting) {
+        this.boostStatusBadge.textContent = 'BOOSTING';
+        this.boostStatusBadge.className = 'boost-status-badge status-boosting';
+      } else if (inCooldown) {
+        this.boostStatusBadge.textContent = `${(player.boostCooldownTimer || 0).toFixed(1)}s`;
+        this.boostStatusBadge.className = 'boost-status-badge status-cooldown';
+      } else if (boostPct < 99) {
+        this.boostStatusBadge.textContent = `${boostPct}%`;
+        this.boostStatusBadge.className = 'boost-status-badge status-recharge';
+      } else {
+        this.boostStatusBadge.textContent = 'READY';
+        this.boostStatusBadge.className = 'boost-status-badge status-ready';
+      }
+    }
+    if (this.boostButton) {
+      this.boostButton.classList.toggle('cooling', inCooldown);
+      this.boostButton.classList.toggle('is-boosting', isBoosting);
+    }
 
     this.centerMessage.textContent = `LEVEL ${String(wave).padStart(2, '0')} / 15`;
     this.messageTimer = Math.max(0, this.messageTimer - 1 / 60);
