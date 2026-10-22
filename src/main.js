@@ -251,30 +251,183 @@ function spawnEnergyOrb(position, guaranteed = false) {
   energyOrbs.push({ root, type, color, life: 18 });
 }
 
+const STAGE_KANJI = [
+  '風林火山', // Stage 1: Wind, Forest, Fire, Mountain
+  '影刃一閃', // Stage 2: Shadow Blade Flash
+  '幽玄深林', // Stage 3: Deep Mystic Forest
+  '鬼神降臨', // Stage 4: Demon God Descent
+  '月華残影', // Stage 5: Moonlit Afterimage
+  '疾風迅雷', // Stage 6: Swift Wind & Thunder
+  '断金斬鉄', // Stage 7: Iron-Cutting Blade
+  '冥界修羅', // Stage 8: Underworld Asura
+  '紫電一閃', // Stage 9: Purple Lightning
+  '万象破砕', // Stage 10: Shattering All Things
+  '天翔龍閃', // Stage 11: Soaring Dragon Flash
+  '夜桜落涙', // Stage 12: Night Sakura Tears
+  '金剛不壊', // Stage 13: Indestructible Adamant
+  '神速連斬', // Stage 14: Godspeed Flurry
+  '天下無双'  // Stage 15: Peerless Under Heaven
+];
+
+let introTimerId = null;
+let finalCompletionTimer = null;
+
+function startLevelIntroSequence(definition) {
+  if (introTimerId) {
+    clearTimeout(introTimerId);
+    introTimerId = null;
+  }
+
+  waveState = 'intro';
+
+  // Ensure victory banner is hidden
+  const victoryBanner = document.getElementById('cinematicVictoryBanner');
+  if (victoryBanner) {
+    victoryBanner.classList.remove('active');
+    victoryBanner.classList.add('hidden');
+  }
+
+  const overlay = document.getElementById('levelStartOverlay');
+  const eyebrow = document.getElementById('introEyebrow');
+  const title = document.getElementById('introTitle');
+  const kanji = document.getElementById('introKanji');
+  const readyWord = document.getElementById('readyWord');
+  const fightWord = document.getElementById('fightWord');
+
+  if (overlay && eyebrow && title && kanji && readyWord && fightWord) {
+    eyebrow.textContent = definition.finalBoss
+      ? `FINAL CLASH // STAGE ${String(wave).padStart(2, '0')}`
+      : `STAGE ${String(wave).padStart(2, '0')} // SANCTUARY TRIAL`;
+    title.textContent = definition.title || `STAGE ${wave}`;
+    kanji.textContent = STAGE_KANJI[(wave - 1) % STAGE_KANJI.length];
+
+    readyWord.classList.remove('hidden');
+    fightWord.classList.add('hidden');
+    overlay.classList.remove('hidden');
+    overlay.classList.add('active');
+  }
+
+  // Camera reveal: crane sweep down from above
+  cameraController.startIntro(1.6);
+
+  // Atmospheric Sakura petals & energy particles around player
+  effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1.8, 0)), 0xffa4be, 24, 4.2);
+  effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 0x48ffb8, 16, 2.5);
+  audio.play('charge');
+
+  // Step 1: After 0.85s, switch from READY to FIGHT!
+  introTimerId = setTimeout(() => {
+    if (readyWord && fightWord) {
+      readyWord.classList.add('hidden');
+      fightWord.classList.remove('hidden');
+    }
+    audio.play('sword-finisher');
+    effects.shockwave(player.root.position, 0x00f2fe, 1.4);
+    effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 0x00f2fe, 20, 3.8);
+
+    // Step 2: After another 0.6s (total ~1.45s), dismiss overlay and activate combat!
+    introTimerId = setTimeout(() => {
+      if (overlay) {
+        overlay.classList.remove('active');
+        overlay.classList.add('hidden');
+      }
+      waveState = 'spawning';
+      introTimerId = null;
+    }, 600);
+  }, 850);
+}
+
+function triggerFinalKillCinematic(finalEnemy = null) {
+  if (waveState === 'completing' || waveState === 'complete') return;
+  waveState = 'completing';
+
+  // 1. Slow time dramatically
+  slowMotion = 1.35;
+  shake = 0.55;
+
+  // 2. Dramatic weapon impact & particles
+  const impactPos = finalEnemy
+    ? finalEnemy.root.position.clone().add(new THREE.Vector3(0, 1.5 * (finalEnemy.spec?.scale || 1), 0))
+    : player.root.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+
+  effects.burst(impactPos, 0xffd166, 36, 7.5);
+  effects.burst(impactPos, 0xff3b5c, 28, 5.0);
+  effects.shockwave(impactPos, 0xffd166, 3.2);
+  effects.floatingText(impactPos.clone().add(new THREE.Vector3(0, 1.2, 0)), 'FINAL HIT // 一撃必殺', '#ffd166');
+
+  // 3. Audio impact
+  audio.play('sword-finisher');
+  audio.play('hit-heavy');
+
+  // 4. Freeze remaining enemy spawns and actions
+  spawnQueue.length = 0;
+
+  // 5. Trigger Cinematic Victory Banner
+  const banner = document.getElementById('cinematicVictoryBanner');
+  if (banner) {
+    const kanjiEl = banner.querySelector('.cinematic-victory-kanji');
+    const titleEl = banner.querySelector('.cinematic-victory-title');
+    const subEl = document.getElementById('victorySubtitle');
+    if (kanjiEl) kanjiEl.textContent = levelDefinition.finalBoss ? '天下統一' : '完全勝利';
+    if (titleEl) titleEl.textContent = levelDefinition.finalBoss ? 'CAMPAIGN CONQUERED' : 'STAGE CLEARED';
+    if (subEl) subEl.textContent = `ALL ${levelDefinition.requiredKills} HOSTILES ELIMINATED // SHINOBI TRIUMPH`;
+    banner.classList.remove('hidden');
+    banner.classList.add('active');
+  }
+
+  // 6. After the slow-motion cinematic plays (1.4s), transition to the results card!
+  if (finalCompletionTimer) clearTimeout(finalCompletionTimer);
+  finalCompletionTimer = setTimeout(() => {
+    finalCompletionTimer = null;
+    if (banner) {
+      banner.classList.remove('active');
+      banner.classList.add('hidden');
+    }
+    completeLevel();
+  }, 1400);
+}
+
 function handleEnemyKill(enemy) {
   if (enemy.killRewardHandled) return 0;
   enemy.killRewardHandled = true;
   defeatedEnemies++;
   levelKills++;
   progression.recordKill(enemy.scoreReward || 0);
+
+  // Restore exactly 30 HP on every enemy death (respects player.maxHealth = 200)
   const healed = healPlayer(30);
   const healPosition = player.root.position.clone().add(new THREE.Vector3(0, 1.4, 0));
-  if (healed > 0) {
-    effects.burst(healPosition, 0x58ffd5, 16, 3.6);
-    effects.shockwave(player.root.position, 0x62ffd1, 0.9);
-    effects.floatingText(healPosition, `+${Math.round(healed)} HP`, '#7dffe0');
-    audio.play('heal');
-  }
+
+  // Small +30 HP notification and healing effect near the player
+  effects.burst(healPosition, 0x48ffb8, 18, 3.8);
+  effects.shockwave(player.root.position, 0x3dffaa, 1.0);
+  effects.floatingText(healPosition, '+30 HP', '#48ffb8');
+  audio.play('heal');
+
+  // Immediately refresh health bar and text on HUD
+  updateHealthHUD();
+
   if (enemy.type === 'colossus') {
     player.score += 1200;
     player.energy = Math.min(100, player.energy + 38);
     spawnEnergyOrb(enemy.root.position, true);
     combatFeedback.slowMotion(0.42);
-    combatFeedback.message(`${enemy.isFinalBoss ? 'SHADOW SHOGUN' : 'SHINOBI WARLORD'} DEFEATED // +1200`, 1600);
+    combatFeedback.message(`+30 HP // ${enemy.isFinalBoss ? 'SHADOW SHOGUN' : 'SHINOBI WARLORD'} DEFEATED`, 1600);
   } else {
     spawnEnergyOrb(enemy.root.position);
-    combatFeedback.message(healed > 0 ? `ENEMY DEFEATED // +${Math.round(healed)} HP` : 'ENEMY DEFEATED // HP FULL', 1000);
+    combatFeedback.message(healed > 0 ? '+30 HP // HOSTILE DEFEATED' : '+30 HP // MAX HP REACHED', 900);
   }
+
+  // Check if this was the final required enemy!
+  const allOtherEnemiesDead = enemies.every((e) => !e.alive || e === enemy || e.killRewardHandled);
+  const isFinalEnemy = (levelKills >= levelDefinition.requiredKills) &&
+    (spawnQueue.length === 0 && encounterWaveIndex >= encounterQueues.length - 1) &&
+    allOtherEnemiesDead;
+
+  if (isFinalEnemy && (waveState === 'active' || waveState === 'spawning')) {
+    triggerFinalKillCinematic(enemy);
+  }
+
   return healed;
 }
 
@@ -466,15 +619,6 @@ function spawnWave(level = wave, checkpoint = null) {
   spawnQueue = encounterQueues[encounterWaveIndex] || [];
   world.setCampaignMood?.(wave);
   worldChunks.setCampaignPhase(wave);
-  progression.saveCheckpoint({
-    level: wave,
-    waveIndex: encounterWaveIndex,
-    completedKills: levelKills,
-    health: player.health,
-    energy: player.energy,
-    score: player.score,
-    defeated: defeatedEnemies
-  });
   if (levelDefinition.master) audio.play('charge');
   hud.showLevel(wave, levelDefinition, progression);
   hud.centerMessage.textContent = levelDefinition.master
@@ -483,6 +627,7 @@ function spawnWave(level = wave, checkpoint = null) {
   hud.centerMessage.style.opacity = '1';
   window.clearTimeout(waveMessageTimeout);
   waveMessageTimeout = window.setTimeout(() => { hud.centerMessage.style.opacity = '0'; }, 2200);
+  startLevelIntroSequence(levelDefinition);
   return true;
 }
 
@@ -539,15 +684,6 @@ function beginNextEncounterWave() {
   spawnQueue = encounterQueues[encounterWaveIndex];
   spawnInterval = 0;
   waveState = 'spawning';
-  progression.saveCheckpoint({
-    level: wave,
-    waveIndex: encounterWaveIndex,
-    completedKills: levelKills,
-    health: player.health,
-    energy: player.energy,
-    score: player.score,
-    defeated: defeatedEnemies
-  });
   combatFeedback.message(
     levelDefinition.master && encounterWaveIndex === encounterQueues.length - 1
       ? 'SHADOW SHOGUN // BREACH DETECTED'
@@ -558,7 +694,7 @@ function beginNextEncounterWave() {
 }
 
 function completeLevel() {
-  if (waveState !== 'active' || levelKills < levelDefinition.requiredKills || enemies.length > 0) return false;
+  if ((waveState !== 'active' && waveState !== 'completing') || levelKills < levelDefinition.requiredKills) return false;
   waveState = 'complete';
   player.score += levelDefinition.master ? 1400 + wave * 3 : 400 + wave * 2;
   const reward = levelDefinition.finalBoss ? 5000 : levelDefinition.master ? 1400 + wave * 3 : 400 + wave * 2;
@@ -1010,7 +1146,7 @@ const bindInput = () => {
 
   const triggerKatanaAttack = () => {
     audio.init();
-    if (isPaused || !player.isAlive) return;
+    if (isPaused || !player.isAlive || waveState === 'intro') return;
     const executed = combat.performKatanaCombo(player, enemies, combatFeedback);
     if (executed) {
       const step = player.comboStep;
@@ -1020,6 +1156,27 @@ const bindInput = () => {
       }
       if (attackComboLabel) {
         attackComboLabel.textContent = step === 3 ? 'LEAP CLEAVE' : step === 2 ? 'CROSS SLASH' : 'KATANA SLASH';
+      }
+    }
+  };
+
+  const triggerDashAttack = () => {
+    audio.init();
+    if (isPaused || !player.isAlive || waveState === 'intro') return;
+
+    let moveDir = null;
+    if (movementSystem.input.moveX !== 0 || movementSystem.input.moveY !== 0) {
+      moveDir = new THREE.Vector3(movementSystem.input.moveX, 0, movementSystem.input.moveY).normalize();
+    } else if (player.facing) {
+      moveDir = player.facing.clone().setY(0).normalize();
+    }
+
+    const executed = combat.executeDashAttack(player, enemies, moveDir, combatFeedback, worldChunks);
+    if (executed) {
+      const dashStatusBadge = document.getElementById('dashStatusBadge');
+      if (dashStatusBadge) {
+        dashStatusBadge.textContent = 'DASHING';
+        dashStatusBadge.className = 'dash-status-badge status-cooling';
       }
     }
   };
@@ -1041,6 +1198,26 @@ const bindInput = () => {
     attackBtn.addEventListener('pointerup', endAttack);
     attackBtn.addEventListener('pointercancel', endAttack);
     attackBtn.addEventListener('lostpointercapture', endAttack);
+  }
+
+  const dashAttackBtn = document.getElementById('dashAttackButton');
+  if (dashAttackBtn) {
+    dashAttackBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dashAttackBtn.classList.add('pressed');
+      triggerDashAttack();
+    });
+    const endDash = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      dashAttackBtn.classList.remove('pressed');
+    };
+    dashAttackBtn.addEventListener('pointerup', endDash);
+    dashAttackBtn.addEventListener('pointercancel', endDash);
+    dashAttackBtn.addEventListener('lostpointercapture', endDash);
   }
 
   window.addEventListener('keydown', (event) => {
@@ -1071,15 +1248,19 @@ const bindInput = () => {
       }
       return;
     }
-    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyB', 'KeyJ', 'KeyK'].includes(event.code)) {
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyB', 'KeyJ', 'KeyK', 'KeyE'].includes(event.code)) {
       event.preventDefault();
     }
     if (keys.has(event.code)) return;
     keys.add(event.code);
     audio.init();
     if (isPaused) return;
-    if (event.code === 'KeyJ' || event.code === 'Space') {
+    if (event.code === 'KeyJ') {
       triggerKatanaAttack();
+      return;
+    }
+    if (event.code === 'KeyE') {
+      triggerDashAttack();
       return;
     }
     if (event.code === 'KeyQ') combat.performKineticStrike(player, enemies, combatFeedback);
@@ -1165,6 +1346,7 @@ const bindInput = () => {
   });
 
   // 1. Professional Virtual Joystick on Mobile
+  const zone = document.getElementById('joystickZone');
   const stick = document.getElementById('moveStick');
   const knob = document.getElementById('moveKnob');
   let stickPointer = null;
@@ -1176,7 +1358,7 @@ const bindInput = () => {
     const centerY = rect.top + rect.height / 2;
     const dx = clientX - centerX;
     const dy = clientY - centerY;
-    const maxRadius = (rect.width / 2) * 0.72;
+    const maxRadius = (rect.width / 2) * 0.75;
     const distance = Math.hypot(dx, dy);
 
     // Visual knob translation (strictly clamped inside circular base)
@@ -1190,7 +1372,7 @@ const bindInput = () => {
 
     // Configurable Deadzone and Sensitivity
     const normalizedDist = Math.min(1, distance / maxRadius);
-    const deadzone = settingsManager.values.joystickDeadzone ?? 0.15;
+    const deadzone = settingsManager.values.joystickDeadzone ?? 0.12;
     const sensitivity = settingsManager.values.joystickSensitivity ?? 1.0;
 
     if (normalizedDist < deadzone) {
@@ -1199,9 +1381,9 @@ const bindInput = () => {
     } else {
       const remappedStrength = (normalizedDist - deadzone) / (1 - deadzone);
       const angle = Math.atan2(dy, dx);
-      // Horizontal steering (-1 to +1)
+      // Horizontal steering (-1 left, +1 right)
       touch.moveX = THREE.MathUtils.clamp(Math.cos(angle) * remappedStrength * sensitivity, -1, 1);
-      // Vertical throttle / lean (+1 forward, -1 backward)
+      // Vertical throttle / lean (+1 forward/UP, -1 backward/DOWN)
       touch.moveY = THREE.MathUtils.clamp(-Math.sin(angle) * remappedStrength * sensitivity, -1, 1);
     }
   };
@@ -1221,28 +1403,43 @@ const bindInput = () => {
   const handleStickMove = (event) => {
     if (event.pointerId !== stickPointer) return;
     event.preventDefault();
+    event.stopPropagation();
     processJoystick(event.clientX, event.clientY);
   };
 
   const handleStickEnd = (event) => {
-    if (event && event.pointerId !== stickPointer) return;
+    if (event && event.pointerId !== undefined && stickPointer !== null && event.pointerId !== stickPointer) return;
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     stickPointer = null;
     touch.moveX = 0;
     touch.moveY = 0;
     if (knob) knob.style.transform = 'translate3d(0, 0, 0)';
     stick?.classList.remove('active');
-    if (stick && event && stick.releasePointerCapture) {
+    if (stick && event && event.pointerId !== undefined && stick.releasePointerCapture) {
       try { stick.releasePointerCapture(event.pointerId); } catch (_) {}
+    }
+    if (player && player.velocity && player.grounded && !touch.run) {
+      player.velocity.x = 0;
+      player.velocity.z = 0;
     }
   };
 
   if (stick) {
-    stick.addEventListener('pointerdown', handleStickDown);
-    stick.addEventListener('pointermove', handleStickMove);
-    stick.addEventListener('pointerup', handleStickEnd);
-    stick.addEventListener('pointercancel', handleStickEnd);
-    stick.addEventListener('lostpointercapture', handleStickEnd);
+    stick.addEventListener('pointerdown', handleStickDown, { passive: false });
+    stick.addEventListener('pointermove', handleStickMove, { passive: false });
+    stick.addEventListener('pointerup', handleStickEnd, { passive: false });
+    stick.addEventListener('pointercancel', handleStickEnd, { passive: false });
+    stick.addEventListener('lostpointercapture', handleStickEnd, { passive: false });
   }
+  if (zone) {
+    zone.addEventListener('pointerdown', handleStickDown, { passive: false });
+  }
+  window.addEventListener('pointermove', handleStickMove, { passive: false });
+  window.addEventListener('pointerup', handleStickEnd, { passive: false });
+  window.addEventListener('pointercancel', handleStickEnd, { passive: false });
 
   heldControlReleases.add(() => {
     handleStickEnd(null);
@@ -1438,7 +1635,15 @@ const bindInput = () => {
 
   document.querySelectorAll('[data-action]').forEach((button) => {
     const action = button.dataset.action;
-    bindHoldControl(button, () => { touch[action] = true; }, () => { touch[action] = false; });
+    if (action === 'dash') {
+      button.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerDashAttack();
+      });
+    } else {
+      bindHoldControl(button, () => { touch[action] = true; }, () => { touch[action] = false; });
+    }
   });
 
   document.querySelectorAll('[data-ability]').forEach((button) => {
@@ -1613,6 +1818,24 @@ function resetGame(keepPaused = false, checkpoint = null) {
   waveState = 'intro';
   shake = 0;
   slowMotion = 0;
+  if (introTimerId) {
+    clearTimeout(introTimerId);
+    introTimerId = null;
+  }
+  if (finalCompletionTimer) {
+    clearTimeout(finalCompletionTimer);
+    finalCompletionTimer = null;
+  }
+  const levelStartOverlay = document.getElementById('levelStartOverlay');
+  if (levelStartOverlay) {
+    levelStartOverlay.classList.remove('active');
+    levelStartOverlay.classList.add('hidden');
+  }
+  const victoryBanner = document.getElementById('cinematicVictoryBanner');
+  if (victoryBanner) {
+    victoryBanner.classList.remove('active');
+    victoryBanner.classList.add('hidden');
+  }
   window.clearTimeout(waveMessageTimeout);
   targetEnemy = null;
   hud.centerMessage.style.opacity = '1';
@@ -1850,29 +2073,65 @@ function updateEnergyOrbs(dt, time) {
 }
 
 function readInput(dt = 1 / 60) {
-  const isMobile = isMobileViewport();
-  
-  // Single, reliable RUN state:
-  // On mobile: movement is strictly gated by the hold-to-run control
-  const mobileRun = Boolean(touch.run);
-  const desktopRun = Boolean(
-    touch.run ||
-    keys.has('KeyW') || keys.has('ArrowUp')
-  );
-  const runActive = isMobile ? mobileRun : desktopRun;
+  if (waveState === 'intro' || !player.isAlive || isPaused || screenState !== 'gameplay') {
+    player.isRunning = false;
+    player.isBoosting = false;
+    movementSystem.input.moveX = 0;
+    movementSystem.input.moveY = 0;
+    movementSystem.input.sprint = false;
+    movementSystem.input.jump = false;
+    movementSystem.input.slide = false;
+    movementSystem.input.dash = false;
+    return;
+  }
 
-  player.isRunning = runActive && player.isAlive && !isPaused && screenState === 'gameplay';
+  // Mobile Joystick input: touch.moveX (-1 left to +1 right) and touch.moveY (-1 down/backward to +1 up/forward)
+  const joyDist = Math.hypot(touch.moveX, touch.moveY);
+  const joystickActive = joyDist > 0.04;
 
-  // Dedicated RUN BOOST:
-  // Holding BOOST while RUN is active temporarily increases speed.
-  // Gating: BOOST must NOT activate ordinary RUN. If RUN is not active, BOOST does not move player.
+  // Keyboard input (Desktop)
+  const forwardKey = Number(keys.has('KeyW') || keys.has('ArrowUp'));
+  const backwardKey = Number(keys.has('KeyS') || keys.has('ArrowDown'));
+  const rightKey = Number(keys.has('KeyD') || keys.has('ArrowRight'));
+  const leftKey = Number(keys.has('KeyA') || keys.has('ArrowLeft'));
+  const keyboardActive = Boolean(forwardKey || backwardKey || rightKey || leftKey);
+
+  // Dedicated touch RUN button
+  const runButtonPressed = Boolean(touch.run);
+
+  let inputX = 0;
+  let inputY = 0;
+
+  if (joystickActive) {
+    // Joystick: UP = forward (+Y), DOWN = backward (-Y), LEFT = left (-X), RIGHT = right (+X)
+    inputX = touch.moveX;
+    inputY = touch.moveY;
+  } else if (keyboardActive) {
+    // Desktop keyboard WASD / Arrow keys
+    inputX = rightKey - leftKey;
+    inputY = forwardKey - backwardKey;
+    const mag = Math.hypot(inputX, inputY);
+    if (mag > 0.001) {
+      inputX /= mag;
+      inputY /= mag;
+    }
+  } else if (runButtonPressed) {
+    // RUN button held alone without joystick -> run forward
+    inputX = 0;
+    inputY = 1;
+  }
+
+  const isMoving = Math.hypot(inputX, inputY) > 0.04 && player.isAlive && !isPaused && screenState === 'gameplay';
+  player.isRunning = isMoving;
+
+  // Boost: Shift key (or B) on PC, or dedicated Boost button on mobile
   const boostRequested = Boolean(
     touch.boost ||
     keys.has('ShiftLeft') || keys.has('ShiftRight') ||
     keys.has('KeyB')
   );
 
-  const canBoost = runActive && boostRequested && player.boostEnergy > 0 && player.boostCooldownTimer <= 0;
+  const canBoost = isMoving && boostRequested && player.boostEnergy > 0 && player.boostCooldownTimer <= 0;
 
   if (canBoost) {
     if (!player.isBoosting) {
@@ -1881,11 +2140,11 @@ function readInput(dt = 1 / 60) {
     }
     player.isBoosting = true;
     player.boostRecoveryDelay = 0.5;
-    player.boostEnergy = Math.max(0, player.boostEnergy - dt * 25); // ~4 seconds duration
+    player.boostEnergy = Math.max(0, player.boostEnergy - dt * 25);
     if (player.boostEnergy <= 0) {
       player.boostEnergy = 0;
       player.isBoosting = false;
-      player.boostCooldownTimer = 1.25; // 1.25s penalty cooldown
+      player.boostCooldownTimer = 1.25;
       audio.play('boost-exhaust');
       combatFeedback.message('BOOST EXHAUSTED // COOLING', 700);
     }
@@ -1893,7 +2152,7 @@ function readInput(dt = 1 / 60) {
     player.isBoosting = false;
     if (player.boostCooldownTimer > 0) {
       player.boostCooldownTimer = Math.max(0, player.boostCooldownTimer - dt);
-    } else if (!boostRequested || !runActive) {
+    } else if (!boostRequested || !isMoving) {
       if (player.boostRecoveryDelay > 0) {
         player.boostRecoveryDelay = Math.max(0, player.boostRecoveryDelay - dt);
       } else if (player.boostEnergy < player.boostMax) {
@@ -1902,47 +2161,27 @@ function readInput(dt = 1 / 60) {
     }
   }
 
-  if (isMobile) {
-    if (runActive && player.isAlive && !isPaused && screenState === 'gameplay') {
-      // Steer left (-1) or right (+1) using Virtual Joystick with button steer fallback
-      const buttonSteer = (touch.right ? 1 : 0) - (touch.left ? 1 : 0);
-      const steerX = Math.abs(touch.moveX) > 0.01 ? touch.moveX : buttonSteer;
-      movementSystem.input.moveX = THREE.MathUtils.clamp(steerX, -1, 1);
-      // Secondary forward throttle modulation from joystick Y (0.7 to 1.15)
-      const forwardThrottle = touch.moveY > 0 ? (1.0 + touch.moveY * 0.15) : (1.0 + touch.moveY * 0.3);
-      movementSystem.input.moveY = Math.max(0.65, forwardThrottle); // forward along track (+Z)
-    } else {
-      // Stationary: character must NOT move forward or steer without RUN
-      movementSystem.input.moveX = 0;
-      movementSystem.input.moveY = 0;
-    }
-  } else {
-    // Desktop movement
-    const forwardInput = Number(keys.has('KeyW') || keys.has('ArrowUp')) -
-      Number(keys.has('KeyS') || keys.has('ArrowDown'));
-    const sideInput = Number(keys.has('KeyD') || keys.has('ArrowRight')) -
-      Number(keys.has('KeyA') || keys.has('ArrowLeft'));
-
-    let moveX = sideInput;
-    let moveY = forwardInput;
-
-    if (touch.run && forwardInput === 0) {
-      moveY = 1;
-    }
-
+  // Camera-relative direction calculation
+  // Direction must match the game camera and character orientation!
+  if (isMoving) {
     const yaw = cameraController.lookYaw;
     const forwardX = -Math.sin(yaw);
     const forwardZ = -Math.cos(yaw);
     const rightX = -Math.cos(yaw);
     const rightZ = Math.sin(yaw);
-    movementSystem.input.moveX = rightX * moveX + forwardX * moveY;
-    movementSystem.input.moveY = rightZ * moveX + forwardZ * moveY;
+
+    movementSystem.input.moveX = rightX * inputX + forwardX * inputY;
+    movementSystem.input.moveY = rightZ * inputX + forwardZ * inputY;
+  } else {
+    movementSystem.input.moveX = 0;
+    movementSystem.input.moveY = 0;
   }
 
-  movementSystem.input.sprint = player.isBoosting;
-  movementSystem.input.jump = keys.has('KeyK') || touch.jump;
+  // Sprinting: when boosting OR when holding run while moving with joystick
+  movementSystem.input.sprint = player.isBoosting || (runButtonPressed && joystickActive);
+  movementSystem.input.jump = keys.has('Space') || keys.has('KeyK') || touch.jump;
   movementSystem.input.slide = keys.has('ControlLeft') || keys.has('ControlRight') || touch.slide;
-  movementSystem.input.dash = keys.has('KeyE') || touch.dash;
+  movementSystem.input.dash = false;
 }
 
 function updateEnemies(dt) {
@@ -2062,6 +2301,23 @@ function updateGame(dt, time) {
     handledDashSequence = player.dashSequence;
     combat.startDashAttack(player);
   }
+  combat.resolveDashAttack(player, enemies, combatFeedback, worldChunks);
+
+  // Update Dash Attack cooldown HUD ring
+  const dashCooldownFill = document.getElementById('dashCooldownFill');
+  const dashBtn = document.getElementById('dashAttackButton');
+  const dashStatusBadge = document.getElementById('dashStatusBadge');
+  if (dashCooldownFill) {
+    const cd = player.dashAttackCooldown || 0;
+    const ratio = THREE.MathUtils.clamp(cd / 2.2, 0, 1);
+    dashCooldownFill.style.strokeDashoffset = `${201 * ratio}px`;
+    if (dashBtn) dashBtn.classList.toggle('cooling', cd > 0);
+    if (dashStatusBadge) {
+      dashStatusBadge.textContent = cd > 0 ? `${cd.toFixed(1)}s` : 'READY';
+      dashStatusBadge.className = `dash-status-badge ${cd > 0 ? 'status-cooling' : 'status-ready'}`;
+    }
+  }
+
   player.velocityPadCooldown = Math.max(0, player.velocityPadCooldown - dt);
   worldChunks.rebaseIfNeeded(player, scene, camera);
   worldChunks.update(player.root.position);
@@ -2072,7 +2328,12 @@ function updateGame(dt, time) {
   updateShadowClone(dt);
   if (player.isAlive) updateEnergyOrbs(dt, time);
 
-  if (player.isAlive && waveState === 'active' && levelKills >= levelDefinition.requiredKills) completeLevel();
+  if (player.isAlive && waveState === 'active' && levelKills >= levelDefinition.requiredKills) {
+    const allEnemiesCleared = enemies.every((e) => !e.alive) && spawnQueue.length === 0 && encounterWaveIndex >= encounterQueues.length - 1;
+    if (allEnemiesCleared) {
+      triggerFinalKillCinematic(null);
+    }
+  }
   hud.showLevel(wave, levelDefinition, progression, {
     enemiesRemaining: Math.max(0, levelDefinition.requiredKills - levelKills),
     status: waveState,

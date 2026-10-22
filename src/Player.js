@@ -381,6 +381,9 @@ export class Player {
     this.overdriveExitTimer = 0;
     this.overdriveExitSpeed = 0;
     this.dashSequence = 0;
+    this.dashAttackCooldown = 0;
+    this.dashAttackState = null;
+    this.wasAirborne = false;
   }
 
   createKatanaMesh(parentGroup, scale = 1.0) {
@@ -509,16 +512,31 @@ export class Player {
       rightArm.rotation.z = THREE.MathUtils.lerp(rightArm.rotation.z, 0.16, blend);
     }
 
-    // Jump / Airborne pose
+    // Jump / Airborne pose & Landing Dynamic Crouch
     if (!this.grounded) {
+      this.wasAirborne = true;
       const airLift = THREE.MathUtils.clamp(this.velocity.y / 15, -0.8, 0.8);
       rightLeg.rotation.x = THREE.MathUtils.lerp(rightLeg.rotation.x, 0.55 - airLift * 0.3, blend);
       leftLeg.rotation.x = THREE.MathUtils.lerp(leftLeg.rotation.x, -0.45 - airLift * 0.3, blend);
       leftArm.rotation.x = THREE.MathUtils.lerp(leftArm.rotation.x, -0.65, blend);
       rightArm.rotation.x = THREE.MathUtils.lerp(rightArm.rotation.x, -0.55, blend);
+    } else if (this.wasAirborne) {
+      this.wasAirborne = false;
+      this.landingImpact = THREE.MathUtils.clamp(Math.abs(this.velocity.y) / 14, 0.25, 1.0);
+      this.landingCrouch = 0.24 * this.landingImpact;
+      this.landingEffectPending = true;
     }
 
-    // === ATTACK ANIMATIONS (KATANA SLASHES & THRUSTS) ===
+    if (this.landingCrouch > 0) {
+      this.landingCrouch = Math.max(0, this.landingCrouch - dt * 2.5);
+      this.torso.position.y = 1.32 - this.landingCrouch * 0.35;
+      rightLeg.rotation.x += this.landingCrouch * 0.65;
+      leftLeg.rotation.x += this.landingCrouch * 0.65;
+    }
+
+    this.dashAttackCooldown = Math.max(0, this.dashAttackCooldown - dt);
+
+    // === ATTACK ANIMATIONS (KATANA SLASHES, DASH ATTACKS, & FINISHERS) ===
     if (this.attackTimer > 0 && this.attackDuration > 0) {
       const progress = 1 - this.attackTimer / this.attackDuration;
       const swing = Math.sin(Math.min(1, progress * 1.35) * Math.PI);
@@ -551,6 +569,29 @@ export class Player {
         this.weapon.rotation.z = 1.35 - cleaveSwing * 2.5;
         this.weapon.rotation.x = -cleaveSwing * 0.8;
         this.torso.rotation.x = targetLean + cleaveSwing * 0.42;
+      } else if (this.attackAction === 'katana-empowered-finisher') {
+        // Omnislash empowered finisher: aerial spin into crater cleave
+        const cleaveProgress = Math.min(1, progress * 1.4);
+        const cleaveSwing = Math.sin(cleaveProgress * Math.PI);
+        rightArm.rotation.x = -2.6 + cleaveSwing * 3.4;
+        rightArm.rotation.y = -0.15 + cleaveSwing * 0.4;
+        rightArm.rotation.z = 0.35 - cleaveSwing * 0.7;
+        leftArm.rotation.x = -2.3 + cleaveSwing * 3.0;
+        leftArm.rotation.z = -0.35 + cleaveSwing * 0.6;
+        this.weapon.rotation.z = 1.6 - cleaveSwing * 3.2;
+        this.weapon.rotation.x = -cleaveSwing * 1.1;
+        this.torso.rotation.x = targetLean + cleaveSwing * 0.65;
+        this.torso.rotation.y = Math.sin(progress * Math.PI * 2) * 0.45;
+      } else if (this.attackAction === 'katana-dash-slash') {
+        // Lightning Iaijutsu cross-draw dash attack
+        rightArm.rotation.x = -1.65 + swing * 2.3;
+        rightArm.rotation.y = -1.15 + swing * 2.5;
+        rightArm.rotation.z = -0.45 + swing * 1.4;
+        leftArm.rotation.x = -0.7 - swing * 0.5;
+        this.weapon.rotation.z = 0.9 - swing * 2.5;
+        this.weapon.rotation.x = -0.65 + swing * 1.3;
+        this.torso.rotation.y = 0.5 - swing * 1.0;
+        this.torso.rotation.x = targetLean + swing * 0.3;
       } else if (this.attackAction === 'slash') {
         // Wide horizontal Katana sweep
         rightArm.rotation.x = -0.4 + swing * 0.5;
@@ -574,8 +615,9 @@ export class Player {
         this.weapon.rotation.z = -swing * 1.2;
       } else if (this.attackAction === 'dash') {
         // Low piercing dash thrust
-        rightArm.rotation.x = -1.1;
-        this.weapon.rotation.z = 0.15;
+        rightArm.rotation.x = -1.2;
+        rightArm.rotation.y = 0.3;
+        this.weapon.rotation.z = 0.25;
       }
     }
 
@@ -680,8 +722,9 @@ export class Player {
       duration = 0.30;
       this.comboResetTimer = 0.95;
     } else {
-      action = 'katana-finisher';
-      duration = 0.44;
+      const isEmpowered = this.combo >= 4;
+      action = isEmpowered ? 'katana-empowered-finisher' : 'katana-finisher';
+      duration = isEmpowered ? 0.52 : 0.44;
       this.comboResetTimer = 0; // Finisher completes the 3-hit chain
     }
 
@@ -690,7 +733,55 @@ export class Player {
       step: this.comboStep,
       action,
       duration,
-      attackId: this.currentAttackId
+      attackId: this.currentAttackId,
+      isEmpowered: action === 'katana-empowered-finisher'
+    };
+  }
+
+  performDashAttack(target = null, direction = null) {
+    if (!this.isAlive || this.dashAttackCooldown > 0 || this.energy < 16) return null;
+    this.energy = Math.max(0, this.energy - 16);
+    this.dashAttackCooldown = 2.2;
+    this.dashTimer = 2.2;
+    this.dashSequence++;
+
+    let dashDir = new THREE.Vector3();
+    let targetDist = 0;
+    if (target && target.alive) {
+      dashDir.subVectors(target.root.position, this.root.position).setY(0);
+      targetDist = dashDir.length();
+      if (targetDist > 0.001) dashDir.normalize();
+      else dashDir.copy(this.facing);
+    } else if (direction && direction.lengthSq() > 0.01) {
+      dashDir.copy(direction).setY(0).normalize();
+    } else {
+      dashDir.copy(this.facing).setY(0).normalize();
+    }
+
+    if (dashDir.lengthSq() < 0.001) dashDir.set(0, 0, 1);
+    this.facing.copy(dashDir);
+
+    const DASH_SPEED = 42;
+    this.velocity.x = dashDir.x * DASH_SPEED;
+    this.velocity.z = dashDir.z * DASH_SPEED;
+    this.dashDuration = 0.32;
+
+    this.currentAttackId++;
+    this.dashAttackState = {
+      phase: 'dash',
+      target: target && target.alive ? target : null,
+      targetDist,
+      dashDir: dashDir.clone(),
+      timer: 0.16,
+      attackId: this.currentAttackId,
+      slashTriggered: false
+    };
+
+    this.startAttack('dash', 0.32);
+    return {
+      attackId: this.currentAttackId,
+      target: this.dashAttackState.target,
+      dashDir
     };
   }
 
@@ -818,6 +909,9 @@ export class Player {
     this.overdriveExitTimer = 0;
     this.overdriveExitSpeed = 0;
     this.dashSequence = 0;
+    this.dashAttackCooldown = 0;
+    this.dashAttackState = null;
+    this.wasAirborne = false;
 
     for (const seg of this.scarfSegments) {
       seg.rotation.set(0, 0, 0);

@@ -20,7 +20,9 @@ const DAMAGE_CONFIG = Object.freeze({
     'phantom-dash': 1.1,
     'katana-combo-1': 1.1,
     'katana-combo-2': 1.35,
-    'katana-finisher': 1.85
+    'katana-finisher': 1.85,
+    'katana-empowered-finisher': 2.45,
+    'katana-dash-slash': 1.75
   }),
   sideMultiplier: 1.25,
   rearMultiplier: 1.5,
@@ -256,10 +258,17 @@ export class CombatSystem {
       minDot = 0.16;
       attackType = 'katana-combo-2';
     } else if (step === 3) {
-      baseDamage = 96;
-      range = 5.8 * (weapon.range || 1);
-      minDot = -0.15; // Devastating wide ~200 degree cleave
-      attackType = 'katana-finisher';
+      if (combo.isEmpowered) {
+        baseDamage = 142;
+        range = 6.4 * (weapon.range || 1);
+        minDot = -0.35; // Massive 250 degree sweeping cleave
+        attackType = 'katana-empowered-finisher';
+      } else {
+        baseDamage = 96;
+        range = 5.8 * (weapon.range || 1);
+        minDot = -0.15; // Devastating wide ~200 degree cleave
+        attackType = 'katana-finisher';
+      }
     }
 
     const damage = baseDamage + Math.min(22, player.horizontalSpeed * 0.75);
@@ -278,14 +287,21 @@ export class CombatSystem {
         hits++;
         const hitPoint = enemy.root.position.clone().add(new THREE.Vector3(0, 1.15 * (enemy.spec?.scale || 1), 0));
         // Sparks and impact effects on connection
-        this.effects?.sparks(hitPoint, 0xffd54f, step === 3 ? 18 : 10, step === 3 ? 6.8 : 4.8);
-        this.effects?.burst(hitPoint, weaponColor, step === 3 ? 20 : 12, 4.5);
+        this.effects?.sparks(hitPoint, combo.isEmpowered ? 0xff3b52 : 0xffd54f, step === 3 ? (combo.isEmpowered ? 28 : 18) : 10, step === 3 ? 7.5 : 4.8);
+        this.effects?.burst(hitPoint, weaponColor, step === 3 ? (combo.isEmpowered ? 30 : 20) : 12, 5.2);
         this.audio?.play('katana-hit');
 
         if (step === 3) {
-          if (feedback.cameraShake) feedback.cameraShake.value = Math.max(feedback.cameraShake.value, 0.48);
-          feedback.flash?.(0.65, false);
-          feedback.slowMotion?.(0.18);
+          if (combo.isEmpowered) {
+            this.effects?.shockwave(player.root.position, 0xff1744, 2.6);
+            if (feedback.cameraShake) feedback.cameraShake.value = Math.max(feedback.cameraShake.value, 0.75);
+            feedback.flash?.(0.82, true);
+            feedback.slowMotion?.(0.24);
+          } else {
+            if (feedback.cameraShake) feedback.cameraShake.value = Math.max(feedback.cameraShake.value, 0.48);
+            feedback.flash?.(0.65, false);
+            feedback.slowMotion?.(0.18);
+          }
         } else {
           if (feedback.cameraShake) feedback.cameraShake.value = Math.max(feedback.cameraShake.value, 0.22);
           feedback.flash?.(0.28, false);
@@ -294,7 +310,7 @@ export class CombatSystem {
     }
 
     if (hits > 0 && step === 3) {
-      feedback.message?.('KATANA FINISHER // CLEAVE', 850);
+      feedback.message?.(combo.isEmpowered ? 'OMNISLASH // COMBO FINISHER' : 'KATANA FINISHER // CLEAVE', 950);
     }
     return true;
   }
@@ -363,39 +379,115 @@ export class CombatSystem {
     this.dashSequence = player.dashSequence;
     this.dashHits.clear();
     player.startAttack('dash', 0.32);
-    this.effects.dashStreak(player.root.position, player.facing, player.overdriveTimer > 0 ? 0xd783ff : 0x647aff);
-    this.effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x64dfff, 10, 4);
+    this.effects.dashStreak(player.root.position, player.facing, player.overdriveTimer > 0 ? 0xd783ff : 0x00e5ff);
+    this.effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x38d6ff, 12, 4);
     this.audio?.play('dash');
   }
 
-  resolveDashAttack(player, enemies, feedback = {}) {
-    if (player.dashDuration <= 0) return;
-    if (this.dashSequence !== player.dashSequence) this.startDashAttack(player);
-    const speed = player.horizontalSpeed;
-    const start = player.previousPosition;
-    const end = player.root.position;
-    const segmentX = end.x - start.x;
-    const segmentZ = end.z - start.z;
-    const segmentLengthSq = segmentX * segmentX + segmentZ * segmentZ;
+  executeDashAttack(player, enemies, moveDirection, feedback = {}, world = null) {
+    if (!player.isAlive || player.dashAttackCooldown > 0 || player.energy < 16) return false;
+
+    // Search for best target in forward cone (up to 24m)
+    let bestTarget = null;
+    let closestDist = 24 * (player.weaponConfig?.range || 1);
     for (const enemy of enemies) {
-      if (!enemy.alive || this.dashHits.has(enemy)) continue;
-      const offsetX = enemy.root.position.x - start.x;
-      const offsetZ = enemy.root.position.z - start.z;
-      const along = segmentLengthSq > 0
-        ? THREE.MathUtils.clamp((offsetX * segmentX + offsetZ * segmentZ) / segmentLengthSq, 0, 1)
-        : 0;
-      const nearestX = start.x + segmentX * along;
-      const nearestZ = start.z + segmentZ * along;
-      const hitRadius = 1.35 + enemy.spec.scale * 0.85;
-      if (
-        Math.hypot(enemy.root.position.x - nearestX, enemy.root.position.z - nearestZ) > hitRadius ||
-        Math.abs(enemy.root.position.y - player.root.position.y) > 4.5
-      ) continue;
-      this.dashHits.add(enemy);
-      const damage = Math.min(250, speed * 5.5 + speed * speed * 0.15);
-      if (this.applyDamageToEnemy(player, enemy, damage, 'phantom-dash', feedback)) {
-        this.effects.shockwave(enemy.root.position.clone(), speed > 20 ? 0xf0fbff : 0x9d7cff, 1.7);
-        if (speed > 20) feedback.flash?.(0.78, true);
+      if (!enemy.alive) continue;
+      const dx = enemy.root.position.x - player.root.position.x;
+      const dz = enemy.root.position.z - player.root.position.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > closestDist) continue;
+      if (!this.isInForwardArc(player, enemy, closestDist, 0.12, 5.5)) continue;
+      closestDist = dist;
+      bestTarget = enemy;
+    }
+
+    const res = player.performDashAttack(bestTarget, moveDirection);
+    if (!res) return false;
+
+    this.dashHits.clear();
+    this.dashSequence = player.dashSequence;
+    this.effects.dashStreak(player.root.position, player.facing, 0x00f2fe);
+    this.effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 0x38d6ff, 16, 4.8);
+    this.audio?.play('dash');
+    if (feedback.cameraShake) feedback.cameraShake.value = Math.max(feedback.cameraShake.value, 0.28);
+    return true;
+  }
+
+  resolveDashAttack(player, enemies, feedback = {}, world = null) {
+    const state = player.dashAttackState;
+    if (!state) {
+      if (player.dashDuration <= 0) return;
+      if (this.dashSequence !== player.dashSequence) this.startDashAttack(player);
+      return;
+    }
+
+    // Prevent passing through world obstacles / bounds
+    if (world) {
+      world.resolveFeatureCollision?.(player.root.position, 0.75);
+    }
+
+    if (state.phase === 'dash') {
+      let shouldSlash = false;
+      if (state.target && state.target.alive) {
+        const dx = state.target.root.position.x - player.root.position.x;
+        const dz = state.target.root.position.z - player.root.position.z;
+        const dist = Math.hypot(dx, dz);
+
+        // Keep ninja from getting stuck inside enemy mesh
+        const stopDist = 1.8 * (state.target.spec?.scale || 1);
+        if (dist <= stopDist + 0.9) {
+          shouldSlash = true;
+          if (dist > 0.001) {
+            player.root.position.x = state.target.root.position.x - (dx / dist) * stopDist;
+            player.root.position.z = state.target.root.position.z - (dz / dist) * stopDist;
+          }
+        }
+      }
+
+      if (player.dashDuration <= 0.08 || shouldSlash) {
+        state.phase = 'slash';
+        player.velocity.x *= 0.12;
+        player.velocity.z *= 0.12;
+        player.startAttack('katana-dash-slash', 0.34);
+        this.audio?.play('sword-finisher');
+        this.effects.katanaSlashTrail(player.root.position, player.facing, 2, 0x00f2fe);
+        this.effects.shockwave(player.root.position.clone(), 0x38d6ff, 1.9);
+
+        // Weapon Hitbox connection
+        let hits = 0;
+        const weapon = player.weaponConfig || { damage: 1, range: 1, cooldown: 1 };
+        const baseDamage = 78;
+        const range = 5.2 * (weapon.range || 1);
+        const damage = baseDamage + Math.min(28, player.horizontalSpeed * 0.85);
+
+        for (const enemy of enemies) {
+          if (!enemy.alive || this.dashHits.has(enemy)) continue;
+          if (enemy.lastHitAttackId === state.attackId) continue;
+          if (!this.isInForwardArc(player, enemy, range, -0.25, 4.5)) continue;
+
+          enemy.lastHitAttackId = state.attackId;
+          this.dashHits.add(enemy);
+
+          if (this.applyDamageToEnemy(player, enemy, damage, 'katana-dash-slash', feedback)) {
+            hits++;
+            const hitPoint = enemy.root.position.clone().add(new THREE.Vector3(0, 1.15 * (enemy.spec?.scale || 1), 0));
+            this.effects.sparks(hitPoint, 0xffd54f, 18, 6.5);
+            this.effects.burst(hitPoint, 0x00f2fe, 24, 5.5);
+            this.effects.shockwave(hitPoint, 0x38d6ff, 1.4);
+            this.audio?.play('katana-hit');
+            if (feedback.cameraShake) feedback.cameraShake.value = Math.max(feedback.cameraShake.value, 0.48);
+            feedback.flash?.(0.62, true);
+            feedback.slowMotion?.(0.15);
+          }
+        }
+
+        if (hits > 0) {
+          feedback.message?.('DASH ATTACK // IAIJUTSU STRIKE', 900);
+        }
+      }
+    } else if (state.phase === 'slash') {
+      if (player.attackTimer <= 0) {
+        player.dashAttackState = null;
       }
     }
   }
@@ -466,8 +558,25 @@ export class CombatSystem {
       ? Math.max(0.25, Math.min(2.5, player.weaponConfig.damage))
       : 1;
     const safeRawDamage = Number.isFinite(rawDamage) ? Math.max(0, rawDamage) : 0;
-    const scaledDamage = Math.max(1, safeRawDamage) * speedMultiplier * attackScale * weaponScale *
+    let scaledDamage = Math.max(1, safeRawDamage) * speedMultiplier * attackScale * weaponScale *
       angleMultiplier * frontalArmor * bossScale * overdriveScale;
+
+    // Heavy Samurai / Elite frontal block mechanics
+    const isHeavyEnemy = enemy.type === 'guardian' || enemy.type === 'elite';
+    const isFrontAttack = facingDot > 0.45;
+    const isPiercing = attackType === 'ninja-execution' || attackType === 'void-charge' ||
+      attackType === 'katana-empowered-finisher' || attackType === 'katana-dash-slash';
+
+    if (isHeavyEnemy && isFrontAttack && enemy.hitStun <= 0 && !isPiercing && enemy.attackPhase <= 0) {
+      enemy.isBlocking = true;
+      enemy.blockTimer = 0.38;
+      scaledDamage *= 0.32;
+      this.effects.sparks(enemy.root.position.clone().add(new THREE.Vector3(0, 1.2 * enemy.spec.scale, 0)), 0xffe57f, 15, 6);
+      this.audio?.play('slash');
+      feedback.message?.('GUARD BLOCKED // FLANK OR DASH ATTACK', 800);
+      if (feedback.cameraShake) feedback.cameraShake.value = Math.max(feedback.cameraShake.value, 0.16);
+    }
+
     const damage = Math.min(
       enemy.type === 'colossus' ? 170 : 280,
       attackType === 'ninja-execution' ? Math.max(scaledDamage, enemy.health + 1) : scaledDamage

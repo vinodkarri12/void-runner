@@ -24,6 +24,13 @@ export class CameraController {
     this.shakeOffset = new THREE.Vector3();
     this.sensitivity = 1;
     this.followStrength = 1;
+    this.introTimer = 0;
+    this.introDuration = 1.6;
+  }
+
+  startIntro(duration = 1.6) {
+    this.introTimer = duration;
+    this.introDuration = duration;
   }
 
   addMouseLook(deltaX, deltaY = 0) {
@@ -107,13 +114,19 @@ export class CameraController {
       : 0;
     const closeCombatPullback = target && nearest < 12 ? (mobile ? 0.7 : 1.2) : 0;
 
+    let introLift = 0;
+    if (this.introTimer > 0) {
+      this.introTimer = Math.max(0, this.introTimer - dt);
+      introLift = (this.introTimer / this.introDuration) * 3.8;
+    }
+
     const baseDist = mobile ? (isPortrait ? 9.4 : 8.5) : (7.7 + speedRatio * 2.9);
     const targetDistance = baseDist + chargePullback + overdrivePullback +
-      dashPullback + boostPullback + bossPullback + closeCombatPullback;
+      dashPullback + boostPullback + bossPullback + closeCombatPullback + introLift * 0.8;
 
     const baseHeight = mobile ? (isPortrait ? 4.1 : 3.45) : (3.25 + speedRatio * 0.65);
     const targetHeight = baseHeight + Math.max(0, velocity.y) * (mobile ? 0.015 : 0.035) +
-      (target?.type === 'colossus' ? 1.0 : 0);
+      (target?.type === 'colossus' ? 1.0 : 0) + introLift;
 
     if (this.currentDistance === null) this.currentDistance = targetDistance;
     if (this.currentHeight === null) this.currentHeight = targetHeight;

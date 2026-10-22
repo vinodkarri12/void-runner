@@ -225,6 +225,8 @@ export class Enemy {
     this.hitStun = 0;
     this.hitCooldown = 0;
     this.knockbackVelocity = new THREE.Vector3();
+    this.isBlocking = false;
+    this.blockTimer = 0;
     this.attackCooldown = 0.4 + Math.random() * 0.5;
     this.attackHitDone = false;
     this.attackRange = this.spec.range;
@@ -458,9 +460,11 @@ export class Enemy {
         this.moveOnGround(dx / distToTarget, dz / distToTarget, dt, world, getHeight);
       }
     } else if (this.hitStun > 0) {
-      this.root.rotation.z = Math.sin(this.phase * 28) * 0.09;
+      this.root.rotation.z = Math.sin(this.phase * 28) * 0.12;
+      this.torso.rotation.x = -0.28 * Math.min(1, this.hitStun * 3);
       this.attackPhase = Math.max(0, this.attackPhase - dt * 1.8);
     } else if (this.type === 'ranged' && ninjaDist < 7) {
+      this.torso.rotation.x = 0;
       // Shuriken master retreats to maintain ranged distance
       this.root.rotation.z = 0;
       this.moveOnGround(-ninjaDx / ninjaDist, -ninjaDz / ninjaDist, dt, world, getHeight);
@@ -470,10 +474,12 @@ export class Enemy {
         this.attackHitDone = false;
       }
     } else if (ninjaDist > this.attackRange) {
+      this.torso.rotation.x = 0;
       // Move via coordinated flanking vector
       this.root.rotation.z = 0;
       this.moveOnGround(dx / distToTarget, dz / distToTarget, dt, world, getHeight);
     } else {
+      this.torso.rotation.x = 0;
       // In combat range: coordinated simultaneous attack!
       if (this.attackCooldown <= 0 && this.attackPhase <= 0) {
         this.attackPhase = 0.42; // Fast windup telegraph
@@ -482,14 +488,40 @@ export class Enemy {
       }
     }
 
-    // Arm swing animation during attack
-    if (this.attackPhase > 0) {
+    // Arm and weapon animation during attack / block
+    if (this.isBlocking && this.blockTimer > 0) {
+      this.blockTimer = Math.max(0, this.blockTimer - dt);
+      if (this.blockTimer <= 0) this.isBlocking = false;
+      this.weapon.rotation.z = -1.25;
+      this.weapon.rotation.x = -0.45;
+      if (this.arms[1]) this.arms[1].rotation.x = -1.65;
+      if (this.arms[0]) this.arms[0].rotation.x = -1.35;
+    } else if (this.type === 'colossus' && this.attackPhase > 0) {
+      // Boss Great-Blade animations per pattern
+      if (this.attackPattern === 1) {
+        // Ground impact slam: raises weapon high overhead then crashes down
+        const slamProgress = this.attackActive ? 1 : (1 - this.attackPhase / 0.95);
+        this.weapon.rotation.x = -2.2 + slamProgress * 2.8;
+        this.weapon.rotation.z = 0.2;
+        if (this.arms[1]) this.arms[1].rotation.x = -2.4 + slamProgress * 2.9;
+        if (this.arms[0]) this.arms[0].rotation.x = -2.1 + slamProgress * 2.6;
+      } else {
+        // Wide cleaving sweep
+        const swing = Math.sin(this.phase * 16);
+        this.weapon.rotation.z = -swing * 1.1;
+        this.weapon.rotation.y = swing * 0.9;
+        if (this.arms[1]) this.arms[1].rotation.x = -swing * 1.3;
+      }
+    } else if (this.attackPhase > 0) {
       const swing = Math.sin(this.phase * 18);
-      this.weapon.rotation.z = -swing * 0.8;
-      if (this.arms[1]) this.arms[1].rotation.x = -swing * 1.2;
+      this.weapon.rotation.z = -swing * 0.85;
+      if (this.arms[1]) this.arms[1].rotation.x = -swing * 1.25;
     } else {
       this.weapon.rotation.z = 0;
+      this.weapon.rotation.y = 0;
+      this.weapon.rotation.x = 0;
       if (this.arms[1]) this.arms[1].rotation.x = 0;
+      if (this.arms[0]) this.arms[0].rotation.x = 0;
     }
 
     // Knockback physics

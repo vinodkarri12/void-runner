@@ -8,6 +8,7 @@ export class World {
     this.obstacles = [];
     this.addLighting();
     this.addMoon();
+    this.addStarfield();
     this.addMountainHorizon();
     this.addGrandToriiGate();
   }
@@ -95,6 +96,55 @@ export class World {
     moonGroup.add(this.moonCorona);
 
     this.scene.add(moonGroup);
+  }
+
+  addStarfield() {
+    const starCount = 380;
+    const starGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(starCount * 3);
+    const colors = new Float32Array(starCount * 3);
+    const random = this.random(91823);
+
+    for (let i = 0; i < starCount; i++) {
+      const u = random();
+      const v = random();
+      const theta = u * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * v - 1.0);
+      const r = 520 + random() * 200;
+      const sinPhi = Math.sin(phi);
+
+      const y = Math.abs(Math.cos(phi) * r) + 40;
+      const x = sinPhi * Math.cos(theta) * r;
+      const z = sinPhi * Math.sin(theta) * r;
+
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = z;
+
+      const hue = random();
+      if (hue < 0.6) {
+        colors[i * 3] = 0.88; colors[i * 3 + 1] = 0.94; colors[i * 3 + 2] = 1.0;
+      } else if (hue < 0.85) {
+        colors[i * 3] = 1.0; colors[i * 3 + 1] = 0.88; colors[i * 3 + 2] = 0.65;
+      } else {
+        colors[i * 3] = 0.72; colors[i * 3 + 1] = 0.82; colors[i * 3 + 2] = 1.0;
+      }
+    }
+
+    starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const starMat = new THREE.PointsMaterial({
+      size: 2.2,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.88,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+
+    this.starfield = new THREE.Points(starGeo, starMat);
+    this.scene.add(this.starfield);
   }
 
   addMountainHorizon() {

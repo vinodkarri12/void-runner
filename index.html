@@ -48,7 +48,7 @@
             <div class="portrait-mask"></div>
           </div>
           <div class="portrait-stats">
-            <div class="health-row"><span>Health</span><strong id="healthText">100 / 100 HP</strong></div>
+            <div class="health-row"><span>Health</span><strong id="healthText">100 / 200 HP</strong></div>
             <div class="bar"><div id="healthBar" class="bar-fill health-fill"></div></div>
             <div class="energy-row"><span>Energy</span><strong id="energyText">100/100</strong></div>
             <div class="bar"><div id="energyBar" class="bar-fill energy-fill"></div></div>
@@ -104,12 +104,12 @@
         <details class="control-details">
           <summary>CONTROLS // SHOW / HIDE</summary>
           <div class="control-list">
-            <span>W — SHINOBI RUN</span>
-            <span>A / D — STEER</span>
-            <span>SHIFT — SHADOW BOOST</span>
+            <span>W / A / S / D — SHINOBI MOVE</span>
+            <span>J — KATANA ATTACK</span>
+            <span>SHIFT — RUN / SHADOW BOOST</span>
             <span>SPACE — JUMP</span>
             <span>CTRL — SLIDE</span>
-            <span>E — SHADOW DASH</span>
+            <span>E — DASH ATTACK (TARGETED SLASH)</span>
             <span>Q — REAPER STRIKE</span>
             <span>F — KATANA SLASH</span>
             <span>HOLD / RELEASE R — IAIJUTSU DISCHARGE</span>
@@ -156,7 +156,7 @@
               <div class="fcc-divider"></div>
               <div class="fcc-col">
                 <div class="fcc-badge"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8.01"/><line x1="10" y1="8" x2="10" y2="8.01"/><line x1="14" y1="8" x2="14" y2="8.01"/><line x1="18" y1="8" x2="18" y2="8.01"/><line x1="8" y1="16" x2="16" y2="16"/></svg> DESKTOP CONTROLS</div>
-                <p><strong class="fcc-key">W / UP</strong> to Run &middot; <strong class="fcc-key">A / D</strong> Steer &middot; <strong class="fcc-boost">SHIFT</strong> Boost &middot; <strong class="fcc-key" style="background:#b71c1c;color:#fff;">J / SPACE</strong> Katana Attack &middot; <strong class="fcc-key">K</strong> Jump &middot; <strong class="fcc-key">CTRL</strong> Slide &middot; <strong class="fcc-key">Q / F / R</strong> Combat.</p>
+                <p><strong class="fcc-key">W / A / S / D</strong> Move &middot; <strong class="fcc-key" style="background:#b71c1c;color:#fff;padding:1px 5px;border-radius:4px;">J</strong> Katana Attack &middot; <strong class="fcc-boost">SHIFT</strong> Run &middot; <strong class="fcc-key">SPACE</strong> Jump &middot; <strong class="fcc-key">CTRL</strong> Slide &middot; <strong class="fcc-key">Q / F / R</strong> Jutsu.</p>
               </div>
             </div>
             <div class="front-actions">
@@ -252,7 +252,7 @@
                       <tr><td><kbd class="key-badge" style="background:#b71c1c;color:#fff;">J</kbd> / <kbd class="key-badge" style="background:#b71c1c;color:#fff;">SPACE</kbd></td><td>Katana Attack</td><td>Normal attack, rising cross-slash combo, and leap finisher</td></tr>
                       <tr><td><kbd class="key-badge">K</kbd></td><td>Jump</td><td>Acrobatic leap over obstacles and surrounding enemies</td></tr>
                       <tr><td><kbd class="key-badge">CTRL</kbd></td><td>Slide</td><td>Low shadow slide under barriers while preserving momentum</td></tr>
-                      <tr><td><kbd class="key-badge">E</kbd></td><td>Shadow Dash</td><td>Burst forward and slash through surrounding hostiles</td></tr>
+                      <tr><td><kbd class="key-badge">E</kbd></td><td>Dash Attack</td><td>Rapid target-seeking forward dash into an Iaijutsu Katana strike</td></tr>
                       <tr><td><kbd class="key-badge">Q</kbd></td><td>Reaper Strike</td><td>Quick Katana cut / Shuriken ranged strike</td></tr>
                       <tr><td><kbd class="key-badge">F</kbd></td><td>Katana Slash</td><td>Wide sweeping high-damage Katana slash</td></tr>
                       <tr><td><kbd class="key-badge">HOLD R</kbd></td><td>Iaijutsu Blast</td><td>Focus energy, release for destructive area blast</td></tr>
@@ -302,81 +302,162 @@
         <div id="joystickZone" class="joystick-zone" aria-label="Virtual Joystick">
           <div id="moveStick" class="move-stick">
             <div class="joystick-base-ring"></div>
+            <div class="joystick-dir-indicator dir-up" aria-hidden="true">▲</div>
+            <div class="joystick-dir-indicator dir-down" aria-hidden="true">▼</div>
+            <div class="joystick-dir-indicator dir-left" aria-hidden="true">◄</div>
+            <div class="joystick-dir-indicator dir-right" aria-hidden="true">►</div>
             <div class="joystick-crosshair-h"></div>
             <div class="joystick-crosshair-v"></div>
             <div id="moveKnob" class="move-knob">
               <div class="knob-core"></div>
             </div>
           </div>
-          <span class="joystick-hint">STEER / MOVE</span>
         </div>
 
-        <!-- Left Side: Mobility Actions (JUMP, DASH, SLIDE) above joystick -->
+        <!-- Left Side: Mobility Actions (JUMP, DASH, SLIDE) with clear SVG icons -->
         <div class="mobile-mobility" aria-label="Movement actions">
-          <button class="mobile-action-btn action-jump" data-action="jump" type="button" aria-label="Jump">JUMP</button>
-          <button class="mobile-action-btn action-dash" data-action="dash" type="button" aria-label="Phantom Dash">DASH</button>
-          <button class="mobile-action-btn action-slide" data-action="slide" type="button" aria-label="Slide">SLIDE</button>
+          <button class="mobile-action-btn action-jump" data-action="jump" type="button" aria-label="Jump" title="Jump">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 19V5M5 12l7-7 7 7"/>
+            </svg>
+          </button>
+          <button class="mobile-action-btn action-dash" data-action="dash" type="button" aria-label="Shadow Dash" title="Dash">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
+            </svg>
+          </button>
+          <button class="mobile-action-btn action-slide" data-action="slide" type="button" aria-label="Slide" title="Slide">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 19h18M13 9l6 6-6 6"/>
+            </svg>
+          </button>
         </div>
 
-        <!-- Right Side: Movement and Boost Controls (BOOST and RUN side-by-side) -->
-        <div class="run-control-wrap" aria-label="Hold to Run, Attack, and Boost controls">
-          <!-- Dedicated RUN BOOST Button -->
-          <button id="boostButton" class="boost-button" type="button" aria-label="Hold to Boost while running" aria-pressed="false">
+        <!-- Right Side: Dedicated Boost, Attack, and Run Buttons (Icon-Only) -->
+        <div class="run-control-wrap" aria-label="Touch Combat Controls">
+          <!-- Dedicated RUN BOOST Button (Lightning / Speed Icon) -->
+          <button id="boostButton" class="boost-button" type="button" aria-label="Run Boost" aria-pressed="false" title="Run Boost">
             <svg class="boost-meter-svg" viewBox="0 0 72 72">
               <circle class="boost-meter-track" cx="36" cy="36" r="32" />
               <circle id="boostMeterFill" class="boost-meter-fill" cx="36" cy="36" r="32" />
             </svg>
             <div class="boost-btn-inner">
-              <svg class="boost-icon" viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+              <svg class="boost-icon" viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
                 <path d="M13 2L3 14h7l-2 8 10-12h-7l2-8z"/>
               </svg>
-              <strong class="boost-main-label">BOOST</strong>
             </div>
-            <div class="boost-status-badge status-ready" id="boostStatusBadge">READY</div>
+            <div class="boost-status-badge status-ready sr-only" id="boostStatusBadge" aria-hidden="true">READY</div>
           </button>
 
-          <!-- Dedicated Large Katana ATTACK Button for Mobile Players -->
-          <button id="attackButton" class="attack-button" type="button" aria-label="Katana Weapon Attack" aria-pressed="false">
+          <!-- Dedicated Large Katana ATTACK Button (Sword Icon) -->
+          <button id="attackButton" class="attack-button" type="button" aria-label="Katana Weapon Attack" aria-pressed="false" title="Attack">
             <div class="attack-glow-ring" aria-hidden="true"></div>
             <div class="attack-btn-inner">
-              <svg class="attack-icon" viewBox="0 0 24 24" width="30" height="30" fill="currentColor">
-                <path d="M20.7 3.3a1 1 0 0 0-1.4 0l-9.9 9.9 1.4 1.4 9.9-9.9a1 1 0 0 0 0-1.4zM8 14.6l1.4 1.4-4.7 4.7a1 1 0 0 1-1.4 0l-1.3-1.3a1 1 0 0 1 0-1.4l4.7-4.7 1.3 1.3zm1.4-1.4l1.4 1.4-1.4 1.4-1.4-1.4 1.4-1.4z"/>
+              <svg class="attack-icon" viewBox="0 0 24 24" width="36" height="36" fill="currentColor">
+                <path d="M20.71 3.29a1 1 0 0 0-1.42 0L12 10.59 7.71 6.29a1 1 0 0 0-1.42 1.42L10.59 12 3.29 19.29a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0L12 13.41l4.29 4.3a1 1 0 0 0 1.42-1.42L13.41 12l7.3-7.29a1 1 0 0 0 0-1.42zM14.83 9.17l-1.41-1.41 5.88-5.88 1.41 1.41-5.88 5.88z"/>
               </svg>
-              <div class="attack-label-group">
-                <strong class="attack-main-label">ATTACK</strong>
-                <span class="attack-sub-label" id="attackComboLabel">KATANA</span>
-              </div>
             </div>
-            <div class="attack-status-badge status-ready" id="attackStatusBadge">READY</div>
+            <div class="attack-status-badge status-ready sr-only" id="attackStatusBadge" aria-hidden="true">READY</div>
+            <span class="sr-only" id="attackComboLabel">KATANA</span>
           </button>
 
-          <!-- Dedicated Large Hold-to-Run Button -->
-          <button id="runButton" class="run-button" type="button" aria-label="Hold to Run" aria-pressed="false">
+          <!-- Dedicated DASH ATTACK Button (Target-Seeking Dash Slash with Cooldown Meter) -->
+          <button id="dashAttackButton" class="dash-attack-button" type="button" aria-label="Dash Attack" aria-pressed="false" title="Dash Attack">
+            <svg class="dash-cooldown-svg" viewBox="0 0 72 72">
+              <circle class="dash-cooldown-track" cx="36" cy="36" r="32" />
+              <circle id="dashCooldownFill" class="dash-cooldown-fill" cx="36" cy="36" r="32" />
+            </svg>
+            <div class="dash-attack-glow-ring" aria-hidden="true"></div>
+            <div class="dash-attack-btn-inner">
+              <svg class="dash-attack-icon" viewBox="0 0 24 24" width="30" height="30" fill="currentColor">
+                <path d="M19.5 3.5l1 1-13 13-3 1 1-3 13-13zm-11 11l-1.5 1.5 3 3 1.5-1.5-3-3zM2 19h20v2H2v-2zM4 6l3 3-1.5 1.5L2 7l2-1zm14 8l1.5-1.5L22 15l-1.5 1.5-2.5-2.5z"/>
+              </svg>
+            </div>
+            <div class="dash-status-badge status-ready sr-only" id="dashStatusBadge" aria-hidden="true">READY</div>
+            <span class="sr-only" id="dashLabel">DASH ATTACK</span>
+          </button>
+
+          <!-- Dedicated Large RUN Button (Running-Person Icon) -->
+          <button id="runButton" class="run-button" type="button" aria-label="Run" aria-pressed="false" title="Run">
             <div class="run-glow-ring" aria-hidden="true"></div>
             <div class="run-btn-inner">
               <svg class="run-icon" viewBox="0 0 24 24" width="34" height="34" fill="currentColor">
                 <path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/>
               </svg>
-              <div class="run-label-group">
-                <strong class="run-main-label">RUN</strong>
-                <span class="run-sub-label" id="runSubLabel">HOLD TO MOVE</span>
-              </div>
             </div>
-            <div class="run-status-badge status-stopped" id="runStatusBadge">STOPPED</div>
+            <div class="run-status-badge status-stopped sr-only" id="runStatusBadge" aria-hidden="true">STOPPED</div>
+            <span class="sr-only" id="runSubLabel">HOLD TO RUN</span>
           </button>
         </div>
 
-        <!-- Right Side: Combat Abilities above RUN/BOOST buttons -->
+        <!-- Right Side: Combat Abilities with Clear Icons (Icons Only, No Letters) -->
         <div class="mobile-combat" aria-label="Combat abilities">
-          <button class="mobile-ability-btn ability-strike" data-ability="strike" type="button" aria-label="Reaver Strike">Q STRIKE</button>
-          <button class="mobile-ability-btn ability-slash" data-ability="slash" type="button" aria-label="Void Slash">F SLASH</button>
-          <button class="mobile-ability-btn ability-charge" data-ability="charge" type="button" aria-label="Hold R Charge">HOLD R</button>
-          <button class="mobile-ability-btn ability-overdrive" data-ability="overdrive" type="button" aria-label="Overdrive">T OVERDRIVE</button>
-          <button class="mobile-ability-btn ability-clone" data-ability="clone" type="button" aria-label="Shadow Clone">G CLONE</button>
-          <button class="mobile-ability-btn ability-chain" data-ability="chain" type="button" aria-label="Void Chain">V CHAIN</button>
-          <button class="mobile-ability-btn ability-anchor" data-ability="anchor" type="button" aria-label="Kinetic Anchor">X ANCHOR</button>
-          <button class="mobile-ability-btn ability-execute" data-ability="execute" type="button" aria-label="Ninja Execution">Z FINISH</button>
+          <button class="mobile-ability-btn ability-strike" data-ability="strike" type="button" aria-label="Reaver Strike" title="Reaver Strike">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <polygon points="12,2 14.5,9.5 22,12 14.5,14.5 12,22 9.5,14.5 2,12 9.5,9.5"/>
+            </svg>
+          </button>
+          <button class="mobile-ability-btn ability-slash" data-ability="slash" type="button" aria-label="Void Slash" title="Void Slash">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <path d="M4 20C10 18 18 14 20 4M7 21C12 17 19 11 21 7"/>
+            </svg>
+          </button>
+          <button class="mobile-ability-btn ability-charge" data-ability="charge" type="button" aria-label="Iaijutsu Discharge" title="Iaijutsu Discharge">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <circle cx="12" cy="12" r="3" fill="currentColor"/>
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M4.9 19.1l2.2-2.2M16.9 7.1l2.2-2.2"/>
+            </svg>
+          </button>
+          <button class="mobile-ability-btn ability-overdrive" data-ability="overdrive" type="button" aria-label="Overdrive" title="Overdrive">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M12 2c1.5 3 4 5 4 8.5a4 4 0 0 1-8 0c0-2 1.5-4.5 4-8.5zm0 18a7 7 0 0 0 7-7c0-3.5-3-6-5-9-1 3-3 4.5-4 5.5-1.5-2-2-3.5-2-5.5-2 3-5 5.5-5 9a7 7 0 0 0 9 7z"/>
+            </svg>
+          </button>
+          <button class="mobile-ability-btn ability-clone" data-ability="clone" type="button" aria-label="Shadow Clone" title="Shadow Clone">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M9 3a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm6 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM4 14.5C4 12 7 11 9 11s5 1 5 3.5V17H4v-2.5zm11-.5c.8-.5 1.8-.8 3-.8 2 0 4 .8 4 2.8V17h-7v-1.5c0-.6.3-1.1.7-1.5z"/>
+            </svg>
+          </button>
+          <button class="mobile-ability-btn ability-chain" data-ability="chain" type="button" aria-label="Void Chain" title="Void Chain">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+          </button>
+          <button class="mobile-ability-btn ability-anchor" data-ability="anchor" type="button" aria-label="Kinetic Anchor" title="Kinetic Anchor">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="5" r="2.5"/>
+              <line x1="12" y1="7.5" x2="12" y2="21"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <path d="M5 16a7 7 0 0 0 14 0"/>
+            </svg>
+          </button>
+          <button class="mobile-ability-btn ability-execute" data-ability="execute" type="button" aria-label="Ninja Execution" title="Ninja Execution">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 19L19 5M5 5l14 14M3 8l3-3M16 21l3-3M21 8l-3-3M8 21l-3-3"/>
+            </svg>
+          </button>
         </div>
+      </div>
+
+      <!-- Cinematic Level Start Intro Overlay -->
+      <div id="levelStartOverlay" class="level-start-overlay hidden" aria-hidden="true">
+        <div class="level-intro-card">
+          <div class="level-intro-eyebrow" id="introEyebrow">STAGE 01 // SHINOBI INFILTRATION</div>
+          <h1 class="level-intro-title" id="introTitle">BAMBOO GROVE SANCTUARY</h1>
+          <div class="level-intro-kanji" id="introKanji">風林火山</div>
+          <div class="level-intro-banner" id="introBanner">
+            <span class="intro-callout-word ready-word" id="readyWord">READY</span>
+            <span class="intro-callout-word fight-word hidden" id="fightWord">FIGHT!</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cinematic Last-Enemy Level-Complete Banner -->
+      <div id="cinematicVictoryBanner" class="cinematic-victory-banner hidden" aria-hidden="true">
+        <div class="cinematic-victory-kanji">完全勝利</div>
+        <div class="cinematic-victory-title">STAGE CLEARED</div>
+        <div class="cinematic-victory-subtitle" id="victorySubtitle">ALL HOSTILES ELIMINATED</div>
       </div>
 
       <div id="overlay" class="overlay hidden">
@@ -386,10 +467,10 @@
           <p id="modalMessage">Catch your breath before the next breach.</p>
           <div id="resultsPanel" class="modal-results hidden"></div>
           <button id="resumeButton" class="modal-button">RESUME</button>
-          <button id="continueButton" class="modal-button">CONTINUE</button>
+          <button id="continueButton" class="modal-button">NEXT LEVEL</button>
           <button id="changeWeaponButton" class="modal-button secondary">CHANGE WEAPON</button>
           <button id="settingsMenuButton" class="modal-button secondary">SETTINGS</button>
-          <button id="restartButton" class="modal-button secondary">RESTART</button>
+          <button id="restartButton" class="modal-button secondary">REPLAY LEVEL</button>
           <button id="mainMenuButton" class="modal-button secondary">MAIN MENU</button>
         </div>
       </div>
