@@ -16,6 +16,7 @@ import { HUD } from './HUD.js?campaign15a';
 import { ProgressionManager, createLevelDefinition, CAMPAIGN_LEVELS } from './ProgressionManager.js?campaign15a';
 import { WeaponManager, WEAPONS } from './WeaponManager.js?campaign15a';
 import { SettingsManager } from './SettingsManager.js';
+import { ControlsCustomizer } from './ControlsCustomizer.js';
 
 const viewport = document.getElementById('viewport');
 const isMobileViewport = () => (typeof window !== 'undefined') &&
@@ -55,6 +56,7 @@ const cameraController = new CameraController(camera, player);
 const progression = new ProgressionManager();
 const weaponManager = new WeaponManager();
 const settingsManager = new SettingsManager();
+const controlsCustomizer = new ControlsCustomizer(settingsManager);
 const enemies = [];
 const energyOrbs = [];
 const getGroundHeight = worldChunks.getHeight.bind(worldChunks);
@@ -227,14 +229,7 @@ function restartCurrentLevel() {
 
 function updateMobileWeaponButton() {
   const current = weaponManager.getEquippedWeapon();
-  const icon = document.getElementById('mobileWeaponIcon');
-  const name = document.getElementById('mobileWeaponName');
-  if (icon) icon.textContent = current.category === 'ranged' ? '🔫' : '⚔';
-  if (name) name.textContent = current.category === 'ranged' ? 'GUN' : 'KATANA';
-  const attackComboLabel = document.getElementById('attackComboLabel');
-  if (attackComboLabel) {
-    attackComboLabel.textContent = current.category === 'ranged' ? 'VOID FIREARM' : 'KATANA';
-  }
+  hud.updateAttackButton(current, player);
 }
 
 function clearShadowClone() {
@@ -617,12 +612,8 @@ function spawnWave(level = wave, checkpoint = null) {
     const healthScale = 0.85 + (wave - 1) * 0.055;
     const speedScale = 0.95 + (wave - 1) * 0.035;
     // Scaled shinobi attack damage across level groups:
-    // Levels 1-5 (Hard): 14 - 18 damage
-    // Levels 6-10 (Very Hard): 18 - 28 damage
-    // Levels 11-15 (Extreme): 22 - 36 damage. Boss: 42 damage!
-    const tierScale = wave <= 5 ? 1.0 : wave <= 10 ? 1.3 : 1.6;
-    const baseDamageMap = { scout: 14, guardian: 18, ranged: 14, elite: 22, colossus: 42 };
-    const scaledAttackDamage = Math.round((baseDamageMap[type] || 14) * tierScale);
+    // Scaled shinobi attack damage: normal enemies deal exactly 30 HP, boss deals 42 HP
+    const scaledAttackDamage = (type === 'colossus' || masterBoss) ? 42 : 30;
     const baseHealth = { scout: 76, guardian: 155, ranged: 115, elite: 240, colossus: 850 }[type] || 76;
     const baseSpeed = { scout: 4.4, guardian: 2.45, ranged: 2.95, elite: 3.3, colossus: 1.6 }[type] || 4.4;
     const options = {
@@ -666,10 +657,12 @@ function spawnWave(level = wave, checkpoint = null) {
 }
 
 const removeEnemy = (enemy) => {
-  if (enemy.cleaned) return;
+  if (!enemy || enemy.cleaned) return;
   enemy.cleaned = true;
-  scene.remove(enemy.root);
-  enemy.dispose();
+  if (enemy.root) scene.remove(enemy.root);
+  if (typeof enemy.dispose === 'function') {
+    try { enemy.dispose(); } catch (_) {}
+  }
   enemy.alive = false;
 };
 
@@ -995,13 +988,21 @@ function syncSettingsControls() {
 function applySettings() {
   const settings = settingsManager.values;
   audio.setVolume(settings.masterVolume, settings.sfxVolume);
-  cameraController.sensitivity = settings.sensitivity;
+  cameraController.sensitivity = settings.cameraSensitivity || settings.sensitivity;
   cameraController.followStrength = settings.cameraFollow;
   reduceFlash = settings.reducedEffects;
   document.body.classList.toggle('reduced-flash', reduceFlash);
   document.body.classList.toggle('reduced-effects', reduceFlash);
   document.body.style.setProperty('--motion-intensity', String(settings.motionBlur));
   document.documentElement.style.setProperty('--mobile-control-scale', String(settings.controlScale || 1));
+  if (settings.hudScale) {
+    document.documentElement.style.setProperty('--hud-scale', String(settings.hudScale));
+  }
+  hud.applyHUDVisibility(settings);
+  if (settings.controlOpacity) {
+    controlsCustomizer.setGlobalOpacity(settings.controlOpacity);
+  }
+  controlsCustomizer.applyToDOM();
   document.getElementById('reduceFlashButton').textContent = `REDUCE FLASH / SHAKE: ${reduceFlash ? 'ON' : 'OFF'}`;
   document.getElementById('reduceFlashButton').setAttribute('aria-pressed', String(reduceFlash));
   const quality = settings.graphics;
@@ -1050,26 +1051,54 @@ function startLevelWithLoading(level, carryState = null, retry = false, checkpoi
   const definition = createLevelDefinition(level);
   const token = ++loadingToken;
   setFrontView('loading');
-  document.getElementById('loadingError').hidden = true;
-  document.getElementById('loadingRetry').hidden = true;
-  document.getElementById('loadingMenu').hidden = true;
-  document.getElementById('loadingEyebrow').textContent = definition.finalBoss
-    ? 'FINAL BOSS // LEVEL 15 // DIFFICULTY 5.5 // 15 HOSTILES'
-    : `LEVEL ${String(level).padStart(2, '0')} / 15 // DIFFICULTY ${definition.difficulty.toFixed(1)} // ${definition.requiredKills} HOSTILES`;
-  document.getElementById('loadingTitle').textContent =
-    `PREPARING LEVEL ${String(level).padStart(2, '0')} // ${definition.title}`;
+
+  const errorEl = document.getElementById('loadingError');
+  if (errorEl) {
+    errorEl.hidden = true;
+    errorEl.textContent = 'Level preparation failed. Try again.';
+  }
+  const retryBtn = document.getElementById('loadingRetry');
+  if (retryBtn) retryBtn.hidden = true;
+  const menuBtn = document.getElementById('loadingMenu');
+  if (menuBtn) menuBtn.hidden = true;
+
+  const eyebrowEl = document.getElementById('loadingEyebrow');
+  if (eyebrowEl) {
+    eyebrowEl.textContent = definition.finalBoss
+      ? 'FINAL BOSS // LEVEL 15 // DIFFICULTY 5.5 // 15 HOSTILES'
+      : `LEVEL ${String(level).padStart(2, '0')} / 15 // DIFFICULTY ${definition.difficulty.toFixed(1)} // ${definition.requiredKills} HOSTILES`;
+  }
+  const titleEl = document.getElementById('loadingTitle');
+  if (titleEl) {
+    titleEl.textContent = `PREPARING LEVEL ${String(level).padStart(2, '0')} // ${definition.title}`;
+  }
   const tipIndex = level % loadingTips.length;
-  document.getElementById('loadingTip').textContent = loadingTips[tipIndex];
+  const tipEl = document.getElementById('loadingTip');
+  if (tipEl) tipEl.textContent = loadingTips[tipIndex];
   loadingTipTimer = 4;
+
   showLoadingProgress(0, 'VERIFYING CAMPAIGN ACCESS', true);
-  document.querySelector('.loading-track').classList.add('indeterminate');
+  const track = document.querySelector('.loading-track');
+  if (track) track.classList.add('indeterminate');
+
+  // Multi-phase asynchronous initialization
   requestAnimationFrame(() => {
     if (token !== loadingToken) return;
     try {
-      showLoadingProgress(50, 'CAMPAIGN ACCESS VERIFIED // 1 OF 2 TASKS');
-      document.querySelector('.loading-track').classList.remove('indeterminate');
-      player.equipWeapon(WEAPONS.find((weapon) => weapon.id === weaponManager.equippedId) || WEAPONS[0]);
+      showLoadingProgress(30, 'PREPARING SHINOBI ARSENAL // 1 OF 3');
+      if (track) track.classList.remove('indeterminate');
+
+      const equippedWeapon = WEAPONS.find((weapon) => weapon.id === weaponManager.equippedId) || WEAPONS[0];
+      try {
+        player.equipWeapon(equippedWeapon);
+      } catch (wErr) {
+        console.warn('Equipping selected weapon failed, using default katana fallback:', wErr);
+        player.equipWeapon(WEAPONS[0]);
+      }
+
+      showLoadingProgress(65, 'CONSTRUCTING ARENA & HOSTILES // 2 OF 3');
       resetGame(true, checkpoint);
+
       if (carryState) {
         player.health = Math.min(player.maxHealth, carryState.health);
         player.energy = Math.min(100, carryState.energy);
@@ -1089,25 +1118,33 @@ function startLevelWithLoading(level, carryState = null, retry = false, checkpoi
       }
       isPaused = true;
       inMainMenu = true;
-      showLoadingProgress(100, 'PLAYER, ARENA, AND ENCOUNTER READY // 2 OF 2 TASKS');
-      requestAnimationFrame(() => {
+
+      // Final phase: reach 100% cleanly
+      showLoadingProgress(100, 'LEVEL PREPARED // ENTERING BATTLE');
+
+      window.setTimeout(() => {
         if (token !== loadingToken) return;
-        document.getElementById('frontEnd').classList.add('leaving');
+        const frontEnd = document.getElementById('frontEnd');
+        if (frontEnd) frontEnd.classList.add('leaving');
         window.setTimeout(() => {
           if (token !== loadingToken) return;
-          document.getElementById('frontEnd').classList.remove('leaving');
+          if (frontEnd) frontEnd.classList.remove('leaving');
           completeFrontendLaunch();
-        }, 240);
-      });
+        }, 220);
+      }, 160);
     } catch (error) {
-      console.error('VOID RUNNER level initialization failed.', error);
+      console.error(`VOID RUNNER Level ${level} preparation failed:`, error?.message, error?.stack || error);
       loadingInProgress = false;
       loadingFailed = true;
-      document.querySelector('.loading-track').classList.remove('indeterminate');
-      document.getElementById('loadingStatus').textContent = 'INITIALIZATION FAILED';
-      document.getElementById('loadingError').hidden = false;
-      document.getElementById('loadingRetry').hidden = false;
-      document.getElementById('loadingMenu').hidden = false;
+      if (track) track.classList.remove('indeterminate');
+      const statusEl = document.getElementById('loadingStatus');
+      if (statusEl) statusEl.textContent = 'INITIALIZATION FAILED';
+      if (errorEl) {
+        errorEl.textContent = `Level preparation failed: ${error?.message || 'Initialization error'}. Try again.`;
+        errorEl.hidden = false;
+      }
+      if (retryBtn) retryBtn.hidden = false;
+      if (menuBtn) menuBtn.hidden = false;
     }
   });
   return true;
@@ -1167,9 +1204,36 @@ function bindFrontend() {
     });
   });
 
-  const fullscreenBtn = document.getElementById('fullscreenButton');
-  if (fullscreenBtn) {
-    fullscreenBtn.addEventListener('click', async () => {
+  const lockLandscapeOrientation = async () => {
+    try {
+      const root = document.documentElement;
+      if (!document.fullscreenElement) {
+        if (root.requestFullscreen) {
+          await root.requestFullscreen();
+        } else if (root.webkitRequestFullscreen) {
+          await root.webkitRequestFullscreen();
+        }
+      }
+      if (screen.orientation && screen.orientation.lock) {
+        await screen.orientation.lock('landscape').catch(() => {});
+      }
+    } catch (err) {
+      console.warn('VOID RUNNER landscape lock or fullscreen not available:', err);
+    }
+  };
+
+  window.addEventListener('orientationchange', () => {
+    setTimeout(resize, 120);
+  });
+  if (screen.orientation) {
+    screen.orientation.addEventListener('change', () => {
+      setTimeout(resize, 120);
+    });
+  }
+
+  const fullscreenButtons = document.querySelectorAll('#fullscreenButton, #hudFullscreenButton');
+  fullscreenButtons.forEach((btn) => {
+    btn.addEventListener('click', async () => {
       try {
         if (document.fullscreenElement) {
           await document.exitFullscreen();
@@ -1181,7 +1245,7 @@ function bindFrontend() {
         combatFeedback.message('FULLSCREEN UNAVAILABLE', 900);
       }
     });
-  }
+  });
 
   const lockLandscapeBtn = document.getElementById('lockLandscapeButton');
   if (lockLandscapeBtn) {
@@ -1196,11 +1260,22 @@ function bindFrontend() {
   if (dismissPortraitBtn) {
     dismissPortraitBtn.addEventListener('click', () => {
       document.body.classList.add('portrait-dismissed');
+      resize();
     });
   }
 
-  document.getElementById('loadingRetry').addEventListener('click', () => startLevelWithLoading(loadingLevel, null, true));
-  document.getElementById('loadingMenu').addEventListener('click', showMainMenu);
+  const retryBtn = document.getElementById('loadingRetry');
+  if (retryBtn) {
+    retryBtn.addEventListener('click', () => {
+      loadingInProgress = false;
+      loadingFailed = false;
+      startLevelWithLoading(loadingLevel, null, true);
+    });
+  }
+  const menuBtn = document.getElementById('loadingMenu');
+  if (menuBtn) {
+    menuBtn.addEventListener('click', showMainMenu);
+  }
   hud.hideModal();
   refreshHomeMenu();
   applySettings();
@@ -1253,25 +1328,31 @@ const bindInput = () => {
   const attackStatusBadge = document.getElementById('attackStatusBadge');
   const attackComboLabel = document.getElementById('attackComboLabel');
 
-  const triggerKatanaAttack = () => {
+  const triggerEquippedAttack = () => {
     audio.init();
-    if (isPaused || !player.isAlive || waveState === 'intro') return;
-    const executed = combat.performKatanaCombo(player, enemies, combatFeedback);
-    if (executed) {
-      const step = player.comboStep;
-      if (attackStatusBadge) {
-        attackStatusBadge.textContent = step === 3 ? 'FINISHER!' : `COMBO ${step}`;
-        attackStatusBadge.className = 'attack-status-badge ' + (step === 3 ? 'status-finisher' : 'status-combo');
-      }
-      if (attackComboLabel) {
-        attackComboLabel.textContent = step === 3 ? 'LEAP CLEAVE' : step === 2 ? 'CROSS SLASH' : 'KATANA SLASH';
+    if (controlsCustomizer.isEditing || isPaused || !player.isAlive || waveState === 'intro') return;
+    if (player.weaponConfig?.category === 'ranged') {
+      combat.performGunShot(player, enemies, combatFeedback);
+      updateMobileWeaponButton();
+    } else {
+      const executed = combat.performKatanaCombo(player, enemies, combatFeedback);
+      if (executed) {
+        const step = player.comboStep;
+        if (attackStatusBadge) {
+          attackStatusBadge.textContent = step === 3 ? 'FINISHER!' : `COMBO ${step}`;
+          attackStatusBadge.className = 'attack-status-badge ' + (step === 3 ? 'status-finisher' : 'status-combo');
+        }
+        if (attackComboLabel) {
+          attackComboLabel.textContent = step === 3 ? 'LEAP CLEAVE' : step === 2 ? 'CROSS SLASH' : 'KATANA SLASH';
+        }
       }
     }
   };
+  const triggerKatanaAttack = triggerEquippedAttack;
 
   const triggerDashAttack = () => {
     audio.init();
-    if (isPaused || !player.isAlive || waveState === 'intro') return;
+    if (controlsCustomizer.isEditing || isPaused || !player.isAlive || waveState === 'intro') return;
 
     let moveDir = null;
     if (movementSystem.input.moveX !== 0 || movementSystem.input.moveY !== 0) {
@@ -1290,12 +1371,14 @@ const bindInput = () => {
     }
   };
 
+  // ONE Primary Dynamic Attack Button (Right side)
   if (attackBtn) {
     attackBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (controlsCustomizer.isEditing) return;
       attackBtn.classList.add('pressed');
-      triggerKatanaAttack();
+      triggerEquippedAttack();
     });
     const endAttack = (e) => {
       if (e) {
@@ -1309,11 +1392,13 @@ const bindInput = () => {
     attackBtn.addEventListener('lostpointercapture', endAttack);
   }
 
+  // Dedicated BOOST / DASH Button
   const dashAttackBtn = document.getElementById('dashAttackButton');
   if (dashAttackBtn) {
     dashAttackBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (controlsCustomizer.isEditing) return;
       dashAttackBtn.classList.add('pressed');
       triggerDashAttack();
     });
@@ -1327,6 +1412,144 @@ const bindInput = () => {
     dashAttackBtn.addEventListener('pointerup', endDash);
     dashAttackBtn.addEventListener('pointercancel', endDash);
     dashAttackBtn.addEventListener('lostpointercapture', endDash);
+  }
+
+  // Dedicated JUMP Button
+  const jumpBtn = document.getElementById('jumpButton');
+  if (jumpBtn) {
+    bindHoldControl(jumpBtn, () => {
+      if (controlsCustomizer.isEditing) return;
+      audio.init();
+      touch.jump = true;
+    }, () => {
+      touch.jump = false;
+    });
+  }
+
+  // Dedicated SIT / CROUCH Button
+  const crouchBtn = document.getElementById('crouchButton');
+  if (crouchBtn) {
+    bindHoldControl(crouchBtn, () => {
+      if (controlsCustomizer.isEditing) return;
+      audio.init();
+      touch.slide = true;
+    }, () => {
+      touch.slide = false;
+    });
+  }
+
+  // Right-Side Camera Touch Drag Zone (Separated from buttons, prevents accidental attacks)
+  const cameraTouchZone = document.getElementById('cameraTouchZone');
+  let activeCameraTouchPointer = null;
+  let lastCamTouchX = 0;
+  let lastCamTouchY = 0;
+
+  if (cameraTouchZone) {
+    cameraTouchZone.addEventListener('pointerdown', (e) => {
+      if (controlsCustomizer.isEditing || isPaused || screenState !== 'gameplay') return;
+      if (activeCameraTouchPointer !== null) return;
+      activeCameraTouchPointer = e.pointerId;
+      lastCamTouchX = e.clientX;
+      lastCamTouchY = e.clientY;
+      try { cameraTouchZone.setPointerCapture(e.pointerId); } catch (_) {}
+    }, { passive: false });
+
+    cameraTouchZone.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== activeCameraTouchPointer) return;
+      const dx = e.clientX - lastCamTouchX;
+      const dy = e.clientY - lastCamTouchY;
+      lastCamTouchX = e.clientX;
+      lastCamTouchY = e.clientY;
+      cameraController.addTouchLook(dx, dy, settingsManager.values.cameraSensitivity || 1);
+    }, { passive: false });
+
+    const endCamTouch = (e) => {
+      if (e && e.pointerId !== undefined && e.pointerId !== activeCameraTouchPointer) return;
+      if (activeCameraTouchPointer !== null && cameraTouchZone.releasePointerCapture) {
+        try { cameraTouchZone.releasePointerCapture(activeCameraTouchPointer); } catch (_) {}
+      }
+      activeCameraTouchPointer = null;
+    };
+    cameraTouchZone.addEventListener('pointerup', endCamTouch, { passive: false });
+    cameraTouchZone.addEventListener('pointercancel', endCamTouch, { passive: false });
+    cameraTouchZone.addEventListener('lostpointercapture', endCamTouch, { passive: false });
+    heldControlReleases.add(endCamTouch);
+  }
+
+  // CONTROLS & HUD CUSTOMIZATION Overlay and Modal Triggers
+  const openCustomBtn = document.getElementById('openCustomizeControlsBtn');
+  if (openCustomBtn) {
+    openCustomBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      controlsCustomizer.startCustomization();
+    });
+  }
+  const openCustomBarBtn = document.getElementById('openCustomizeControlsBarBtn');
+  if (openCustomBarBtn) {
+    openCustomBarBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      controlsCustomizer.startCustomization();
+    });
+  }
+  const pauseCustomBtn = document.getElementById('pauseCustomizeControlsBtn');
+  if (pauseCustomBtn) {
+    pauseCustomBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      hud.hideModal();
+      controlsCustomizer.startCustomization();
+    });
+  }
+
+  const editorSaveBtn = document.getElementById('editorSaveBtn');
+  if (editorSaveBtn) {
+    editorSaveBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      controlsCustomizer.stopCustomization(true);
+      if (isPaused && !inMainMenu) {
+        hud.showModal('PAUSED', 'SYSTEM PAUSED', 'The world will wait. Catch your breath.');
+      }
+    });
+  }
+  const editorResetBtn = document.getElementById('editorResetBtn');
+  if (editorResetBtn) {
+    editorResetBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      controlsCustomizer.resetToDefault();
+    });
+  }
+  const editorCancelBtn = document.getElementById('editorCancelBtn');
+  if (editorCancelBtn) {
+    editorCancelBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      controlsCustomizer.stopCustomization(false);
+      if (isPaused && !inMainMenu) {
+        hud.showModal('PAUSED', 'SYSTEM PAUSED', 'The world will wait. Catch your breath.');
+      }
+    });
+  }
+  const editorPresetSelect = document.getElementById('editorPresetSelect');
+  if (editorPresetSelect) {
+    editorPresetSelect.addEventListener('change', (e) => {
+      controlsCustomizer.applyPreset(e.target.value);
+    });
+  }
+  const editorScaleSlider = document.getElementById('editorScaleSlider');
+  if (editorScaleSlider) {
+    editorScaleSlider.addEventListener('input', (e) => {
+      controlsCustomizer.setGlobalScale(parseFloat(e.target.value));
+    });
+  }
+  const editorOpacitySlider = document.getElementById('editorOpacitySlider');
+  if (editorOpacitySlider) {
+    editorOpacitySlider.addEventListener('input', (e) => {
+      controlsCustomizer.setGlobalOpacity(parseFloat(e.target.value));
+    });
+  }
+  const editorElemSizeSlider = document.getElementById('editorElemSizeSlider');
+  if (editorElemSizeSlider) {
+    editorElemSizeSlider.addEventListener('input', (e) => {
+      controlsCustomizer.setSelectedElementSize(parseFloat(e.target.value));
+    });
   }
 
   window.addEventListener('keydown', (event) => {
@@ -1379,7 +1602,7 @@ const bindInput = () => {
     audio.init();
     if (isPaused) return;
     if (event.code === 'KeyJ') {
-      triggerKatanaAttack();
+      triggerEquippedAttack();
       return;
     }
     if (event.code === 'KeyE') {
@@ -1886,6 +2109,8 @@ function returnToPause() {
 }
 
 function showMainMenu() {
+  loadingInProgress = false;
+  loadingFailed = false;
   isPaused = true;
   inMainMenu = true;
   screenState = 'main-menu';
@@ -1912,19 +2137,33 @@ function resumeGame() {
 
 function resetGame(keepPaused = false, checkpoint = null) {
   enemyAttackCoordinator.reset();
-  for (const enemy of enemies) removeEnemy(enemy);
+  for (const enemy of enemies) {
+    try { removeEnemy(enemy); } catch (_) {}
+  }
   enemies.length = 0;
-  removeMasterArena();
-  for (const entry of spawnQueue) entry.enemy.dispose();
+  try { removeMasterArena(); } catch (_) {}
+  for (const entry of spawnQueue) {
+    try {
+      if (typeof entry?.enemy?.dispose === 'function') entry.enemy.dispose();
+      else if (entry?.enemy?.root) scene.remove(entry.enemy.root);
+    } catch (_) {}
+  }
   for (const group of encounterQueues.slice(encounterWaveIndex + 1)) {
-    for (const entry of group) entry.enemy.dispose();
+    for (const entry of group) {
+      try {
+        if (typeof entry?.enemy?.dispose === 'function') entry.enemy.dispose();
+        else if (entry?.enemy?.root) scene.remove(entry.enemy.root);
+      } catch (_) {}
+    }
   }
   spawnQueue = [];
   encounterQueues = [];
   encounterWaveIndex = 0;
   for (const portal of arrivalPortals) {
-    scene.remove(portal.root);
-    for (const child of portal.root.children) child.material.dispose();
+    try {
+      scene.remove(portal.root);
+      for (const child of portal.root.children) child.material?.dispose?.();
+    } catch (_) {}
   }
   arrivalPortals = [];
   for (const orb of energyOrbs) removeEnergyOrb(orb);
@@ -2227,7 +2466,7 @@ function updateEnergyOrbs(dt, time) {
 }
 
 function readInput(dt = 1 / 60) {
-  if (waveState === 'intro' || !player.isAlive || isPaused || screenState !== 'gameplay') {
+  if (controlsCustomizer.isEditing || waveState === 'intro' || !player.isAlive || isPaused || screenState !== 'gameplay') {
     player.isRunning = false;
     player.isBoosting = false;
     movementSystem.input.moveX = 0;
@@ -2666,6 +2905,7 @@ function resize() {
   renderer.shadowMap.enabled = settingsManager.values.graphics !== 'low' && !isMobileViewport();
   renderer.toneMappingExposure = settingsManager.values.graphics === 'low' ? 1.04 : 1.12;
   renderer.setSize(width, height, false);
+  controlsCustomizer.applyToDOM();
 }
 
 scene.add(player.root);
@@ -2675,6 +2915,7 @@ cameraController.lookYaw = Math.PI;
 bindInput();
 weaponManager.load(player, progression);
 updateMobileWeaponButton();
+controlsCustomizer.applyToDOM();
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') progression.save();

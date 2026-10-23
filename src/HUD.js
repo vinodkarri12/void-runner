@@ -77,6 +77,7 @@ export class HUD {
   }
 
   update(player, enemies, wave, worldOffset = { x: 0, y: 0 }, getHeight = () => 0, combat = null, target = null, defeated = 0, abilities = {}) {
+    this.updateAttackButton(player.weaponConfig, player);
     const equippedHudWeapon = document.getElementById('equippedHudWeapon');
     if (equippedHudWeapon) {
       if (player.weaponConfig?.category === 'ranged') {
@@ -400,6 +401,7 @@ export class HUD {
     this.mainMenuButton.style.display = isGameOver || isPaused || isVictory ? '' : 'none';
     this.continueButton.style.display = 'none';
     if (this.levelSelectModalButton) {
+      this.levelSelectModalButton.textContent = isGameOver ? 'RETURN TO LEVEL SELECTION' : 'LEVEL SELECTION';
       this.levelSelectModalButton.style.display = isGameOver || isPaused || isVictory ? '' : 'none';
     }
     this.restartButton.textContent = isGameOver ? 'RESTART LEVEL' : isVictory ? 'REPLAY LEVEL' : title === 'MAIN MENU' ? 'START RUN' : 'RESTART';
@@ -429,7 +431,10 @@ export class HUD {
     this.settingsMenuButton.style.display = 'none';
     this.restartButton.textContent = 'RESTART LEVEL';
     this.restartButton.style.display = '';
-    if (this.levelSelectModalButton) this.levelSelectModalButton.style.display = '';
+    if (this.levelSelectModalButton) {
+      this.levelSelectModalButton.textContent = 'RETURN TO LEVEL SELECTION';
+      this.levelSelectModalButton.style.display = '';
+    }
     this.mainMenuButton.style.display = '';
     this.overlay.classList.remove('modal-paused', 'modal-victory');
     this.overlay.classList.add('modal-game-over');
@@ -498,6 +503,59 @@ export class HUD {
     this.combatMessage.textContent = message;
     this.combatMessage.classList.add('visible');
     this.messageTimer = duration / 1000;
+  }
+
+  updateAttackButton(weaponConfig, player) {
+    const isRanged = weaponConfig?.category === 'ranged';
+    const attackBtn = document.getElementById('attackButton');
+    const attackIconKatana = document.getElementById('attackIconKatana');
+    const attackIconGun = document.getElementById('attackIconGun');
+    const attackAmmoBadge = document.getElementById('attackAmmoBadge');
+    const attackBtnLabel = document.getElementById('attackButtonLabel');
+    const mobileWeaponIcon = document.getElementById('mobileWeaponIcon');
+    const mobileWeaponName = document.getElementById('mobileWeaponName');
+
+    if (attackBtn) {
+      attackBtn.classList.toggle('weapon-katana', !isRanged);
+      attackBtn.classList.toggle('weapon-gun', isRanged);
+    }
+    if (attackIconKatana) attackIconKatana.classList.toggle('hidden', isRanged);
+    if (attackIconGun) attackIconGun.classList.toggle('hidden', !isRanged);
+
+    if (attackAmmoBadge) {
+      if (isRanged && player) {
+        attackAmmoBadge.classList.remove('hidden');
+        if (player.gunReloadTimer > 0) {
+          attackAmmoBadge.textContent = 'RELOAD';
+          attackAmmoBadge.classList.add('status-reloading');
+        } else {
+          attackAmmoBadge.textContent = `${player.gunAmmo ?? 6}/${player.gunMaxAmmo ?? 6}`;
+          attackAmmoBadge.classList.remove('status-reloading');
+        }
+      } else {
+        attackAmmoBadge.classList.add('hidden');
+      }
+    }
+
+    if (attackBtnLabel) {
+      attackBtnLabel.textContent = isRanged ? 'FIRE' : 'ATTACK';
+    }
+    if (mobileWeaponIcon) {
+      mobileWeaponIcon.textContent = isRanged ? '🔫' : '⚔';
+    }
+    if (mobileWeaponName) {
+      mobileWeaponName.textContent = isRanged ? 'FIREARM' : 'KATANA';
+    }
+  }
+
+  applyHUDVisibility(settings) {
+    if (!settings) return;
+    const minimapWrap = document.querySelector('.minimap-panel');
+    if (minimapWrap) minimapWrap.style.display = settings.hudMinimap === false ? 'none' : '';
+    const speedPanel = document.querySelector('.speed-panel');
+    if (speedPanel) speedPanel.style.display = settings.hudStats === false ? 'none' : '';
+    const campaignPanel = document.querySelector('.campaign-panel');
+    if (campaignPanel) campaignPanel.style.display = settings.hudObjective === false ? 'none' : '';
   }
 
   hideModal() {

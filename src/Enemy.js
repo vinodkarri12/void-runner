@@ -14,43 +14,65 @@ export class EnemyAttackCoordinator {
   constructor() {
     this.activeAttacker = null;
     this.turnDelay = 0;
+    this.queue = [];
   }
 
   update(dt) {
     this.turnDelay = Math.max(0, this.turnDelay - dt);
     if (this.activeAttacker) {
       if (!this.activeAttacker.alive || this.activeAttacker.hitStun > 0 || this.activeAttacker.attackPhase <= 0) {
-        this.release(this.activeAttacker, 0.25);
+        this.release(this.activeAttacker, 0.32);
       }
     }
+    // Clean up inactive or defeated enemies from queue
+    this.queue = this.queue.filter((e) => e && e.alive && e.health > 0);
   }
 
   canAttack(enemy) {
+    if (!enemy || !enemy.alive) return false;
+    if (this.activeAttacker === enemy) return true;
     if (this.turnDelay > 0) return false;
-    if (this.activeAttacker === null || this.activeAttacker === enemy) {
-      return true;
+    if (this.activeAttacker !== null) return false;
+    if (this.queue.length > 0 && this.queue[0] !== enemy) {
+      const head = this.queue[0];
+      if (head && head.alive && head.attackCooldown <= 0.25) {
+        return false;
+      }
     }
-    return false;
+    return true;
+  }
+
+  requestAttack(enemy) {
+    if (!enemy || !enemy.alive) return;
+    if (!this.queue.includes(enemy)) {
+      this.queue.push(enemy);
+    }
   }
 
   claim(enemy) {
     if (this.canAttack(enemy)) {
       this.activeAttacker = enemy;
+      const idx = this.queue.indexOf(enemy);
+      if (idx !== -1) this.queue.splice(idx, 1);
       return true;
     }
+    this.requestAttack(enemy);
     return false;
   }
 
-  release(enemy, pauseDuration = 0.28) {
+  release(enemy, pauseDuration = 0.32) {
     if (this.activeAttacker === enemy) {
       this.activeAttacker = null;
       this.turnDelay = pauseDuration;
     }
+    const idx = this.queue.indexOf(enemy);
+    if (idx !== -1) this.queue.splice(idx, 1);
   }
 
   reset() {
     this.activeAttacker = null;
     this.turnDelay = 0;
+    this.queue = [];
   }
 }
 
@@ -179,7 +201,7 @@ export class Enemy {
       // Conical Bamboo Jingasa Hat
       const jingasa = mesh(new THREE.ConeGeometry(headSize * 1.8, headSize * 0.55, 12), armor,
         new THREE.Vector3(0, headSize * 0.42, 0), this.head);
-      part(new THREE.TorusGeometry(headSize * 1.7, 0.025, 4, 16), gold, new THREE.Vector3(0, headSize * 0.15, 0), this.head);
+      mesh(new THREE.TorusGeometry(headSize * 1.7, 0.025, 4, 16), gold, new THREE.Vector3(0, headSize * 0.15, 0), this.head);
     } else {
       // Shadow Assassin cowl with hitai-ate forehead plate
       mesh(new THREE.BoxGeometry(headSize * 1.5, headSize * 0.35, headSize * 0.3), armor,
@@ -263,7 +285,8 @@ export class Enemy {
     const hpScale = 1 + (level - 1) * 0.045;
     this.health = Math.round(this.spec.health * hpScale);
     this.maxHealth = this.health;
-    this.attackDamage = Math.round((this.spec.attackDamage ?? (this.type === 'colossus' ? 28 : 14)) * (1 + (level - 1) * 0.025));
+    // Exactly 30 HP attack damage for all normal enemies; boss has configurable attack damage (42 HP)
+    this.attackDamage = (this.type === 'colossus' || this.isFinalBoss) ? (this.spec.attackDamage ?? 42) : 30;
     this.attackCooldownScale = this.spec.attackCooldownScale ?? 1;
     this.windupDuration = 0.52;
     this.strikeDuration = 0.22;
@@ -630,5 +653,55 @@ export class Enemy {
     }
     knockback.x *= Math.max(0, 1 - 7.5 * dt);
     knockback.z *= Math.max(0, 1 - 7.5 * dt);
+  }
+
+  dispose() {
+    this.alive = false;
+    this.cleaned = true;
+    enemyAttackCoordinator.release(this, 0.12);
+    if (this.healthTexture) {
+      try { this.healthTexture.dispose(); } catch (_) {}
+      this.healthTexture = null;
+    }
+    if (this.healthSprite) {
+      try {
+        if (this.healthSprite.material) this.healthSprite.material.dispose();
+      } catch (_) {}
+      this.healthSprite = null;
+    }
+    if (this.telegraphRing) {
+      try {
+        if (this.telegraphRing.geometry) this.telegraphRing.geometry.dispose();
+        if (this.telegraphRing.material) this.telegraphRing.material.dispose();
+      } catch (_) {}
+      this.telegraphRing = null;
+    }
+    if (this.telegraphBeam) {
+      try {
+        if (this.telegraphBeam.geometry) this.telegraphBeam.geometry.dispose();
+        if (this.telegraphBeam.material) this.telegraphBeam.material.dispose();
+      } catch (_) {}
+      this.telegraphBeam = null;
+    }
+    if (this.root) {
+      const geometries = new Set();
+      const materials = new Set();
+      this.root.traverse((object) => {
+        if (object.geometry) geometries.add(object.geometry);
+        if (object.material) {
+          if (Array.isArray(object.material)) object.material.forEach((m) => materials.add(m));
+          else materials.add(object.material);
+        }
+      });
+      geometries.forEach((g) => {
+        try { g.dispose(); } catch (_) {}
+      });
+      materials.forEach((m) => {
+        try { m.dispose(); } catch (_) {}
+      });
+      if (this.root.parent) {
+        this.root.parent.remove(this.root);
+      }
+    }
   }
 }

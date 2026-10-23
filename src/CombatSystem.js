@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { enemyAttackCoordinator } from './Enemy.js';
 
 const ENEMY_COLOR = '#fff2f5';
 export const COMBO_RESET_SECONDS = 4.2;
@@ -324,8 +325,8 @@ export class CombatSystem {
     // Glowing sword slash trail effect
     this.effects?.katanaSlashTrail(player.root.position, player.facing, step, weaponColor);
 
-    // Standard katana attack damage is exactly 60 HP per successful hit
-    let baseDamage = 60;
+    // Standard normal katana hit deals exactly 70 HP
+    let baseDamage = 70;
     let range = 4.2 * (weapon.range || 1);
     let minDot = 0.22;
     let attackType = 'katana-combo-1';
@@ -639,9 +640,9 @@ export class CombatSystem {
     let scaledDamage = Math.max(1, safeRawDamage) * speedMultiplier * attackScale * weaponScale *
       angleMultiplier * frontalArmor * bossScale * overdriveScale;
 
-    // Standard katana attack deals exactly 60 HP per successful hit
-    if (attackType === 'katana-combo-1') {
-      scaledDamage = 60;
+    // Every valid normal katana hit must deal exactly 70 HP to an enemy
+    if (attackType === 'katana-combo-1' || attackType === 'katana-combo-2' || attackType === 'katana-normal') {
+      scaledDamage = 70;
     }
 
     // Heavy Samurai / Elite frontal block mechanics
@@ -694,7 +695,8 @@ export class CombatSystem {
     }
     enemy.drawHealth();
     this.effects.burst(enemy.root.position.clone().add(new THREE.Vector3(0, 1.1 * enemy.spec.scale, 0)), 0x9eeeff, 12, 4.5);
-    this.effects.damageNumber(enemy.root.position, damage, enemy.type === 'colossus' ? '#ffafcc' : ENEMY_COLOR);
+    const displayDamage = (attackType === 'katana-combo-1' || attackType === 'katana-combo-2' || attackType === 'katana-normal') ? 70 : Math.round(damage);
+    this.effects.damageNumber(enemy.root.position, displayDamage, enemy.type === 'colossus' ? '#ffafcc' : ENEMY_COLOR);
     if (feedback.cameraShake) feedback.cameraShake.value = Math.min(1.2, feedback.cameraShake.value + 0.14 + damage / 240);
     feedback.flash?.(attackType === 'void-charge' ? 0.52 : 0.28, false);
     if (angleLabel) feedback.message?.(angleLabel, 780);
@@ -753,18 +755,37 @@ export class CombatSystem {
       else if (enemy.attackPattern === 1) bossHit = dist < 12;
       else bossHit = dist < 17 && Math.abs(angle) < 0.23;
     }
+    // Only one normal enemy may perform an active attack and apply damage at a time
+    if (enemy.type !== 'colossus') {
+      if (enemyAttackCoordinator.activeAttacker !== enemy) {
+        if (enemyAttackCoordinator.activeAttacker === null && enemyAttackCoordinator.canAttack(enemy)) {
+          enemyAttackCoordinator.claim(enemy);
+        } else {
+          return false; // Waiting enemies cannot damage player
+        }
+      }
+    }
+
     const normalHit = enemy.type !== 'colossus' &&
       dist < enemy.attackRange &&
       enemy.attackPhase > 0 &&
       enemy.attackPhase <= (enemy.strikeDuration || 0.24) &&
       !enemy.attackHitDone;
+
     if ((normalHit || bossHit) && player.invulnerable <= 0) {
-      const damage = enemy.attackDamage ?? (enemy.type === 'colossus' ? 38 : 16);
+      // Every successful normal enemy attack must remove exactly 30 HP from player
+      const damage = (enemy.type === 'colossus' || enemy.isFinalBoss)
+        ? (enemy.attackDamage || 42)
+        : 30;
       const applied = feedback.takeDamage
         ? feedback.takeDamage(damage)
         : player.takeDamage(damage);
-      player.invulnerable = player.damageInvulnerabilityWindow || 0.28;
+      // Give player brief damage protection after a hit so the same attack cannot damage repeatedly
+      player.invulnerable = Math.max(0.42, player.damageInvulnerabilityWindow || 0.45);
       enemy.attackHitDone = true;
+      if (enemyAttackCoordinator.activeAttacker === enemy) {
+        enemyAttackCoordinator.release(enemy, 0.32);
+      }
       if (this.charging) this.cancelVoidCharge(player);
       this.effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 0xd61c2e, 16, 5.5);
       this.effects.damageNumber(player.root.position, Math.round(damage), '#ff3b4d');
@@ -777,6 +798,8 @@ export class CombatSystem {
       feedback.damageFlash?.();
       feedback.flash?.(0.38, false);
       if (feedback.cameraShake) feedback.cameraShake.value = Math.min(1.4, feedback.cameraShake.value + 0.32);
+      return true;
     }
+    return false;
   }
 }

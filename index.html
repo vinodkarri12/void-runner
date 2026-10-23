@@ -1,545 +1,805 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#060b16" />
-    <title>VOID RUNNER: SHADOW NINJA | 3D Shinobi Survival Action</title>
-    <link rel="stylesheet" href="./src/style.css?campaign15a" />
-    <script type="importmap">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#060b16" />
+  <title>VOID RUNNER: SHADOW NINJA | 3D Shinobi Survival Action</title>
+  <link rel="stylesheet" href="./src/style.css?campaign15a" />
+  <script type="importmap">
       {
         "imports": {
           "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js"
         }
       }
     </script>
-  </head>
-  <body>
-    <div id="game-root">
-      <div id="viewport"></div>
-      <header class="hud-header">
-        <div class="brand-block">
-          <div class="brand-mark">忍</div>
-          <div>
-            <div class="brand-title">VOID RUNNER: SHADOW NINJA</div>
-            <div class="brand-subtitle">THE WAY OF THE SHINOBI</div>
+</head>
+
+<body>
+  <div id="game-root">
+    <div id="viewport"></div>
+    <header class="hud-header">
+      <div class="brand-block">
+        <div class="brand-mark">忍</div>
+        <div>
+          <div class="brand-title">VOID RUNNER: SHADOW NINJA</div>
+          <div class="brand-subtitle">THE WAY OF THE SHINOBI</div>
+        </div>
+      </div>
+      <div class="hud-top-right">
+        <div class="mini-stat"><span>Score</span><strong id="scoreValue">000000</strong></div>
+        <div class="mini-stat"><span>Combo</span><strong id="comboValue">x0</strong><small id="scoreMultiplier">SCORE
+            x1</small></div>
+        <div class="mini-stat"><span>Defeated</span><strong id="defeatedValue">0</strong></div>
+        <div class="mini-stat"><span>Enemies Remaining</span><strong id="enemyValue">0 LEFT</strong></div>
+        <div class="mini-stat level-header-stat"><span>Campaign</span><strong id="levelValue">LEVEL: 01 / 15</strong>
+        </div>
+        <div class="mini-stat movement-stat"><span>Movement</span><strong id="hudMovementState"
+            class="state-stopped">STOPPED</strong></div>
+        <button id="cameraResetButton" class="camera-reset-button" type="button" title="Reset camera (C)">CAM
+          RESET</button>
+        <button id="pauseButton" class="pause-button">II</button>
+      </div>
+    </header>
+
+    <aside class="left-panel">
+      <div class="minimap-panel">
+        <div class="minimap-label">LOCAL SCAN</div>
+        <canvas id="minimap" width="180" height="180" aria-label="Nearby terrain and hostile radar"></canvas>
+      </div>
+      <div class="portrait-panel">
+        <div class="portrait-box">
+          <div class="portrait-head"></div>
+          <div class="portrait-mask"></div>
+        </div>
+        <div class="portrait-stats">
+          <div class="health-row"><span>Health</span><strong id="healthText">100 / 200 HP</strong></div>
+          <div class="bar">
+            <div id="healthBar" class="bar-fill health-fill"></div>
+          </div>
+          <div class="energy-row"><span>Energy</span><strong id="energyText">100/100</strong></div>
+          <div class="bar">
+            <div id="energyBar" class="bar-fill energy-fill"></div>
           </div>
         </div>
-        <div class="hud-top-right">
-          <div class="mini-stat"><span>Score</span><strong id="scoreValue">000000</strong></div>
-          <div class="mini-stat"><span>Combo</span><strong id="comboValue">x0</strong><small id="scoreMultiplier">SCORE x1</small></div>
-          <div class="mini-stat"><span>Defeated</span><strong id="defeatedValue">0</strong></div>
-          <div class="mini-stat"><span>Enemies Remaining</span><strong id="enemyValue">0 LEFT</strong></div>
-          <div class="mini-stat level-header-stat"><span>Campaign</span><strong id="levelValue">LEVEL: 01 / 15</strong></div>
-          <div class="mini-stat movement-stat"><span>Movement</span><strong id="hudMovementState" class="state-stopped">STOPPED</strong></div>
-          <button id="cameraResetButton" class="camera-reset-button" type="button" title="Reset camera (C)">CAM RESET</button>
-          <button id="pauseButton" class="pause-button">II</button>
-        </div>
-      </header>
+      </div>
+    </aside>
 
-      <aside class="left-panel">
-        <div class="minimap-panel">
-          <div class="minimap-label">LOCAL SCAN</div>
-          <canvas id="minimap" width="180" height="180" aria-label="Nearby terrain and hostile radar"></canvas>
+    <section class="speed-panel">
+      <div class="speed-header">
+        <span>M/S</span>
+        <strong id="speedValue">000</strong>
+      </div>
+      <div class="meter-wrap">
+        <div class="meter-track">
+          <div id="momentumBar" class="meter-fill"></div>
         </div>
-        <div class="portrait-panel">
-          <div class="portrait-box">
-            <div class="portrait-head"></div>
-            <div class="portrait-mask"></div>
-          </div>
-          <div class="portrait-stats">
-            <div class="health-row"><span>Health</span><strong id="healthText">100 / 200 HP</strong></div>
-            <div class="bar"><div id="healthBar" class="bar-fill health-fill"></div></div>
-            <div class="energy-row"><span>Energy</span><strong id="energyText">100/100</strong></div>
-            <div class="bar"><div id="energyBar" class="bar-fill energy-fill"></div></div>
-          </div>
+      </div>
+      <div class="hud-boost-wrap" id="hudBoostMeterWrap" title="Boost meter (Hold Shift or Boost button)">
+        <div class="hud-boost-track">
+          <div id="hudBoostBar" class="hud-boost-fill"></div>
         </div>
-      </aside>
+        <div class="hud-boost-readout"><span id="hudBoostLabel">BOOST READY</span><strong
+            id="hudBoostPercent">100%</strong></div>
+      </div>
+      <div class="speed-label-row">
+        <span id="momentumState">IDLE</span>
+        <span><b id="damageMultiplier">KINETIC DMG x0.45</b> <i id="maxSpeedStatus">MAX SPEED</i></span>
+      </div>
+    </section>
 
-      <section class="speed-panel">
-        <div class="speed-header">
-          <span>M/S</span>
-          <strong id="speedValue">000</strong>
+    <aside class="ability-panel" aria-label="VOID REAVER abilities">
+      <div class="ability-heading">
+        <div><span class="ability-kicker">EQUIPPED WEAPON</span><strong id="equippedHudWeapon">VOID REAVER</strong>
         </div>
-        <div class="meter-wrap">
-          <div class="meter-track"><div id="momentumBar" class="meter-fill"></div></div>
+        <span id="overdriveStatus" class="overdrive-status">OVERDRIVE READY</span>
+      </div>
+      <div class="ability-meters">
+        <div class="ability-meter">
+          <div class="ability-meter-label"><span>REAVER ENERGY</span><strong id="weaponEnergyText">100%</strong></div>
+          <div class="ability-track"><i id="weaponEnergyBar"></i></div>
         </div>
-        <div class="hud-boost-wrap" id="hudBoostMeterWrap" title="Boost meter (Hold Shift or Boost button)">
-          <div class="hud-boost-track"><div id="hudBoostBar" class="hud-boost-fill"></div></div>
-          <div class="hud-boost-readout"><span id="hudBoostLabel">BOOST READY</span><strong id="hudBoostPercent">100%</strong></div>
+        <div class="ability-meter">
+          <div class="ability-meter-label"><span>IMPACT DISCHARGE <b id="chargePercent">0%</b></span><strong
+              id="chargeFull" class="charge-full">FULL CHARGE</strong></div>
+          <div class="ability-track charge-track"><i id="chargeBar"></i></div>
         </div>
-        <div class="speed-label-row">
-          <span id="momentumState">IDLE</span>
-          <span><b id="damageMultiplier">KINETIC DMG x0.45</b> <i id="maxSpeedStatus">MAX SPEED</i></span>
+        <div class="ability-meter">
+          <div class="ability-meter-label"><span>OVERDRIVE</span><strong id="overdriveText">60%</strong></div>
+          <div class="ability-track overdrive-track"><i id="overdriveBar"></i></div>
         </div>
-      </section>
+      </div>
+      <div class="ability-cooldowns">
+        <span>Q STRIKE <b id="qStatus">READY</b></span>
+        <span>F SLASH <b id="fStatus">READY</b></span>
+        <span>E DASH <b id="eStatus">READY</b></span>
+        <span>R DISCHARGE <b id="rStatus">READY</b></span>
+        <span>T OVERDRIVE <b id="tStatus">READY</b></span>
+        <span>G CLONE <b id="gStatus">READY</b></span>
+        <span>V CHAIN <b id="vStatus">READY</b></span>
+        <span>X ANCHOR <b id="xStatus">READY</b></span>
+        <span>Z EXECUTE <b id="zStatus">READY</b></span>
+      </div>
+      <button id="reduceFlashButton" class="reduce-flash-button" type="button" aria-pressed="false">REDUCE FLASH /
+        SHAKE: OFF</button>
+    </aside>
 
-      <aside class="ability-panel" aria-label="VOID REAVER abilities">
-        <div class="ability-heading">
-          <div><span class="ability-kicker">EQUIPPED WEAPON</span><strong id="equippedHudWeapon">VOID REAVER</strong></div>
-          <span id="overdriveStatus" class="overdrive-status">OVERDRIVE READY</span>
+    <aside class="objective-panel">
+      <div class="objective-title">OBJECTIVE</div>
+      <div class="objective-text">DEFEAT ALL HOSTILE SHINOBI</div>
+      <details class="control-details">
+        <summary>CONTROLS // SHOW / HIDE</summary>
+        <div class="control-list">
+          <span>W / A / S / D — SHINOBI MOVE</span>
+          <span>J — KATANA ATTACK</span>
+          <span>SHIFT — RUN / SHADOW BOOST</span>
+          <span>SPACE — JUMP</span>
+          <span>CTRL — SLIDE</span>
+          <span>E — DASH ATTACK (TARGETED SLASH)</span>
+          <span>Q — REAPER STRIKE</span>
+          <span>F — KATANA SLASH</span>
+          <span>HOLD / RELEASE R — IAIJUTSU DISCHARGE</span>
+          <span>T — OVERDRIVE</span>
+          <span>G — SHADOW CLONE</span>
+          <span>V — VOID CHAIN</span>
+          <span>X — SHADOW ANCHOR</span>
+          <span>Z — SHADOW EXECUTION</span>
+          <span>WALL RUN — NEAR WALL</span>
         </div>
-        <div class="ability-meters">
-          <div class="ability-meter"><div class="ability-meter-label"><span>REAVER ENERGY</span><strong id="weaponEnergyText">100%</strong></div><div class="ability-track"><i id="weaponEnergyBar"></i></div></div>
-          <div class="ability-meter"><div class="ability-meter-label"><span>IMPACT DISCHARGE <b id="chargePercent">0%</b></span><strong id="chargeFull" class="charge-full">FULL CHARGE</strong></div><div class="ability-track charge-track"><i id="chargeBar"></i></div></div>
-          <div class="ability-meter"><div class="ability-meter-label"><span>OVERDRIVE</span><strong id="overdriveText">60%</strong></div><div class="ability-track overdrive-track"><i id="overdriveBar"></i></div></div>
-        </div>
-        <div class="ability-cooldowns">
-          <span>Q STRIKE <b id="qStatus">READY</b></span>
-          <span>F SLASH <b id="fStatus">READY</b></span>
-          <span>E DASH <b id="eStatus">READY</b></span>
-          <span>R DISCHARGE <b id="rStatus">READY</b></span>
-          <span>T OVERDRIVE <b id="tStatus">READY</b></span>
-          <span>G CLONE <b id="gStatus">READY</b></span>
-          <span>V CHAIN <b id="vStatus">READY</b></span>
-          <span>X ANCHOR <b id="xStatus">READY</b></span>
-          <span>Z EXECUTE <b id="zStatus">READY</b></span>
-        </div>
-        <button id="reduceFlashButton" class="reduce-flash-button" type="button" aria-pressed="false">REDUCE FLASH / SHAKE: OFF</button>
-      </aside>
+      </details>
+    </aside>
 
-      <aside class="objective-panel">
-        <div class="objective-title">OBJECTIVE</div>
-        <div class="objective-text">DEFEAT ALL HOSTILE SHINOBI</div>
-        <details class="control-details">
-          <summary>CONTROLS // SHOW / HIDE</summary>
-          <div class="control-list">
-            <span>W / A / S / D — SHINOBI MOVE</span>
-            <span>J — KATANA ATTACK</span>
-            <span>SHIFT — RUN / SHADOW BOOST</span>
-            <span>SPACE — JUMP</span>
-            <span>CTRL — SLIDE</span>
-            <span>E — DASH ATTACK (TARGETED SLASH)</span>
-            <span>Q — REAPER STRIKE</span>
-            <span>F — KATANA SLASH</span>
-            <span>HOLD / RELEASE R — IAIJUTSU DISCHARGE</span>
-            <span>T — OVERDRIVE</span>
-            <span>G — SHADOW CLONE</span>
-            <span>V — VOID CHAIN</span>
-            <span>X — SHADOW ANCHOR</span>
-            <span>Z — SHADOW EXECUTION</span>
-            <span>WALL RUN — NEAR WALL</span>
-          </div>
-        </details>
-      </aside>
+    <div id="centerMessage" class="center-message">CHAPTER 01</div>
+    <section class="campaign-panel" aria-label="Campaign level progress">
+      <div class="campaign-heading"><strong id="levelTitle">BAMBOO GROVE SANCTUARY</strong><span
+          id="unlockedLevel">UNLOCKED: 001 // CLEARED: 0</span></div>
+      <div class="campaign-objective" id="levelObjective">DEFEAT ALL HOSTILE SHINOBI</div>
+      <div class="campaign-progress-track"><i id="levelProgress"></i></div>
+      <small id="levelProgressText">HOSTILES 0 / 10</small>
+    </section>
+    <div id="combatMessage" class="combat-message" aria-live="polite"></div>
+    <section id="bossHealthPanel" class="boss-health-panel hidden" aria-label="Shadow Shogun health">
+      <div><span id="bossName">SHADOW SHOGUN</span><strong id="bossHealthText">350 / 350</strong></div>
+      <div class="boss-health-track"><i id="bossHealthBar"></i></div>
+      <small id="bossPhaseText">ARMORED</small>
+    </section>
+    <div id="targetMarker" class="target-marker hidden"><span class="target-diamond"></span>
+      <div class="target-info"><strong id="targetName"></strong><span id="targetHealthText"></span><span
+          class="target-health-track"><i id="targetHealthBar"></i></span></div>
+    </div>
+    <div id="impactFlash" class="impact-flash" aria-hidden="true"></div>
 
-      <div id="centerMessage" class="center-message">CHAPTER 01</div>
-      <section class="campaign-panel" aria-label="Campaign level progress">
-        <div class="campaign-heading"><strong id="levelTitle">BAMBOO GROVE SANCTUARY</strong><span id="unlockedLevel">UNLOCKED: 001 // CLEARED: 0</span></div>
-        <div class="campaign-objective" id="levelObjective">DEFEAT ALL HOSTILE SHINOBI</div>
-        <div class="campaign-progress-track"><i id="levelProgress"></i></div>
-        <small id="levelProgressText">HOSTILES 0 / 10</small>
-      </section>
-      <div id="combatMessage" class="combat-message" aria-live="polite"></div>
-      <section id="bossHealthPanel" class="boss-health-panel hidden" aria-label="Shadow Shogun health">
-        <div><span id="bossName">SHADOW SHOGUN</span><strong id="bossHealthText">350 / 350</strong></div>
-        <div class="boss-health-track"><i id="bossHealthBar"></i></div>
-        <small id="bossPhaseText">ARMORED</small>
-      </section>
-      <div id="targetMarker" class="target-marker hidden"><span class="target-diamond"></span><div class="target-info"><strong id="targetName"></strong><span id="targetHealthText"></span><span class="target-health-track"><i id="targetHealthBar"></i></span></div></div>
-      <div id="impactFlash" class="impact-flash" aria-hidden="true"></div>
-
-      <section id="frontEnd" class="front-end" aria-label="VOID RUNNER front end">
-        <div class="front-end-backdrop"></div>
-        <div class="front-end-brand"><span>忍</span><div><strong>VOID RUNNER</strong><small>SHADOW NINJA</small></div></div>
-        <div class="front-end-content">
-          <section class="front-view active" data-view="home">
-            <p class="front-eyebrow">SHINOBI WARFARE // 15 CHAPTER CAMPAIGN</p>
-            <h1>SHADOW<br><em>NINJA</em></h1>
-            <p class="front-subtitle">VOID RUNNER // MASTER THE WAY OF THE BLADE</p>
-            <div class="front-save-status" id="frontSaveStatus">LEVEL 01 / 15 // NEW CAMPAIGN</div>
-            <div class="front-controls-card">
-              <div class="fcc-col">
-                <div class="fcc-badge"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01" stroke-linecap="round"/></svg> MOBILE CONTROLS</div>
-                <p>Virtual <strong class="fcc-steer">JOYSTICK</strong> to steer. Hold <strong class="fcc-run">RUN</strong> to sprint. Tap <strong class="fcc-key" style="background:#b71c1c;color:#fff;padding:1px 5px;border-radius:4px;">ATTACK</strong> for 3-hit Katana combos. Hold <strong class="fcc-boost">BOOST</strong> for speed surge.</p>
-              </div>
-              <div class="fcc-divider"></div>
-              <div class="fcc-col">
-                <div class="fcc-badge"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8.01"/><line x1="10" y1="8" x2="10" y2="8.01"/><line x1="14" y1="8" x2="14" y2="8.01"/><line x1="18" y1="8" x2="18" y2="8.01"/><line x1="8" y1="16" x2="16" y2="16"/></svg> DESKTOP CONTROLS</div>
-                <p><strong class="fcc-key">W / A / S / D</strong> Move &middot; <strong class="fcc-key" style="background:#b71c1c;color:#fff;padding:1px 5px;border-radius:4px;">J</strong> Katana Attack &middot; <strong class="fcc-boost">SHIFT</strong> Run &middot; <strong class="fcc-key">SPACE</strong> Jump &middot; <strong class="fcc-key">CTRL</strong> Slide &middot; <strong class="fcc-key">Q / F / R</strong> Jutsu.</p>
-              </div>
+    <section id="frontEnd" class="front-end" aria-label="VOID RUNNER front end">
+      <div class="front-end-backdrop"></div>
+      <div class="front-end-brand"><span>忍</span>
+        <div><strong>VOID RUNNER</strong><small>SHADOW NINJA</small></div>
+      </div>
+      <div class="front-end-content">
+        <section class="front-view active" data-view="home">
+          <p class="front-eyebrow">SHINOBI WARFARE // 15 CHAPTER CAMPAIGN</p>
+          <h1>SHADOW<br><em>NINJA</em></h1>
+          <p class="front-subtitle">VOID RUNNER // MASTER THE WAY OF THE BLADE</p>
+          <div class="front-save-status" id="frontSaveStatus">LEVEL 01 / 15 // NEW CAMPAIGN</div>
+          <div class="front-controls-card">
+            <div class="fcc-col">
+              <div class="fcc-badge"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                  stroke-width="2.2">
+                  <rect x="5" y="2" width="14" height="20" rx="2" />
+                  <line x1="12" y1="18" x2="12" y2="18.01" stroke-linecap="round" />
+                </svg> MOBILE CONTROLS</div>
+              <p>Virtual <strong class="fcc-steer">JOYSTICK</strong> to steer. Hold <strong class="fcc-run">RUN</strong>
+                to sprint. Tap <strong class="fcc-key"
+                  style="background:#b71c1c;color:#fff;padding:1px 5px;border-radius:4px;">ATTACK</strong> for 3-hit
+                Katana combos. Hold <strong class="fcc-boost">BOOST</strong> for speed surge.</p>
             </div>
-            <div class="front-actions">
-              <button data-menu-action="start">NEW GAME</button>
-              <button data-menu-action="continue">CONTINUE</button>
-              <button data-view-button="levels">LEVEL SELECT</button>
-              <button data-view-button="armory">WEAPON ARMORY</button>
-              <button data-view-button="settings">SETTINGS</button>
-              <button data-view-button="how">HOW TO PLAY</button>
-            </div>
-          </section>
-
-          <section class="front-view" data-view="loading">
-            <p class="front-eyebrow" id="loadingEyebrow">BREACH SEQUENCE</p>
-            <h2 id="loadingTitle">PREPARING LEVEL 001</h2>
-            <div class="loading-stage" aria-hidden="true">
-              <div class="loading-sigil">V</div>
-              <div class="loading-ninja"><i class="ninja-mask"></i><i class="ninja-body"></i><i class="ninja-cloak"></i><i class="ninja-blade"></i><i class="ninja-trail"></i></div>
-              <div class="loading-particles"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-            </div>
-            <p id="loadingTip">Build speed before you strike.</p>
-            <div class="loading-track"><i id="loadingProgress"></i></div>
-            <div class="loading-readout"><span id="loadingStatus">INITIALIZING ARENA</span><strong id="loadingPercent">0%</strong></div>
-            <p id="loadingError" class="loading-error" hidden>Level preparation failed. Try again.</p>
-            <button id="loadingRetry" class="front-back-button" hidden>RETRY</button>
-            <button id="loadingMenu" class="front-back-button" hidden>RETURN TO MENU</button>
-          </section>
-
-          <section class="front-view front-wide" data-view="levels">
-            <p class="front-eyebrow">CAMPAIGN // <span id="campaignProgress">1 / 15</span></p>
-            <h2>SELECT LEVEL</h2>
-            <div class="level-tools">
-              <input id="levelSearch" type="number" min="1" max="15" placeholder="SEARCH LEVEL" aria-label="Search level number">
-              <button id="levelSearchButton">GO</button>
-              <button id="levelPrevious">‹</button><span id="levelPageLabel">01–15</span><button id="levelNext">›</button>
-            </div>
-            <div id="levelGrid" class="level-grid" aria-label="Campaign levels"></div>
-            <div class="selection-detail">
-              <div><small>SELECTED // <span id="selectedLevelNumber">01</span></small><strong id="selectedLevelName">REFINERY APPROACH</strong><span id="selectedLevelInfo">DIFFICULTY 1.0 // 2 HOSTILES</span></div>
-              <button id="playSelectedLevel">PLAY LEVEL</button>
-            </div>
-            <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
-          </section>
-
-          <section class="front-view front-wide" data-view="armory">
-            <p class="front-eyebrow">ARSENAL // <span id="equippedWeaponName">VOID REAVER EQUIPPED</span></p>
-            <h2>WEAPON ARMORY</h2>
-            <div class="armory-layout">
-              <div id="weaponGrid" class="weapon-grid"></div>
-              <div class="weapon-detail"><div id="weaponPreview" class="weapon-preview">◇</div><small id="weaponType">ENERGY BLADE</small><strong id="weaponDetailName">VOID REAVER</strong><p id="weaponDescription"></p><div id="weaponStats" class="weapon-stats"></div><button id="equipWeaponButton">EQUIPPED</button></div>
-            </div>
-            <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
-          </section>
-
-          <section class="front-view front-wide" data-view="settings">
-            <p class="front-eyebrow">SYSTEM // ACCESSIBILITY</p>
-            <h2>SETTINGS</h2>
-            <div class="settings-scroll-box">
-              <div class="settings-grid">
-                <div class="settings-col">
-                  <div class="settings-group-header">AUDIO & SENSITIVITY</div>
-                  <label>MASTER VOLUME <input data-setting="masterVolume" type="range" min="0" max="1" step="0.05"></label>
-                  <label>SOUND EFFECTS <input data-setting="sfxVolume" type="range" min="0" max="1" step="0.05"></label>
-                  <label>JOYSTICK SENSITIVITY <input data-setting="joystickSensitivity" type="range" min="0.5" max="2.2" step="0.05"></label>
-                  <label>JOYSTICK DEADZONE <input data-setting="joystickDeadzone" type="range" min="0.05" max="0.35" step="0.01"></label>
-                  <label>MOBILE CONTROL SIZE <input data-setting="controlScale" type="range" min="0.8" max="1.3" step="0.05"></label>
-                  <label>MOUSE SENSITIVITY <input data-setting="sensitivity" type="range" min="0.25" max="2" step="0.05"></label>
-                </div>
-                <div class="settings-col">
-                  <div class="settings-group-header">GRAPHICS & DISPLAY</div>
-                  <label>GRAPHICS QUALITY <select data-setting="graphics"><option value="low">LOW (PERFORMANCE)</option><option value="medium">MEDIUM</option><option value="high">HIGH (SHADOWS)</option></select></label>
-                  <label>CAMERA FOLLOW <input data-setting="cameraFollow" type="range" min="0.3" max="2" step="0.05"></label>
-                  <label>CAMERA SHAKE <input data-setting="cameraShake" type="range" min="0" max="2" step="0.05"></label>
-                  <label>SCREEN FLASH <input data-setting="screenFlash" type="range" min="0" max="2" step="0.05"></label>
-                  <label>MOTION EFFECTS <input data-setting="motionBlur" type="range" min="0" max="1.5" step="0.05"></label>
-                  <label>REDUCED VISUAL EFFECTS <input data-setting="reducedEffects" type="checkbox"></label>
-                </div>
-              </div>
-            </div>
-            <div class="settings-action-bar">
-              <button id="fullscreenButton" class="front-secondary" type="button">FULLSCREEN / LANDSCAPE</button>
-              <button data-view-button="home" class="front-back-button" type="button">BACK TO HOME</button>
-            </div>
-          </section>
-
-          <section class="front-view front-wide" data-view="how">
-            <p class="front-eyebrow">FIELD MANUAL // VOID RUNNER</p>
-            <h2>HOW TO PLAY</h2>
-            <div class="tutorial-demo" aria-hidden="true"><span></span><i></i><b>STEER // BUILD MOMENTUM // BOOST & STRIKE</b></div>
-            <div class="how-panels-grid">
-              <!-- PC CONTROLS SECTION -->
-              <div class="how-card how-card-pc">
-                <div class="how-card-header pc-header">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8.01"/><line x1="10" y1="8" x2="10" y2="8.01"/><line x1="14" y1="8" x2="14" y2="8.01"/><line x1="18" y1="8" x2="18" y2="8.01"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
-                  <h3>PC CONTROLS</h3>
-                </div>
-                <div class="how-table-wrap">
-                  <table class="how-table">
-                    <thead><tr><th>KEY</th><th>ACTION</th><th>DESCRIPTION</th></tr></thead>
-                    <tbody>
-                      <tr><td><kbd class="key-badge">W</kbd> <kbd class="key-badge">↑</kbd></td><td>Shinobi Run</td><td>Accelerate ninja warrior along the shrine path</td></tr>
-                      <tr><td><kbd class="key-badge">A</kbd> <kbd class="key-badge">D</kbd> / <kbd class="key-badge">←</kbd> <kbd class="key-badge">→</kbd></td><td>Steer</td><td>Steer left / right across stone paths and bridges</td></tr>
-                      <tr><td><kbd class="key-badge key-boost">SHIFT</kbd> / <kbd class="key-badge key-boost">B</kbd></td><td>SHADOW BOOST</td><td>Hold while running for shadow speed surge (consumes boost meter)</td></tr>
-                      <tr><td><kbd class="key-badge" style="background:#b71c1c;color:#fff;">J</kbd> / <kbd class="key-badge" style="background:#b71c1c;color:#fff;">SPACE</kbd></td><td>Katana Attack</td><td>Normal attack, rising cross-slash combo, and leap finisher</td></tr>
-                      <tr><td><kbd class="key-badge">K</kbd></td><td>Jump</td><td>Acrobatic leap over obstacles and surrounding enemies</td></tr>
-                      <tr><td><kbd class="key-badge">CTRL</kbd></td><td>Slide</td><td>Low shadow slide under barriers while preserving momentum</td></tr>
-                      <tr><td><kbd class="key-badge">E</kbd></td><td>Dash Attack</td><td>Rapid target-seeking forward dash into an Iaijutsu Katana strike</td></tr>
-                      <tr><td><kbd class="key-badge">Q</kbd></td><td>Reaper Strike</td><td>Quick Katana cut / Shuriken ranged strike</td></tr>
-                      <tr><td><kbd class="key-badge">F</kbd></td><td>Katana Slash</td><td>Wide sweeping high-damage Katana slash</td></tr>
-                      <tr><td><kbd class="key-badge">HOLD R</kbd></td><td>Iaijutsu Blast</td><td>Focus energy, release for destructive area blast</td></tr>
-                      <tr><td><kbd class="key-badge">T</kbd></td><td>Overdrive</td><td>Surge damage and max velocity</td></tr>
-                      <tr><td><kbd class="key-badge">G / V / X / Z</kbd></td><td>Shinobi Jutsu</td><td>Shadow Clone / chain grapple / anchor / execution finisher</td></tr>
-                      <tr><td><kbd class="key-badge">MOUSE</kbd> / <kbd class="key-badge">C</kbd></td><td>Camera / Reset</td><td>Orbit third-person camera or recenter behind ninja</td></tr>
-                      <tr><td><kbd class="key-badge">ESC</kbd> / <kbd class="key-badge">P</kbd></td><td>Pause</td><td>Open or close tactical pause console</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <!-- MOBILE CONTROLS SECTION -->
-              <div class="how-card how-card-mobile">
-                <div class="how-card-header mobile-header">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01" stroke-linecap="round"/></svg>
-                  <h3>MOBILE CONTROLS</h3>
-                </div>
-                <div class="how-table-wrap">
-                  <table class="how-table">
-                    <thead><tr><th>CONTROL</th><th>ACTION</th><th>DESCRIPTION</th></tr></thead>
-                    <tbody>
-                      <tr><td><span class="touch-badge badge-joystick">JOYSTICK</span></td><td>Virtual Joystick</td><td>Smooth 360° analog thumb steering across path (bottom-left)</td></tr>
-                      <tr><td><span class="touch-badge badge-run">HOLD RUN</span></td><td>Dedicated Run</td><td>Hold to run forward; release to stop immediately and brace</td></tr>
-                      <tr><td><span class="touch-badge badge-combat" style="background:#b71c1c;color:#fff;">ATTACK</span></td><td>Katana Combo</td><td>Tap for 3-hit Katana combos: Normal Slash, Cross Slash, Finisher</td></tr>
-                      <tr><td><span class="touch-badge badge-boost">RUN BOOST</span></td><td>Shadow Boost</td><td>Hold while running for speed surge; displays boost meter & cooldown</td></tr>
-                      <tr><td><span class="touch-badge badge-action">JUMP</span></td><td>Leap</td><td>Acrobatic leap over gaps and attacks</td></tr>
-                      <tr><td><span class="touch-badge badge-action">DASH</span></td><td>Shadow Dash</td><td>Burst forward through surrounding hostiles</td></tr>
-                      <tr><td><span class="touch-badge badge-action">SLIDE</span></td><td>Slide</td><td>Slide under hazards while maintaining momentum</td></tr>
-                      <tr><td><span class="touch-badge badge-combat">Q / F</span></td><td>Katana Strikes</td><td>Reaper strike and wide high-damage Katana slash</td></tr>
-                      <tr><td><span class="touch-badge badge-combat">HOLD R</span></td><td>Iaijutsu</td><td>Charge inner energy, release to detonate</td></tr>
-                      <tr><td><span class="touch-badge badge-combat">T / G / V / X / Z</span></td><td>Special Jutsu</td><td>Overdrive, shadow clone, chain grapple, execution finisher</td></tr>
-                      <tr><td><span class="touch-badge badge-sys">II BUTTON</span></td><td>Pause / Options</td><td>Open tactical pause console (top-right)</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
-          </section>
-        </div>
-        <footer>VOID RUNNER // OPERATIVE FIELD SYSTEM <span>CAMPAIGN DATA SAVED LOCALLY</span></footer>
-      </section>
-
-      <div class="mobile-controls" aria-label="Touch controls">
-        <!-- Left Side: Responsive Virtual Joystick -->
-        <div id="joystickZone" class="joystick-zone" aria-label="Virtual Joystick">
-          <div id="moveStick" class="move-stick">
-            <div class="joystick-base-ring"></div>
-            <div class="joystick-dir-indicator dir-up" aria-hidden="true">▲</div>
-            <div class="joystick-dir-indicator dir-down" aria-hidden="true">▼</div>
-            <div class="joystick-dir-indicator dir-left" aria-hidden="true">◄</div>
-            <div class="joystick-dir-indicator dir-right" aria-hidden="true">►</div>
-            <div class="joystick-crosshair-h"></div>
-            <div class="joystick-crosshair-v"></div>
-            <div id="moveKnob" class="move-knob">
-              <div class="knob-core"></div>
+            <div class="fcc-divider"></div>
+            <div class="fcc-col">
+              <div class="fcc-badge"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                  stroke-width="2">
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  <line x1="6" y1="8" x2="6" y2="8.01" />
+                  <line x1="10" y1="8" x2="10" y2="8.01" />
+                  <line x1="14" y1="8" x2="14" y2="8.01" />
+                  <line x1="18" y1="8" x2="18" y2="8.01" />
+                  <line x1="8" y1="16" x2="16" y2="16" />
+                </svg> DESKTOP CONTROLS</div>
+              <p><strong class="fcc-key">W / A / S / D</strong> Move &middot; <strong class="fcc-key"
+                  style="background:#b71c1c;color:#fff;padding:1px 5px;border-radius:4px;">J</strong> Katana Attack
+                &middot; <strong class="fcc-boost">SHIFT</strong> Run &middot; <strong class="fcc-key">SPACE</strong>
+                Jump &middot; <strong class="fcc-key">CTRL</strong> Slide &middot; <strong class="fcc-key">Q / F /
+                  R</strong> Jutsu.</p>
             </div>
           </div>
-        </div>
+          <div class="front-actions">
+            <button data-menu-action="start">NEW GAME</button>
+            <button data-menu-action="continue">CONTINUE</button>
+            <button data-view-button="levels">LEVEL SELECT</button>
+            <button data-view-button="armory">WEAPON ARMORY</button>
+            <button data-view-button="settings">SETTINGS</button>
+            <button data-view-button="how">HOW TO PLAY</button>
+          </div>
+        </section>
 
-        <!-- Left Side: Mobility Actions (JUMP, DASH, SLIDE) with clear SVG icons -->
-        <div class="mobile-mobility" aria-label="Movement actions">
-          <button class="mobile-action-btn action-jump" data-action="jump" type="button" aria-label="Jump" title="Jump">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <section class="front-view" data-view="loading">
+          <p class="front-eyebrow" id="loadingEyebrow">BREACH SEQUENCE</p>
+          <h2 id="loadingTitle">PREPARING LEVEL 001</h2>
+          <div class="loading-stage" aria-hidden="true">
+            <div class="loading-sigil">V</div>
+            <div class="loading-ninja"><i class="ninja-mask"></i><i class="ninja-body"></i><i class="ninja-cloak"></i><i
+                class="ninja-blade"></i><i class="ninja-trail"></i></div>
+            <div class="loading-particles"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <p id="loadingTip">Build speed before you strike.</p>
+          <div class="loading-track"><i id="loadingProgress"></i></div>
+          <div class="loading-readout"><span id="loadingStatus">INITIALIZING ARENA</span><strong
+              id="loadingPercent">0%</strong></div>
+          <p id="loadingError" class="loading-error" hidden>Level preparation failed. Try again.</p>
+          <button id="loadingRetry" class="front-back-button" hidden>RETRY</button>
+          <button id="loadingMenu" class="front-back-button" hidden>RETURN TO MENU</button>
+        </section>
+
+        <section class="front-view front-wide" data-view="levels">
+          <p class="front-eyebrow">CAMPAIGN // <span id="campaignProgress">1 / 15</span></p>
+          <h2>SELECT LEVEL</h2>
+          <div class="level-tools">
+            <input id="levelSearch" type="number" min="1" max="15" placeholder="SEARCH LEVEL"
+              aria-label="Search level number">
+            <button id="levelSearchButton">GO</button>
+            <button id="levelPrevious">‹</button><span id="levelPageLabel">01–15</span><button id="levelNext">›</button>
+          </div>
+          <div id="levelGrid" class="level-grid" aria-label="Campaign levels"></div>
+          <div class="selection-detail">
+            <div><small>SELECTED // <span id="selectedLevelNumber">01</span></small><strong
+                id="selectedLevelName">REFINERY APPROACH</strong><span id="selectedLevelInfo">DIFFICULTY 1.0 // 2
+                HOSTILES</span></div>
+            <button id="playSelectedLevel">PLAY LEVEL</button>
+          </div>
+          <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
+        </section>
+
+        <section class="front-view front-wide" data-view="armory">
+          <p class="front-eyebrow">ARSENAL // <span id="equippedWeaponName">VOID REAVER EQUIPPED</span></p>
+          <h2>WEAPON ARMORY</h2>
+          <div class="armory-layout">
+            <div id="weaponGrid" class="weapon-grid"></div>
+            <div class="weapon-detail">
+              <div id="weaponPreview" class="weapon-preview">◇</div><small id="weaponType">ENERGY BLADE</small><strong
+                id="weaponDetailName">VOID REAVER</strong>
+              <p id="weaponDescription"></p>
+              <div id="weaponStats" class="weapon-stats"></div><button id="equipWeaponButton">EQUIPPED</button>
+            </div>
+          </div>
+          <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
+        </section>
+
+        <section class="front-view front-wide" data-view="settings">
+          <p class="front-eyebrow">SYSTEM // ACCESSIBILITY</p>
+          <h2>SETTINGS</h2>
+          <div class="settings-scroll-box">
+            <div class="settings-grid">
+              <div class="settings-col">
+                <div class="settings-group-header">AUDIO & SENSITIVITY</div>
+                <label>MASTER VOLUME <input data-setting="masterVolume" type="range" min="0" max="1"
+                    step="0.05"></label>
+                <label>SOUND EFFECTS <input data-setting="sfxVolume" type="range" min="0" max="1" step="0.05"></label>
+                <label>JOYSTICK SENSITIVITY <input data-setting="joystickSensitivity" type="range" min="0.5" max="2.2"
+                    step="0.05"></label>
+                <label>JOYSTICK DEADZONE <input data-setting="joystickDeadzone" type="range" min="0.05" max="0.35"
+                    step="0.01"></label>
+                <label>MOBILE CONTROL SIZE <input data-setting="controlScale" type="range" min="0.8" max="1.3"
+                    step="0.05"></label>
+                <label>MOUSE SENSITIVITY <input data-setting="sensitivity" type="range" min="0.25" max="2"
+                    step="0.05"></label>
+              </div>
+              <div class="settings-col">
+                <div class="settings-group-header">GRAPHICS & DISPLAY</div>
+                <label>GRAPHICS QUALITY <select data-setting="graphics">
+                    <option value="low">LOW (PERFORMANCE)</option>
+                    <option value="medium">MEDIUM</option>
+                    <option value="high">HIGH (SHADOWS)</option>
+                  </select></label>
+                <label>CAMERA FOLLOW <input data-setting="cameraFollow" type="range" min="0.3" max="2"
+                    step="0.05"></label>
+                <label>CAMERA SHAKE <input data-setting="cameraShake" type="range" min="0" max="2" step="0.05"></label>
+                <label>SCREEN FLASH <input data-setting="screenFlash" type="range" min="0" max="2" step="0.05"></label>
+                <label>MOTION EFFECTS <input data-setting="motionBlur" type="range" min="0" max="1.5"
+                    step="0.05"></label>
+                <label>REDUCED VISUAL EFFECTS <input data-setting="reducedEffects" type="checkbox"></label>
+              </div>
+              <div class="settings-col">
+                <div class="settings-group-header">CONTROLS & HUD CUSTOMIZATION</div>
+                <label>CONTROL PRESET
+                  <select id="settingsPresetSelect" data-setting="layoutPreset">
+                    <option value="default">DEFAULT (RIGHT-HANDED)</option>
+                    <option value="compact">COMPACT</option>
+                    <option value="spread">WIDE / SPREAD</option>
+                    <option value="left-handed">LEFT-HANDED MODE</option>
+                  </select>
+                </label>
+                <label>BUTTON OPACITY <input data-setting="controlOpacity" type="range" min="0.2" max="1.0" step="0.05"></label>
+                <label>CAMERA SENSITIVITY <input data-setting="cameraSensitivity" type="range" min="0.3" max="2.5" step="0.05"></label>
+                <label>HUD SCALE <input data-setting="hudScale" type="range" min="0.75" max="1.3" step="0.05"></label>
+                <label>SHOW MINIMAP <input data-setting="hudMinimap" type="checkbox"></label>
+                <label>SHOW OBJECTIVES <input data-setting="hudObjective" type="checkbox"></label>
+                <button id="openCustomizeControlsBtn" class="front-customize-action-btn" type="button">⚡ CUSTOMIZE CONTROLS (LIVE DRAG & EDIT)</button>
+                <button id="resetControlsLayoutBtn" class="front-secondary-action-btn" type="button">RESET LAYOUT TO DEFAULT</button>
+              </div>
+            </div>
+          </div>
+          <div class="settings-action-bar">
+            <button id="openCustomizeControlsBarBtn" class="front-primary-btn" type="button">CUSTOMIZE CONTROLS</button>
+            <button id="fullscreenButton" class="front-secondary" type="button">FULLSCREEN / LANDSCAPE</button>
+            <button data-view-button="home" class="front-back-button" type="button">BACK TO HOME</button>
+          </div>
+        </section>
+
+        <section class="front-view front-wide" data-view="how">
+          <p class="front-eyebrow">FIELD MANUAL // VOID RUNNER</p>
+          <h2>HOW TO PLAY</h2>
+          <div class="tutorial-demo" aria-hidden="true"><span></span><i></i><b>STEER // BUILD MOMENTUM // BOOST &
+              STRIKE</b></div>
+          <div class="how-panels-grid">
+            <!-- PC CONTROLS SECTION -->
+            <div class="how-card how-card-pc">
+              <div class="how-card-header pc-header">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  <line x1="6" y1="8" x2="6" y2="8.01" />
+                  <line x1="10" y1="8" x2="10" y2="8.01" />
+                  <line x1="14" y1="8" x2="14" y2="8.01" />
+                  <line x1="18" y1="8" x2="18" y2="8.01" />
+                  <line x1="8" y1="16" x2="16" y2="16" />
+                </svg>
+                <h3>PC CONTROLS</h3>
+              </div>
+              <div class="how-table-wrap">
+                <table class="how-table">
+                  <thead>
+                    <tr>
+                      <th>KEY</th>
+                      <th>ACTION</th>
+                      <th>DESCRIPTION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><kbd class="key-badge">W</kbd> <kbd class="key-badge">↑</kbd></td>
+                      <td>Shinobi Run</td>
+                      <td>Accelerate ninja warrior along the shrine path</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge">A</kbd> <kbd class="key-badge">D</kbd> / <kbd class="key-badge">←</kbd>
+                        <kbd class="key-badge">→</kbd></td>
+                      <td>Steer</td>
+                      <td>Steer left / right across stone paths and bridges</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge key-boost">SHIFT</kbd> / <kbd class="key-badge key-boost">B</kbd></td>
+                      <td>SHADOW BOOST</td>
+                      <td>Hold while running for shadow speed surge (consumes boost meter)</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge" style="background:#b71c1c;color:#fff;">J</kbd> / <kbd class="key-badge"
+                          style="background:#b71c1c;color:#fff;">SPACE</kbd></td>
+                      <td>Katana Attack</td>
+                      <td>Normal attack, rising cross-slash combo, and leap finisher</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge">K</kbd></td>
+                      <td>Jump</td>
+                      <td>Acrobatic leap over obstacles and surrounding enemies</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge">CTRL</kbd></td>
+                      <td>Slide</td>
+                      <td>Low shadow slide under barriers while preserving momentum</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge">E</kbd></td>
+                      <td>Dash Attack</td>
+                      <td>Rapid target-seeking forward dash into an Iaijutsu Katana strike</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge">Q</kbd></td>
+                      <td>Reaper Strike</td>
+                      <td>Quick Katana cut / Shuriken ranged strike</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge">F</kbd></td>
+                      <td>Katana Slash</td>
+                      <td>Wide sweeping high-damage Katana slash</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge">HOLD R</kbd></td>
+                      <td>Iaijutsu Blast</td>
+                      <td>Focus energy, release for destructive area blast</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge">T</kbd></td>
+                      <td>Overdrive</td>
+                      <td>Surge damage and max velocity</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge">G / V / X / Z</kbd></td>
+                      <td>Shinobi Jutsu</td>
+                      <td>Shadow Clone / chain grapple / anchor / execution finisher</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge">MOUSE</kbd> / <kbd class="key-badge">C</kbd></td>
+                      <td>Camera / Reset</td>
+                      <td>Orbit third-person camera or recenter behind ninja</td>
+                    </tr>
+                    <tr>
+                      <td><kbd class="key-badge">ESC</kbd> / <kbd class="key-badge">P</kbd></td>
+                      <td>Pause</td>
+                      <td>Open or close tactical pause console</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- MOBILE CONTROLS SECTION -->
+            <div class="how-card how-card-mobile">
+              <div class="how-card-header mobile-header">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <rect x="5" y="2" width="14" height="20" rx="2" />
+                  <line x1="12" y1="18" x2="12" y2="18.01" stroke-linecap="round" />
+                </svg>
+                <h3>MOBILE CONTROLS</h3>
+              </div>
+              <div class="how-table-wrap">
+                <table class="how-table">
+                  <thead>
+                    <tr>
+                      <th>CONTROL</th>
+                      <th>ACTION</th>
+                      <th>DESCRIPTION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="touch-badge badge-joystick">JOYSTICK</span></td>
+                      <td>Virtual Joystick</td>
+                      <td>Smooth 360° analog thumb steering across path (bottom-left)</td>
+                    </tr>
+                    <tr>
+                      <td><span class="touch-badge badge-run">HOLD RUN</span></td>
+                      <td>Dedicated Run</td>
+                      <td>Hold to run forward; release to stop immediately and brace</td>
+                    </tr>
+                    <tr>
+                      <td><span class="touch-badge badge-combat" style="background:#b71c1c;color:#fff;">ATTACK</span>
+                      </td>
+                      <td>Katana Combo</td>
+                      <td>Tap for 3-hit Katana combos: Normal Slash, Cross Slash, Finisher</td>
+                    </tr>
+                    <tr>
+                      <td><span class="touch-badge badge-boost">RUN BOOST</span></td>
+                      <td>Shadow Boost</td>
+                      <td>Hold while running for speed surge; displays boost meter & cooldown</td>
+                    </tr>
+                    <tr>
+                      <td><span class="touch-badge badge-action">JUMP</span></td>
+                      <td>Leap</td>
+                      <td>Acrobatic leap over gaps and attacks</td>
+                    </tr>
+                    <tr>
+                      <td><span class="touch-badge badge-action">DASH</span></td>
+                      <td>Shadow Dash</td>
+                      <td>Burst forward through surrounding hostiles</td>
+                    </tr>
+                    <tr>
+                      <td><span class="touch-badge badge-action">SLIDE</span></td>
+                      <td>Slide</td>
+                      <td>Slide under hazards while maintaining momentum</td>
+                    </tr>
+                    <tr>
+                      <td><span class="touch-badge badge-combat">Q / F</span></td>
+                      <td>Katana Strikes</td>
+                      <td>Reaper strike and wide high-damage Katana slash</td>
+                    </tr>
+                    <tr>
+                      <td><span class="touch-badge badge-combat">HOLD R</span></td>
+                      <td>Iaijutsu</td>
+                      <td>Charge inner energy, release to detonate</td>
+                    </tr>
+                    <tr>
+                      <td><span class="touch-badge badge-combat">T / G / V / X / Z</span></td>
+                      <td>Special Jutsu</td>
+                      <td>Overdrive, shadow clone, chain grapple, execution finisher</td>
+                    </tr>
+                    <tr>
+                      <td><span class="touch-badge badge-sys">II BUTTON</span></td>
+                      <td>Pause / Options</td>
+                      <td>Open tactical pause console (top-right)</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
+        </section>
+      </div>
+      <footer>VOID RUNNER // OPERATIVE FIELD SYSTEM <span>CAMPAIGN DATA SAVED LOCALLY</span></footer>
+    </section>
+
+    <!-- Full-bleed camera drag area for touch (Right-half surface) -->
+    <div id="cameraTouchZone" class="camera-touch-zone" aria-label="Touch camera drag area"></div>
+
+    <div class="mobile-controls" aria-label="Touch controls">
+      <!-- Left Side: Responsive Virtual Joystick -->
+      <div id="joystickZone" class="joystick-zone" aria-label="Virtual Joystick">
+        <div id="moveStick" class="move-stick">
+          <div class="joystick-base-ring"></div>
+          <div class="joystick-dir-indicator dir-up" aria-hidden="true">▲</div>
+          <div class="joystick-dir-indicator dir-down" aria-hidden="true">▼</div>
+          <div class="joystick-dir-indicator dir-left" aria-hidden="true">◄</div>
+          <div class="joystick-dir-indicator dir-right" aria-hidden="true">►</div>
+          <div class="joystick-crosshair-h"></div>
+          <div class="joystick-crosshair-v"></div>
+          <div id="moveKnob" class="move-knob">
+            <div class="knob-core"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Left Side: Dedicated RUN Button (Beside / Above Joystick) -->
+      <button id="runButton" class="action-round-btn run-button" type="button" aria-label="Hold to Run" aria-pressed="false" title="Hold to Run (Shift)">
+        <div class="action-glow-ring" aria-hidden="true"></div>
+        <div class="action-btn-inner">
+          <svg class="run-icon" viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
+            <path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7" />
+          </svg>
+        </div>
+        <div class="run-status-badge status-stopped sr-only" id="runStatusBadge" aria-hidden="true">STOPPED</div>
+        <span class="action-btn-label" id="runSubLabel">RUN</span>
+      </button>
+
+      <!-- Right Side: Action Controls Cluster -->
+      <div id="actionCluster" class="action-cluster" aria-label="Action Controls">
+        <!-- 1. JUMP Button -->
+        <button id="jumpButton" class="action-round-btn jump-btn" type="button" aria-label="Jump" title="Jump (Space / K)">
+          <div class="action-glow-ring" aria-hidden="true"></div>
+          <div class="action-btn-inner">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 19V5M5 12l7-7 7 7"/>
             </svg>
-          </button>
-          <button class="mobile-action-btn action-dash" data-action="dash" type="button" aria-label="Shadow Dash" title="Dash">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
-            </svg>
-          </button>
-          <button class="mobile-action-btn action-slide" data-action="slide" type="button" aria-label="Slide" title="Slide">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 19h18M13 9l6 6-6 6"/>
-            </svg>
-          </button>
-        </div>
+          </div>
+          <span class="action-btn-label">JUMP</span>
+        </button>
 
-        <!-- Right Side: Dedicated Boost, Attack, and Run Buttons (Icon-Only) -->
-        <div class="run-control-wrap" aria-label="Touch Combat Controls">
-          <!-- Dedicated RUN BOOST Button (Lightning / Speed Icon) -->
-          <button id="boostButton" class="boost-button" type="button" aria-label="Run Boost" aria-pressed="false" title="Run Boost">
-            <svg class="boost-meter-svg" viewBox="0 0 72 72">
-              <circle class="boost-meter-track" cx="36" cy="36" r="32" />
-              <circle id="boostMeterFill" class="boost-meter-fill" cx="36" cy="36" r="32" />
+        <!-- 2. SIT / CROUCH Button -->
+        <button id="crouchButton" class="action-round-btn crouch-btn" type="button" aria-label="Sit / Crouch / Slide" title="Crouch / Slide (Ctrl)">
+          <div class="action-glow-ring" aria-hidden="true"></div>
+          <div class="action-btn-inner">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+              <path d="M12 4a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm4.8 11.5l-2.4-4.8a2 2 0 0 0-1.8-1.1h-2.2c-.8 0-1.5.5-1.8 1.2L7 15.5l1.8.9 1.4-3.4h.8l-1.8 7.5 1.9.5 1.5-6.2 1.4 6.2 2-.5-1.8-7.5h.8l1.4 3.4 1.8-.9z"/>
             </svg>
-            <div class="boost-btn-inner">
-              <svg class="boost-icon" viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-                <path d="M13 2L3 14h7l-2 8 10-12h-7l2-8z"/>
-              </svg>
-            </div>
-            <div class="boost-status-badge status-ready sr-only" id="boostStatusBadge" aria-hidden="true">READY</div>
-          </button>
+          </div>
+          <span class="action-btn-label">CROUCH</span>
+        </button>
 
-          <!-- Dedicated Large Katana ATTACK Button (Sword Icon) -->
-          <button id="attackButton" class="attack-button" type="button" aria-label="Katana Weapon Attack" aria-pressed="false" title="Attack">
-            <div class="attack-glow-ring" aria-hidden="true"></div>
-            <div class="attack-btn-inner">
-              <svg class="attack-icon" viewBox="0 0 24 24" width="36" height="36" fill="currentColor">
-                <path d="M20.71 3.29a1 1 0 0 0-1.42 0L12 10.59 7.71 6.29a1 1 0 0 0-1.42 1.42L10.59 12 3.29 19.29a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0L12 13.41l4.29 4.3a1 1 0 0 0 1.42-1.42L13.41 12l7.3-7.29a1 1 0 0 0 0-1.42zM14.83 9.17l-1.41-1.41 5.88-5.88 1.41 1.41-5.88 5.88z"/>
-              </svg>
-            </div>
-            <div class="attack-status-badge status-ready sr-only" id="attackStatusBadge" aria-hidden="true">READY</div>
-            <span class="sr-only" id="attackComboLabel">KATANA</span>
-          </button>
+        <!-- 3. BOOST / DASH Button -->
+        <button id="dashAttackButton" class="action-round-btn dash-attack-button" type="button" aria-label="Boost / Dash Attack" title="Dash Attack (E)">
+          <svg class="dash-cooldown-svg" viewBox="0 0 72 72">
+            <circle class="dash-cooldown-track" cx="36" cy="36" r="32" />
+            <circle id="dashCooldownFill" class="dash-cooldown-fill" cx="36" cy="36" r="32" />
+          </svg>
+          <div class="action-glow-ring" aria-hidden="true"></div>
+          <div class="action-btn-inner">
+            <svg class="dash-icon" viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+              <path d="M13 2L3 14h7l-2 8 10-12h-7l2-8z"/>
+            </svg>
+          </div>
+          <span class="action-btn-label">DASH</span>
+        </button>
 
-          <!-- Dedicated DASH ATTACK Button (Target-Seeking Dash Slash with Cooldown Meter) -->
-          <button id="dashAttackButton" class="dash-attack-button" type="button" aria-label="Dash Attack" aria-pressed="false" title="Dash Attack">
-            <svg class="dash-cooldown-svg" viewBox="0 0 72 72">
-              <circle class="dash-cooldown-track" cx="36" cy="36" r="32" />
-              <circle id="dashCooldownFill" class="dash-cooldown-fill" cx="36" cy="36" r="32" />
+        <!-- 4. ONE DYNAMIC ATTACK BUTTON (Katana / Gun) -->
+        <button id="attackButton" class="action-round-btn attack-button weapon-katana" type="button" aria-label="Attack Weapon" aria-pressed="false" title="Attack (J)">
+          <div class="attack-glow-ring" aria-hidden="true"></div>
+          <div class="attack-btn-inner">
+            <!-- Katana Sword SVG Icon -->
+            <svg id="attackIconKatana" class="attack-icon icon-katana" viewBox="0 0 24 24" width="36" height="36" fill="currentColor">
+              <path d="M20.71 3.29a1 1 0 0 0-1.42 0L12 10.59 7.71 6.29a1 1 0 0 0-1.42 1.42L10.59 12 3.29 19.29a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0L12 13.41l4.29 4.3a1 1 0 0 0 1.42-1.42L13.41 12l7.3-7.29a1 1 0 0 0 0-1.42zM14.83 9.17l-1.41-1.41 5.88-5.88 1.41 1.41-5.88 5.88z"/>
             </svg>
-            <div class="dash-attack-glow-ring" aria-hidden="true"></div>
-            <div class="dash-attack-btn-inner">
-              <svg class="dash-attack-icon" viewBox="0 0 24 24" width="30" height="30" fill="currentColor">
-                <path d="M19.5 3.5l1 1-13 13-3 1 1-3 13-13zm-11 11l-1.5 1.5 3 3 1.5-1.5-3-3zM2 19h20v2H2v-2zM4 6l3 3-1.5 1.5L2 7l2-1zm14 8l1.5-1.5L22 15l-1.5 1.5-2.5-2.5z"/>
-              </svg>
-            </div>
-            <div class="dash-status-badge status-ready sr-only" id="dashStatusBadge" aria-hidden="true">READY</div>
-            <span class="sr-only" id="dashLabel">DASH ATTACK</span>
-          </button>
+            <!-- Shinobi Firearm Gun SVG Icon (Dynamic toggle) -->
+            <svg id="attackIconGun" class="attack-icon icon-gun hidden" viewBox="0 0 24 24" width="34" height="34" fill="currentColor">
+              <path d="M21 7h-7.6l-1.4-2H3c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h2.2l1.6 8.5c.1.5.5.9 1 .9h3.4c.5 0 .9-.4 1-.9L13.8 13H21c.55 0 1-.45 1-1V8c0-.55-.45-1-1-1zm-9 4H4V7h7.2l1.4 2H12v2zm7 0h-5V9h5v2z"/>
+            </svg>
+          </div>
+          <span id="attackAmmoBadge" class="attack-ammo-badge hidden">6/6</span>
+          <span class="action-btn-label" id="attackButtonLabel">ATTACK</span>
+        </button>
 
-          <!-- Mobile WEAPON SWITCH Button (Toggle between Katana and Gun) -->
-          <button id="weaponSwitchButton" class="weapon-switch-btn" type="button" aria-label="Switch Weapon" title="Switch Weapon (Tab)">
-            <div class="weapon-switch-btn-inner">
-              <span class="weapon-switch-icon" id="mobileWeaponIcon">⚔</span>
-              <span class="weapon-switch-text" id="mobileWeaponName">KATANA</span>
-            </div>
-          </button>
-
-          <!-- Dedicated Large RUN Button (Running-Person Icon) -->
-          <button id="runButton" class="run-button" type="button" aria-label="Run" aria-pressed="false" title="Run">
-            <div class="run-glow-ring" aria-hidden="true"></div>
-            <div class="run-btn-inner">
-              <svg class="run-icon" viewBox="0 0 24 24" width="34" height="34" fill="currentColor">
-                <path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/>
-              </svg>
-            </div>
-            <div class="run-status-badge status-stopped sr-only" id="runStatusBadge" aria-hidden="true">STOPPED</div>
-            <span class="sr-only" id="runSubLabel">HOLD TO RUN</span>
-          </button>
-        </div>
-
-        <!-- Right Side: Combat Abilities with Clear Icons (Icons Only, No Letters) -->
-        <div class="mobile-combat" aria-label="Combat abilities">
-          <button class="mobile-ability-btn ability-strike" data-ability="strike" type="button" aria-label="Reaver Strike" title="Reaver Strike">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <polygon points="12,2 14.5,9.5 22,12 14.5,14.5 12,22 9.5,14.5 2,12 9.5,9.5"/>
-            </svg>
-          </button>
-          <button class="mobile-ability-btn ability-slash" data-ability="slash" type="button" aria-label="Void Slash" title="Void Slash">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-              <path d="M4 20C10 18 18 14 20 4M7 21C12 17 19 11 21 7"/>
-            </svg>
-          </button>
-          <button class="mobile-ability-btn ability-charge" data-ability="charge" type="button" aria-label="Iaijutsu Discharge" title="Iaijutsu Discharge">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-              <circle cx="12" cy="12" r="3" fill="currentColor"/>
-              <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M4.9 19.1l2.2-2.2M16.9 7.1l2.2-2.2"/>
-            </svg>
-          </button>
-          <button class="mobile-ability-btn ability-overdrive" data-ability="overdrive" type="button" aria-label="Overdrive" title="Overdrive">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <path d="M12 2c1.5 3 4 5 4 8.5a4 4 0 0 1-8 0c0-2 1.5-4.5 4-8.5zm0 18a7 7 0 0 0 7-7c0-3.5-3-6-5-9-1 3-3 4.5-4 5.5-1.5-2-2-3.5-2-5.5-2 3-5 5.5-5 9a7 7 0 0 0 9 7z"/>
-            </svg>
-          </button>
-          <button class="mobile-ability-btn ability-clone" data-ability="clone" type="button" aria-label="Shadow Clone" title="Shadow Clone">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <path d="M9 3a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm6 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM4 14.5C4 12 7 11 9 11s5 1 5 3.5V17H4v-2.5zm11-.5c.8-.5 1.8-.8 3-.8 2 0 4 .8 4 2.8V17h-7v-1.5c0-.6.3-1.1.7-1.5z"/>
-            </svg>
-          </button>
-          <button class="mobile-ability-btn ability-chain" data-ability="chain" type="button" aria-label="Void Chain" title="Void Chain">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-            </svg>
-          </button>
-          <button class="mobile-ability-btn ability-anchor" data-ability="anchor" type="button" aria-label="Kinetic Anchor" title="Kinetic Anchor">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="5" r="2.5"/>
-              <line x1="12" y1="7.5" x2="12" y2="21"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
-              <path d="M5 16a7 7 0 0 0 14 0"/>
-            </svg>
-          </button>
-          <button class="mobile-ability-btn ability-execute" data-ability="execute" type="button" aria-label="Ninja Execution" title="Ninja Execution">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 19L19 5M5 5l14 14M3 8l3-3M16 21l3-3M21 8l-3-3M8 21l-3-3"/>
-            </svg>
-          </button>
-        </div>
+        <!-- 5. WEAPON SWITCH Button -->
+        <button id="weaponSwitchButton" class="action-round-btn weapon-switch-btn" type="button" aria-label="Switch Weapon" title="Switch Weapon (Tab)">
+          <div class="action-glow-ring" aria-hidden="true"></div>
+          <div class="action-btn-inner">
+            <span class="weapon-switch-icon" id="mobileWeaponIcon">⚔</span>
+          </div>
+          <span class="action-btn-label" id="mobileWeaponName">KATANA</span>
+        </button>
       </div>
 
-      <!-- Cinematic Level Start Intro Overlay -->
-      <div id="levelStartOverlay" class="level-start-overlay hidden" aria-hidden="true">
-        <div class="level-intro-card">
-          <div class="level-intro-eyebrow" id="introEyebrow">STAGE 01 // SHINOBI INFILTRATION</div>
-          <h1 class="level-intro-title" id="introTitle">BAMBOO GROVE SANCTUARY</h1>
-          <div class="level-intro-kanji" id="introKanji">風林火山</div>
-          <div class="level-intro-banner" id="introBanner">
-            <span class="intro-callout-word ready-word" id="readyWord">READY</span>
-            <span class="intro-callout-word fight-word hidden" id="fightWord">FIGHT!</span>
+      <!-- Right Side: Secondary Shinobi Jutsu Abilities (Compact) -->
+      <div id="jutsuCluster" class="mobile-combat jutsu-cluster" aria-label="Jutsu abilities">
+        <button class="mobile-ability-btn ability-strike" data-ability="strike" type="button" aria-label="Reaver Strike" title="Reaver Strike (Q)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <polygon points="12,2 14.5,9.5 22,12 14.5,14.5 12,22 9.5,14.5 2,12 9.5,9.5" />
+          </svg>
+        </button>
+        <button class="mobile-ability-btn ability-slash" data-ability="slash" type="button" aria-label="Void Slash" title="Void Slash (F)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <path d="M4 20C10 18 18 14 20 4M7 21C12 17 19 11 21 7" />
+          </svg>
+        </button>
+        <button class="mobile-ability-btn ability-charge" data-ability="charge" type="button" aria-label="Iaijutsu Discharge" title="Iaijutsu (Hold R)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="3" fill="currentColor" />
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M4.9 19.1l2.2-2.2M16.9 7.1l2.2-2.2" />
+          </svg>
+        </button>
+        <button class="mobile-ability-btn ability-overdrive" data-ability="overdrive" type="button" aria-label="Overdrive" title="Overdrive (T)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 2c1.5 3 4 5 4 8.5a4 4 0 0 1-8 0c0-2 1.5-4.5 4-8.5zm0 18a7 7 0 0 0 7-7c0-3.5-3-6-5-9-1 3-3 4.5-4 5.5-1.5-2-2-3.5-2-5.5-2 3-5 5.5-5 9a7 7 0 0 0 9 7z" />
+          </svg>
+        </button>
+        <button class="mobile-ability-btn ability-clone" data-ability="clone" type="button" aria-label="Shadow Clone" title="Shadow Clone (G)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M9 3a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm6 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM4 14.5C4 12 7 11 9 11s5 1 5 3.5V17H4v-2.5zm11-.5c.8-.5 1.8-.8 3-.8 2 0 4 .8 4 2.8V17h-7v-1.5c0-.6.3-1.1.7-1.5z" />
+          </svg>
+        </button>
+        <button class="mobile-ability-btn ability-chain" data-ability="chain" type="button" aria-label="Void Chain" title="Void Chain (V)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+        </button>
+        <button class="mobile-ability-btn ability-anchor" data-ability="anchor" type="button" aria-label="Kinetic Anchor" title="Kinetic Anchor (X)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="5" r="2.5" />
+            <line x1="12" y1="7.5" x2="12" y2="21" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <path d="M5 16a7 7 0 0 0 14 0" />
+          </svg>
+        </button>
+        <button class="mobile-ability-btn ability-execute" data-ability="execute" type="button" aria-label="Ninja Execution" title="Ninja Execution (Z)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 19L19 5M5 5l14 14M3 8l3-3M16 21l3-3M21 8l-3-3M8 21l-3-3" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Controls & HUD Customization Overlay -->
+    <div id="controlsEditorOverlay" class="controls-editor-overlay hidden" aria-hidden="true">
+      <header class="editor-header">
+        <div class="editor-title-block">
+          <span class="editor-badge">LIVE EDITOR</span>
+          <div class="editor-titles">
+            <h3>CONTROLS &amp; HUD CUSTOMIZATION</h3>
+            <p>Drag buttons to reposition &middot; Clamped to visible screen &middot; Tap to edit</p>
           </div>
         </div>
-      </div>
-
-      <!-- Cinematic Last-Enemy Level-Complete Banner -->
-      <div id="cinematicVictoryBanner" class="cinematic-victory-banner hidden" aria-hidden="true">
-        <div class="cinematic-victory-kanji">完全勝利</div>
-        <div class="cinematic-victory-title">STAGE CLEARED</div>
-        <div class="cinematic-victory-subtitle" id="victorySubtitle">ALL HOSTILES ELIMINATED</div>
-      </div>
-
-      <!-- Milestone Weapon Unlocked Overlay -->
-      <div id="weaponUnlockOverlay" class="weapon-unlock-overlay hidden" aria-hidden="true">
-        <div class="weapon-unlock-card">
-          <div class="weapon-unlock-glow"></div>
-          <div class="weapon-unlock-eyebrow">MILESTONE REWARD // LEVEL 10 COMPLETE</div>
-          <div class="weapon-unlock-kanji">新兵器解放</div>
-          <h1 class="weapon-unlock-title">WEAPON UNLOCKED</h1>
-          <div class="weapon-unlock-icon" id="weaponUnlockIcon">⌖</div>
-          <h2 id="unlockedWeaponName" class="unlocked-weapon-name">VOID HAND CANNON</h2>
-          <p id="unlockedWeaponDesc" class="unlocked-weapon-desc">High-velocity shinobi firearm firing condensed void rounds with explosive kinetic impact.</p>
-          <div class="unlocked-weapon-stats">
-            <div class="stat-badge"><span>DAMAGE</span><strong>75 HP</strong></div>
-            <div class="stat-badge"><span>MAGAZINE</span><strong>6 ROUNDS</strong></div>
-            <div class="stat-badge"><span>RANGE</span><strong>35 METERS</strong></div>
+        <div class="editor-toolbar">
+          <div class="editor-tool-group">
+            <label for="editorPresetSelect">PRESET</label>
+            <select id="editorPresetSelect">
+              <option value="default">DEFAULT (RIGHT-HAND)</option>
+              <option value="compact">COMPACT</option>
+              <option value="spread">WIDE / SPREAD</option>
+              <option value="left-handed">LEFT-HANDED MODE</option>
+              <option value="custom">CUSTOM POSITION</option>
+            </select>
           </div>
-          <div class="weapon-unlock-actions">
-            <button id="equipUnlockedWeaponBtn" class="modal-button" type="button">EQUIP WEAPON</button>
-            <button id="closeUnlockOverlayBtn" class="modal-button secondary" type="button">CONTINUE</button>
+          <div class="editor-tool-group">
+            <label for="editorScaleSlider">SCALE <strong id="editorScaleValue">100%</strong></label>
+            <input id="editorScaleSlider" type="range" min="0.7" max="1.4" step="0.05" value="1.0">
+          </div>
+          <div class="editor-tool-group">
+            <label for="editorOpacitySlider">OPACITY <strong id="editorOpacityValue">85%</strong></label>
+            <input id="editorOpacitySlider" type="range" min="0.2" max="1.0" step="0.05" value="0.85">
+          </div>
+          <div class="editor-tool-group selected-elem-tool">
+            <label>TARGET: <b id="editorSelectedLabel">TAP ANY BUTTON</b> <span id="editorElemSizeValue">--</span></label>
+            <input id="editorElemSizeSlider" type="range" min="40" max="180" step="2" disabled>
+          </div>
+          <div class="editor-actions">
+            <button id="editorSaveBtn" class="editor-btn primary" type="button">SAVE LAYOUT</button>
+            <button id="editorResetBtn" class="editor-btn secondary" type="button">RESET DEFAULT</button>
+            <button id="editorCancelBtn" class="editor-btn text-btn" type="button">CANCEL</button>
           </div>
         </div>
-      </div>
+      </header>
+    </div>
 
-      <div id="overlay" class="overlay hidden">
-        <div class="modal-box">
-          <div class="modal-eyebrow" id="modalEyebrow">SYSTEM PAUSED</div>
-          <h1 id="modalTitle">PAUSED</h1>
-          <p id="modalMessage">Catch your breath before the next breach.</p>
-          <div id="resultsPanel" class="modal-results hidden"></div>
-          <button id="resumeButton" class="modal-button">RESUME</button>
-          <button id="continueButton" class="modal-button">NEXT LEVEL</button>
-          <button id="changeWeaponButton" class="modal-button secondary">CHANGE WEAPON</button>
-          <button id="settingsMenuButton" class="modal-button secondary">SETTINGS</button>
-          <button id="restartButton" class="modal-button secondary">REPLAY LEVEL</button>
-          <button id="levelSelectModalButton" class="modal-button secondary">LEVEL SELECTION</button>
-          <button id="mainMenuButton" class="modal-button secondary">MAIN MENU</button>
-        </div>
-      </div>
-
-      <!-- Mobile Portrait Orientation Prompt Overlay -->
-      <div id="portraitPrompt" class="portrait-prompt-overlay" aria-live="polite">
-        <div class="portrait-prompt-card">
-          <div class="rotate-phone-anim">
-            <div class="phone-device">
-              <div class="phone-notch"></div>
-              <div class="phone-screen">
-                <span class="phone-ninja-icon">忍</span>
-              </div>
-            </div>
-            <div class="rotate-arrow-indicator">↻</div>
-          </div>
-          <div class="prompt-kanji">横画面推奨</div>
-          <h2>ROTATE YOUR PHONE</h2>
-          <p class="prompt-subtext">Rotate your phone to landscape for the best experience.</p>
-          <div class="prompt-actions">
-            <button id="lockLandscapeButton" class="prompt-btn primary" type="button">SWITCH TO LANDSCAPE</button>
-            <button id="dismissPortraitPrompt" class="prompt-btn secondary" type="button">CONTINUE ANYWAY</button>
-          </div>
+    <!-- Cinematic Level Start Intro Overlay -->
+    <div id="levelStartOverlay" class="level-start-overlay hidden" aria-hidden="true">
+      <div class="level-intro-card">
+        <div class="level-intro-eyebrow" id="introEyebrow">STAGE 01 // SHINOBI INFILTRATION</div>
+        <h1 class="level-intro-title" id="introTitle">BAMBOO GROVE SANCTUARY</h1>
+        <div class="level-intro-kanji" id="introKanji">風林火山</div>
+        <div class="level-intro-banner" id="introBanner">
+          <span class="intro-callout-word ready-word" id="readyWord">READY</span>
+          <span class="intro-callout-word fight-word hidden" id="fightWord">FIGHT!</span>
         </div>
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?campaign15a"></script>
-  </body>
+    <!-- Cinematic Last-Enemy Level-Complete Banner -->
+    <div id="cinematicVictoryBanner" class="cinematic-victory-banner hidden" aria-hidden="true">
+      <div class="cinematic-victory-kanji">完全勝利</div>
+      <div class="cinematic-victory-title">STAGE CLEARED</div>
+      <div class="cinematic-victory-subtitle" id="victorySubtitle">ALL HOSTILES ELIMINATED</div>
+    </div>
+
+    <!-- Milestone Weapon Unlocked Overlay -->
+    <div id="weaponUnlockOverlay" class="weapon-unlock-overlay hidden" aria-hidden="true">
+      <div class="weapon-unlock-card">
+        <div class="weapon-unlock-glow"></div>
+        <div class="weapon-unlock-eyebrow">MILESTONE REWARD // LEVEL 10 COMPLETE</div>
+        <div class="weapon-unlock-kanji">新兵器解放</div>
+        <h1 class="weapon-unlock-title">WEAPON UNLOCKED</h1>
+        <div class="weapon-unlock-icon" id="weaponUnlockIcon">⌖</div>
+        <h2 id="unlockedWeaponName" class="unlocked-weapon-name">VOID HAND CANNON</h2>
+        <p id="unlockedWeaponDesc" class="unlocked-weapon-desc">High-velocity shinobi firearm firing condensed void
+          rounds with explosive kinetic impact.</p>
+        <div class="unlocked-weapon-stats">
+          <div class="stat-badge"><span>DAMAGE</span><strong>75 HP</strong></div>
+          <div class="stat-badge"><span>MAGAZINE</span><strong>6 ROUNDS</strong></div>
+          <div class="stat-badge"><span>RANGE</span><strong>35 METERS</strong></div>
+        </div>
+        <div class="weapon-unlock-actions">
+          <button id="equipUnlockedWeaponBtn" class="modal-button" type="button">EQUIP WEAPON</button>
+          <button id="closeUnlockOverlayBtn" class="modal-button secondary" type="button">CONTINUE</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="overlay" class="overlay hidden">
+      <div class="modal-box">
+        <div class="modal-eyebrow" id="modalEyebrow">SYSTEM PAUSED</div>
+        <h1 id="modalTitle">PAUSED</h1>
+        <p id="modalMessage">Catch your breath before the next breach.</p>
+        <div id="resultsPanel" class="modal-results hidden"></div>
+        <button id="resumeButton" class="modal-button">RESUME</button>
+        <button id="continueButton" class="modal-button">NEXT LEVEL</button>
+        <button id="changeWeaponButton" class="modal-button secondary">CHANGE WEAPON</button>
+        <button id="settingsMenuButton" class="modal-button secondary">SETTINGS</button>
+        <button id="restartButton" class="modal-button secondary">REPLAY LEVEL</button>
+        <button id="levelSelectModalButton" class="modal-button secondary">LEVEL SELECTION</button>
+        <button id="mainMenuButton" class="modal-button secondary">MAIN MENU</button>
+      </div>
+    </div>
+
+    <!-- Mobile Portrait Orientation Prompt Overlay -->
+    <div id="portraitPrompt" class="portrait-prompt-overlay" aria-live="polite">
+      <div class="portrait-prompt-card">
+        <div class="rotate-phone-anim">
+          <div class="phone-device">
+            <div class="phone-notch"></div>
+            <div class="phone-screen">
+              <span class="phone-ninja-icon">忍</span>
+            </div>
+          </div>
+          <div class="rotate-arrow-indicator">↻</div>
+        </div>
+        <div class="prompt-kanji">横画面推奨</div>
+        <h2>ROTATE YOUR PHONE</h2>
+        <p class="prompt-subtext">Rotate your phone to landscape for the best experience.</p>
+        <div class="prompt-actions">
+          <button id="lockLandscapeButton" class="prompt-btn primary" type="button">SWITCH TO LANDSCAPE</button>
+          <button id="dismissPortraitPrompt" class="prompt-btn secondary" type="button">CONTINUE ANYWAY</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js?campaign15a"></script>
+</body>
+
 </html>

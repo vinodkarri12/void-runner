@@ -128,8 +128,14 @@ const THREE = new Proxy(rawThree, {
         this.scale = createVector3(1, 1, 1);
         this.children = [];
         this.userData = {};
+        this.instanceMatrix = { needsUpdate: false };
+        this.shadow = { mapSize: createVector3(), camera: {} };
       }
       dispose() {}
+      add(child) { this.children.push(child); }
+      remove(child) {}
+      updateMatrix() {}
+      setMatrixAt() {}
       clone() { return new MockClass(); }
       moveTo() { return this; }
       lineTo() { return this; }
@@ -179,7 +185,11 @@ const context = vm.createContext({
     }),
     querySelectorAll: () => []
   },
-  window: { innerWidth: 1920, innerHeight: 1080 }
+  window: {
+    innerWidth: 1920,
+    innerHeight: 1080,
+    matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} })
+  }
 });
 
 // Load and evaluate Player.js
@@ -315,15 +325,16 @@ assert(player.dashAttackState.attackId === scout.lastHitAttackId, 'Scout lastHit
 
 // 3. Heavy Enemy Nodachi Frontal Guard
 console.log('\n[3] Testing Heavy Samurai Frontal Guard...');
+player.reset(createVector3(0, 0, 0));
 const guardian = new Enemy(createVector3(0, 0, 5), 'guardian', { arrivalDelay: 0, arrivalDuration: 0 });
 guardian.alive = true;
 guardian.root.rotation.y = Math.PI; // Facing directly towards player at (0,0,0)
 const guardInitialHp = guardian.health;
-combat.applyDamageToEnemy(player, guardian, 50, 'katana-combo-1', {});
+combat.applyDamageToEnemy(player, guardian, 70, 'katana-combo-1', {});
 assert(guardian.isBlocking === true, 'Guardian triggers isBlocking when attacked from the front');
 assert(guardian.blockTimer > 0, 'Guardian blockTimer set');
 const damageDealt = guardInitialHp - guardian.health;
-assert(damageDealt < 50 * 0.5, `Frontal damage reduced by guard block (Damage dealt: ${damageDealt.toFixed(1)})`);
+assert(damageDealt < 70 * 0.5, `Frontal damage reduced by guard block (Damage dealt: ${damageDealt.toFixed(1)})`);
 
 // 4. Enemy Animation Logic (Block, Stagger Recoil, Boss Slam)
 console.log('\n[4] Testing Enemy Animation Logic...');
@@ -338,17 +349,17 @@ assert(colossus.type === 'colossus', 'Colossus boss initialized');
 
 // 5. Celestial Starfield & Camera Crane Sweep
 console.log('\n[5] Testing World Starfield & Camera Crane Sweep...');
-const camera = { position: createVector3(0, 5, -10), lookAt() {} };
+const world = new World();
+assert(world.starfield !== null && world.starfield !== undefined, 'World celestial starfield created with 380 celestial stars');
+assert(world.starfield.geometry.attributes.position.count === 380, 'Starfield contains exactly 380 stars');
+
+const camera = { position: createVector3(0, 5, -10), lookAt() {}, updateProjectionMatrix() {}, rotateZ() {} };
 const cameraController = new CameraController(camera, player);
 cameraController.startIntro(1.6);
 assert(cameraController.introTimer === 1.6, 'CameraController introTimer set to 1.6s');
 assert(cameraController.introDuration === 1.6, 'CameraController introDuration set to 1.6s');
-cameraController.update(0.5, player.root.position, { getHeight: () => 0 }, [], 0, false);
+cameraController.update(0.5, player.root.position, world, [], 0, false);
 assert(cameraController.introTimer < 1.6, 'CameraController introTimer decrements during crane sweep');
-
-const world = new World();
-assert(world.starfield !== null && world.starfield !== undefined, 'World celestial starfield created with 380 celestial stars');
-assert(world.starfield.geometry.attributes.position.count === 380, 'Starfield contains exactly 380 stars');
 
 console.log(`\n--- ALL TESTS COMPLETED: ${passedTests} / ${totalTests} PASSED ---`);
 if (passedTests === totalTests) {

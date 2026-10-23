@@ -12,7 +12,14 @@ const DEFAULTS = Object.freeze({
   screenFlash: 1,
   motionBlur: 0.75,
   reducedEffects: false,
-  graphics: 'high'
+  graphics: 'high',
+  cameraSensitivity: 1.0,
+  controlOpacity: 0.85,
+  hudScale: 1.0,
+  layoutPreset: 'default',
+  hudMinimap: true,
+  hudStats: true,
+  hudObjective: true
 });
 
 export class SettingsManager {
@@ -41,6 +48,23 @@ export class SettingsManager {
 
     const ctrlScale = Number(this.values.controlScale);
     this.values.controlScale = Number.isFinite(ctrlScale) ? Math.max(0.75, Math.min(1.4, ctrlScale)) : DEFAULTS.controlScale;
+
+    const camSens = Number(this.values.cameraSensitivity);
+    this.values.cameraSensitivity = Number.isFinite(camSens) ? Math.max(0.2, Math.min(2.5, camSens)) : DEFAULTS.cameraSensitivity;
+
+    const ctrlOpacity = Number(this.values.controlOpacity);
+    this.values.controlOpacity = Number.isFinite(ctrlOpacity) ? Math.max(0.2, Math.min(1.0, ctrlOpacity)) : DEFAULTS.controlOpacity;
+
+    const hudSc = Number(this.values.hudScale);
+    this.values.hudScale = Number.isFinite(hudSc) ? Math.max(0.7, Math.min(1.3, hudSc)) : DEFAULTS.hudScale;
+
+    if (!['default', 'compact', 'spread', 'left-handed'].includes(this.values.layoutPreset)) {
+      this.values.layoutPreset = DEFAULTS.layoutPreset;
+    }
+
+    this.values.hudMinimap = this.values.hudMinimap !== false;
+    this.values.hudStats = this.values.hudStats !== false;
+    this.values.hudObjective = this.values.hudObjective !== false;
 
     this.values.reducedEffects = Boolean(this.values.reducedEffects);
     if (!['low', 'medium', 'high'].includes(this.values.graphics)) this.values.graphics = DEFAULTS.graphics;

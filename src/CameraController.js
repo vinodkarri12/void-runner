@@ -40,6 +40,13 @@ export class CameraController {
     this.targetPitch = THREE.MathUtils.clamp(this.targetPitch - deltaY * 0.0018 * this.sensitivity, -0.12, 0.62);
   }
 
+  addTouchLook(deltaX, deltaY = 0, customSensitivity = 1) {
+    const sens = (this.sensitivity || 1) * customSensitivity;
+    this.lookYaw -= deltaX * 0.0042 * sens;
+    this.targetPitch = THREE.MathUtils.clamp(this.targetPitch - deltaY * 0.0028 * sens, -0.16, 0.65);
+    this.lastTouchLookTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  }
+
   reset() {
     this.lookYaw = Math.PI;
     const isMobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 768 || ('ontouchstart' in window);
@@ -54,13 +61,20 @@ export class CameraController {
     const mobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 768 || ('ontouchstart' in window);
     const isPortrait = this.camera.aspect < 1.0;
 
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const timeSinceTouch = now - (this.lastTouchLookTime || 0);
+    const userControllingCamera = timeSinceTouch < 2400;
+
     if (mobile) {
-      // Stable third-person follow camera on mobile:
-      // Keep aligned behind player facing down the track (yaw = Math.PI)
-      const targetYaw = Math.PI;
-      const yawDelta = Math.atan2(Math.sin(targetYaw - this.lookYaw), Math.cos(targetYaw - this.lookYaw));
-      this.lookYaw += yawDelta * (1 - Math.exp(-dt * 8));
-      this.targetPitch = isPortrait ? 0.32 : 0.24;
+      if (!userControllingCamera && speed > 7 && (velocity.x !== 0 || velocity.z !== 0)) {
+        // When running at speed without touching the camera, smoothly align behind the ninja
+        const desiredHeading = this.heading.set(velocity.x, 0, velocity.z);
+        if (desiredHeading.lengthSq() > 1) {
+          const inputYaw = Math.atan2(-desiredHeading.x, -desiredHeading.z);
+          const yawDelta = Math.atan2(Math.sin(inputYaw - this.lookYaw), Math.cos(inputYaw - this.lookYaw));
+          this.lookYaw += yawDelta * (1 - Math.exp(-dt * 2.2));
+        }
+      }
     } else {
       const desiredHeading = this.heading.set(velocity.x, 0, velocity.z);
       if (desiredHeading.lengthSq() > 4) {
@@ -158,7 +172,7 @@ export class CameraController {
     const steps = Math.max(2, Math.ceil(path.length() / 1.4));
     for (let index = 1; index <= steps; index++) {
       this.positionScratch.copy(this.focus).addScaledVector(path, index / steps);
-      if (world && !world.isLocationClear(this.positionScratch.x, this.positionScratch.z, 0.48)) {
+      if (world && typeof world.isLocationClear === 'function' && !world.isLocationClear(this.positionScratch.x, this.positionScratch.z, 0.48)) {
         this.desired.copy(this.focus).addScaledVector(path, Math.max(0.12, (index - 1) / steps));
         break;
       }
@@ -168,9 +182,11 @@ export class CameraController {
     this.camera.position.lerp(this.desired, 1 - Math.exp(-dt * response));
 
     if (world) {
-      const floor = world.getHeight(this.camera.position.x, this.camera.position.z) + 1.45;
+      const floor = (typeof world.getHeight === 'function' ? world.getHeight(this.camera.position.x, this.camera.position.z) : 0) + 1.45;
       this.camera.position.y = Math.max(this.camera.position.y, floor);
-      world.resolveFeatureCollision(this.camera.position, 0.45);
+      if (typeof world.resolveFeatureCollision === 'function') {
+        world.resolveFeatureCollision(this.camera.position, 0.45);
+      }
     }
 
     this.camera.lookAt(this.focus);
