@@ -25,6 +25,7 @@ class Vector3 {
   }
   clone() { return new Vector3(this.x, this.y, this.z); }
   set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
+  setScalar(s) { this.x = s; this.y = s; this.z = s; return this; }
   copy(v) { this.x = v.x; this.y = v.y; this.z = v.z; return this; }
   setY(y) { this.y = y; return this; }
   length() { return Math.hypot(this.x, this.y, this.z); }
@@ -149,7 +150,27 @@ const context = vm.createContext({
   performance: { now: () => Date.now() },
   requestAnimationFrame: () => {},
   document: {
-    createElement: () => ({ getContext: () => ({ fillRect() {}, clearRect() {} }) }),
+    createElement: () => {
+      const canvas = {
+        width: 512,
+        height: 128
+      };
+      const ctx = {
+        canvas,
+        fillRect() {},
+        clearRect() {},
+        strokeRect() {},
+        beginPath() {},
+        arc() {},
+        fill() {},
+        stroke() {},
+        measureText: () => ({ width: 10 }),
+        fillText() {},
+        createLinearGradient: () => ({ addColorStop() {} })
+      };
+      canvas.getContext = () => ctx;
+      return canvas;
+    },
     getElementById: () => ({
       textContent: '',
       style: {},
@@ -225,7 +246,7 @@ assert(dashResult !== null, 'Player performDashAttack succeeds towards target');
 assert(player.dashAttackCooldown === 2.2, 'Player dash attack cooldown set to 2.2 seconds');
 assert(player.dashAttackState !== null, 'Player dashAttackState is active');
 assert(player.dashAttackState.phase === 'dash', 'Player dash phase is "dash"');
-assert(player.attackAction === 'katana-dash-slash', 'Player attack action is "katana-dash-slash"');
+assert(player.attackAction === 'dash', 'Player attack action is "dash" during dash travel phase');
 
 // Cooldown countdown
 player.animate(1000, 0.5);
@@ -239,7 +260,10 @@ player.animate(1000, 1/60);
 assert(player.landingCrouch > 0, 'Player enters landing dynamic crouch upon landing from airborne');
 
 // Katana combo empowered finisher test
-player.combo = 4;
+player.attackTimer = 0;
+player.comboResetTimer = 0.8;
+player.comboStep = 2; // Next attack will be step 3
+player.combo = 4;     // Consecutive hit count >= 4 empowers finisher
 const comboResult = player.performKatanaAttack();
 assert(comboResult.isEmpowered === true, 'Player combo >= 4 triggers isEmpowered attack');
 assert(comboResult.step === 3, 'Combo step is 3 (finisher)');
@@ -255,7 +279,8 @@ const mockEffects = {
   sparks: () => {},
   damageNumber: () => {},
   slashArc: () => {},
-  spawnTrail: () => {}
+  spawnTrail: () => {},
+  defeatSmoke: () => {}
 };
 const mockAudio = {
   play: () => {},

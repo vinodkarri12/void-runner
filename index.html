@@ -211,24 +211,35 @@
             <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
           </section>
 
-          <section class="front-view" data-view="settings">
-            <p class="front-eyebrow">SYSTEM // ACCESSIBILITY</p><h2>SETTINGS</h2>
-            <div class="settings-list">
-              <label>MASTER VOLUME <input data-setting="masterVolume" type="range" min="0" max="1" step="0.05"></label>
-              <label>SOUND EFFECTS <input data-setting="sfxVolume" type="range" min="0" max="1" step="0.05"></label>
-              <label>MOUSE SENSITIVITY <input data-setting="sensitivity" type="range" min="0.25" max="2" step="0.05"></label>
-              <label>JOYSTICK SENSITIVITY <input data-setting="joystickSensitivity" type="range" min="0.5" max="2.2" step="0.05"></label>
-              <label>JOYSTICK DEADZONE <input data-setting="joystickDeadzone" type="range" min="0.05" max="0.35" step="0.01"></label>
-              <label>MOBILE CONTROL SIZE <input data-setting="controlScale" type="range" min="0.8" max="1.3" step="0.05"></label>
-              <label>CAMERA FOLLOW <input data-setting="cameraFollow" type="range" min="0.3" max="2" step="0.05"></label>
-              <label>CAMERA SHAKE <input data-setting="cameraShake" type="range" min="0" max="2" step="0.05"></label>
-              <label>SCREEN FLASH <input data-setting="screenFlash" type="range" min="0" max="2" step="0.05"></label>
-              <label>MOTION EFFECTS <input data-setting="motionBlur" type="range" min="0" max="1.5" step="0.05"></label>
-              <label>GRAPHICS QUALITY <select data-setting="graphics"><option value="low">LOW</option><option value="medium">MEDIUM</option><option value="high">HIGH</option></select></label>
-              <label>REDUCED VISUAL EFFECTS <input data-setting="reducedEffects" type="checkbox"></label>
+          <section class="front-view front-wide" data-view="settings">
+            <p class="front-eyebrow">SYSTEM // ACCESSIBILITY</p>
+            <h2>SETTINGS</h2>
+            <div class="settings-scroll-box">
+              <div class="settings-grid">
+                <div class="settings-col">
+                  <div class="settings-group-header">AUDIO & SENSITIVITY</div>
+                  <label>MASTER VOLUME <input data-setting="masterVolume" type="range" min="0" max="1" step="0.05"></label>
+                  <label>SOUND EFFECTS <input data-setting="sfxVolume" type="range" min="0" max="1" step="0.05"></label>
+                  <label>JOYSTICK SENSITIVITY <input data-setting="joystickSensitivity" type="range" min="0.5" max="2.2" step="0.05"></label>
+                  <label>JOYSTICK DEADZONE <input data-setting="joystickDeadzone" type="range" min="0.05" max="0.35" step="0.01"></label>
+                  <label>MOBILE CONTROL SIZE <input data-setting="controlScale" type="range" min="0.8" max="1.3" step="0.05"></label>
+                  <label>MOUSE SENSITIVITY <input data-setting="sensitivity" type="range" min="0.25" max="2" step="0.05"></label>
+                </div>
+                <div class="settings-col">
+                  <div class="settings-group-header">GRAPHICS & DISPLAY</div>
+                  <label>GRAPHICS QUALITY <select data-setting="graphics"><option value="low">LOW (PERFORMANCE)</option><option value="medium">MEDIUM</option><option value="high">HIGH (SHADOWS)</option></select></label>
+                  <label>CAMERA FOLLOW <input data-setting="cameraFollow" type="range" min="0.3" max="2" step="0.05"></label>
+                  <label>CAMERA SHAKE <input data-setting="cameraShake" type="range" min="0" max="2" step="0.05"></label>
+                  <label>SCREEN FLASH <input data-setting="screenFlash" type="range" min="0" max="2" step="0.05"></label>
+                  <label>MOTION EFFECTS <input data-setting="motionBlur" type="range" min="0" max="1.5" step="0.05"></label>
+                  <label>REDUCED VISUAL EFFECTS <input data-setting="reducedEffects" type="checkbox"></label>
+                </div>
+              </div>
             </div>
-            <button id="fullscreenButton" class="front-secondary">FULLSCREEN</button>
-            <button data-view-button="home" class="front-back-button">BACK TO HOME</button>
+            <div class="settings-action-bar">
+              <button id="fullscreenButton" class="front-secondary" type="button">FULLSCREEN / LANDSCAPE</button>
+              <button data-view-button="home" class="front-back-button" type="button">BACK TO HOME</button>
+            </div>
           </section>
 
           <section class="front-view front-wide" data-view="how">
@@ -377,6 +388,14 @@
             <span class="sr-only" id="dashLabel">DASH ATTACK</span>
           </button>
 
+          <!-- Mobile WEAPON SWITCH Button (Toggle between Katana and Gun) -->
+          <button id="weaponSwitchButton" class="weapon-switch-btn" type="button" aria-label="Switch Weapon" title="Switch Weapon (Tab)">
+            <div class="weapon-switch-btn-inner">
+              <span class="weapon-switch-icon" id="mobileWeaponIcon">⚔</span>
+              <span class="weapon-switch-text" id="mobileWeaponName">KATANA</span>
+            </div>
+          </button>
+
           <!-- Dedicated Large RUN Button (Running-Person Icon) -->
           <button id="runButton" class="run-button" type="button" aria-label="Run" aria-pressed="false" title="Run">
             <div class="run-glow-ring" aria-hidden="true"></div>
@@ -460,6 +479,28 @@
         <div class="cinematic-victory-subtitle" id="victorySubtitle">ALL HOSTILES ELIMINATED</div>
       </div>
 
+      <!-- Milestone Weapon Unlocked Overlay -->
+      <div id="weaponUnlockOverlay" class="weapon-unlock-overlay hidden" aria-hidden="true">
+        <div class="weapon-unlock-card">
+          <div class="weapon-unlock-glow"></div>
+          <div class="weapon-unlock-eyebrow">MILESTONE REWARD // LEVEL 10 COMPLETE</div>
+          <div class="weapon-unlock-kanji">新兵器解放</div>
+          <h1 class="weapon-unlock-title">WEAPON UNLOCKED</h1>
+          <div class="weapon-unlock-icon" id="weaponUnlockIcon">⌖</div>
+          <h2 id="unlockedWeaponName" class="unlocked-weapon-name">VOID HAND CANNON</h2>
+          <p id="unlockedWeaponDesc" class="unlocked-weapon-desc">High-velocity shinobi firearm firing condensed void rounds with explosive kinetic impact.</p>
+          <div class="unlocked-weapon-stats">
+            <div class="stat-badge"><span>DAMAGE</span><strong>75 HP</strong></div>
+            <div class="stat-badge"><span>MAGAZINE</span><strong>6 ROUNDS</strong></div>
+            <div class="stat-badge"><span>RANGE</span><strong>35 METERS</strong></div>
+          </div>
+          <div class="weapon-unlock-actions">
+            <button id="equipUnlockedWeaponBtn" class="modal-button" type="button">EQUIP WEAPON</button>
+            <button id="closeUnlockOverlayBtn" class="modal-button secondary" type="button">CONTINUE</button>
+          </div>
+        </div>
+      </div>
+
       <div id="overlay" class="overlay hidden">
         <div class="modal-box">
           <div class="modal-eyebrow" id="modalEyebrow">SYSTEM PAUSED</div>
@@ -471,7 +512,30 @@
           <button id="changeWeaponButton" class="modal-button secondary">CHANGE WEAPON</button>
           <button id="settingsMenuButton" class="modal-button secondary">SETTINGS</button>
           <button id="restartButton" class="modal-button secondary">REPLAY LEVEL</button>
+          <button id="levelSelectModalButton" class="modal-button secondary">LEVEL SELECTION</button>
           <button id="mainMenuButton" class="modal-button secondary">MAIN MENU</button>
+        </div>
+      </div>
+
+      <!-- Mobile Portrait Orientation Prompt Overlay -->
+      <div id="portraitPrompt" class="portrait-prompt-overlay" aria-live="polite">
+        <div class="portrait-prompt-card">
+          <div class="rotate-phone-anim">
+            <div class="phone-device">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <span class="phone-ninja-icon">忍</span>
+              </div>
+            </div>
+            <div class="rotate-arrow-indicator">↻</div>
+          </div>
+          <div class="prompt-kanji">横画面推奨</div>
+          <h2>ROTATE YOUR PHONE</h2>
+          <p class="prompt-subtext">Rotate your phone to landscape for the best experience.</p>
+          <div class="prompt-actions">
+            <button id="lockLandscapeButton" class="prompt-btn primary" type="button">SWITCH TO LANDSCAPE</button>
+            <button id="dismissPortraitPrompt" class="prompt-btn secondary" type="button">CONTINUE ANYWAY</button>
+          </div>
         </div>
       </div>
     </div>

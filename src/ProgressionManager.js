@@ -23,7 +23,7 @@ const LEVEL_TITLES = [
 ];
 
 export function isMasterLevel(level) {
-  return level === CAMPAIGN_LEVELS;
+  return Number.isInteger(level) && level > 0 && level % 15 === 0;
 }
 
 export function createLevelDefinition(level) {
@@ -241,7 +241,8 @@ export class ProgressionManager {
     return {
       completed,
       unlocked: this.unlockedLevel,
-      final: completed === CAMPAIGN_LEVELS
+      final: completed === CAMPAIGN_LEVELS,
+      unlockedWeaponMilestone: (completed % 10 === 0) ? completed : null
     };
   }
 

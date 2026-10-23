@@ -43,7 +43,13 @@ export class AudioManager {
       'sword-swing-2': [680, 260, 0.13, 'sawtooth'],
       'sword-finisher': [780, 110, 0.30, 'sawtooth'],
       'katana-hit': [880, 120, 0.14, 'square'],
-      'enemy-smoke': [220, 60, 0.26, 'sine']
+      'enemy-smoke': [220, 60, 0.26, 'sine'],
+      'gun-shot': [960, 160, 0.14, 'sawtooth'],
+      'gun-reload': [300, 680, 0.22, 'triangle'],
+      'weapon-unlocked': [440, 1100, 0.45, 'triangle'],
+      'game-over': [220, 50, 0.75, 'sawtooth'],
+      'master-intro': [85, 260, 0.9, 'sawtooth'],
+      'master-defeat': [320, 45, 1.2, 'triangle']
     }[kind];
     if (!settings) return;
     oscillator.type = settings[3];

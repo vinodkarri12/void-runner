@@ -8,7 +8,7 @@ import {
   EXECUTION_HEALTH_RATIO,
   EXECUTION_RANGE
 } from './CombatSystem.js?campaign15a';
-import { Enemy } from './Enemy.js?campaign15a';
+import { Enemy, enemyAttackCoordinator } from './Enemy.js?campaign15a';
 import { Effects } from './Effects.js';
 import { AudioManager } from './AudioManager.js';
 import { CameraController } from './CameraController.js?campaign15a';
@@ -180,6 +180,7 @@ function updateHealthHUD() {
 }
 
 function takeDamage(amount) {
+  if (screenState !== 'gameplay' || !player.isAlive || player.health <= 0) return 0;
   const applied = player.takeDamage(amount);
   updateHealthHUD();
   checkGameOver();
@@ -193,19 +194,47 @@ function healPlayer(amount) {
 }
 
 function checkGameOver() {
-  if (screenState !== 'gameplay' || player.health > 0 || !player.isAlive) return false;
+  if (screenState !== 'gameplay' || player.health > 0) return false;
   player.isAlive = false;
+  player.velocity.set(0, 0, 0);
+  player.speed = 0;
+  player.horizontalSpeed = 0;
+  player.movementState = 'STOPPED';
+  player.attackAction = '';
+  player.attackTimer = 0;
+  player.defeatPose = true;
   isPaused = true;
   screenState = 'game-over';
-  document.body.classList.add('game-over-screen');
-  document.body.classList.add('screen-modal-active');
-  player.defeatPose = true;
+  enemyAttackCoordinator.reset();
+  document.body.classList.add('game-over-screen', 'screen-modal-active');
   document.getElementById('frontEnd').hidden = true;
   document.body.classList.remove('frontend-open');
-  document.body.classList.add('screen-modal-active');
-  hud.restartButton.textContent = 'RETRY';
-  hud.showModal('RUN TERMINATED', 'OPERATOR DOWN', 'The void takes another runner. Restart the sequence.');
+  audio.play('game-over');
+  hud.showGameOver(wave, levelDefinition);
+  progression.save();
   return true;
+}
+
+function restartCurrentLevel() {
+  document.body.classList.remove('game-over-screen', 'victory-screen', 'screen-modal-active');
+  hud.hideModal();
+  enemyAttackCoordinator.reset();
+  resetGame(false);
+  updateHealthHUD();
+  updateMobileWeaponButton();
+  resumeGame();
+}
+
+function updateMobileWeaponButton() {
+  const current = weaponManager.getEquippedWeapon();
+  const icon = document.getElementById('mobileWeaponIcon');
+  const name = document.getElementById('mobileWeaponName');
+  if (icon) icon.textContent = current.category === 'ranged' ? '🔫' : '⚔';
+  if (name) name.textContent = current.category === 'ranged' ? 'GUN' : 'KATANA';
+  const attackComboLabel = document.getElementById('attackComboLabel');
+  if (attackComboLabel) {
+    attackComboLabel.textContent = current.category === 'ranged' ? 'VOID FIREARM' : 'KATANA';
+  }
 }
 
 function clearShadowClone() {
@@ -296,10 +325,10 @@ function startLevelIntroSequence(definition) {
 
   if (overlay && eyebrow && title && kanji && readyWord && fightWord) {
     eyebrow.textContent = definition.finalBoss
-      ? `FINAL CLASH // STAGE ${String(wave).padStart(2, '0')}`
+      ? `MASTER LEVEL // CHAPTER ${String(wave).padStart(2, '0')} OF ${CAMPAIGN_LEVELS}`
       : `STAGE ${String(wave).padStart(2, '0')} // SANCTUARY TRIAL`;
-    title.textContent = definition.title || `STAGE ${wave}`;
-    kanji.textContent = STAGE_KANJI[(wave - 1) % STAGE_KANJI.length];
+    title.textContent = definition.finalBoss ? `MASTER // ${definition.title}` : (definition.title || `STAGE ${wave}`);
+    kanji.textContent = definition.finalBoss ? '極意覇者' : STAGE_KANJI[(wave - 1) % STAGE_KANJI.length];
 
     readyWord.classList.remove('hidden');
     fightWord.classList.add('hidden');
@@ -311,9 +340,9 @@ function startLevelIntroSequence(definition) {
   cameraController.startIntro(1.6);
 
   // Atmospheric Sakura petals & energy particles around player
-  effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1.8, 0)), 0xffa4be, 24, 4.2);
-  effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 0x48ffb8, 16, 2.5);
-  audio.play('charge');
+  effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1.8, 0)), definition.finalBoss ? 0xff476d : 0xffa4be, 24, 4.2);
+  effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 0.4, 0)), definition.finalBoss ? 0xffd166 : 0x48ffb8, 16, 2.5);
+  audio.play(definition.finalBoss ? 'master-intro' : 'charge');
 
   // Step 1: After 0.85s, switch from READY to FIGHT!
   introTimerId = setTimeout(() => {
@@ -368,11 +397,16 @@ function triggerFinalKillCinematic(finalEnemy = null) {
     const kanjiEl = banner.querySelector('.cinematic-victory-kanji');
     const titleEl = banner.querySelector('.cinematic-victory-title');
     const subEl = document.getElementById('victorySubtitle');
-    if (kanjiEl) kanjiEl.textContent = levelDefinition.finalBoss ? '天下統一' : '完全勝利';
-    if (titleEl) titleEl.textContent = levelDefinition.finalBoss ? 'CAMPAIGN CONQUERED' : 'STAGE CLEARED';
-    if (subEl) subEl.textContent = `ALL ${levelDefinition.requiredKills} HOSTILES ELIMINATED // SHINOBI TRIUMPH`;
+    if (kanjiEl) kanjiEl.textContent = levelDefinition.finalBoss ? '覇者撃破' : '完全勝利';
+    if (titleEl) titleEl.textContent = levelDefinition.finalBoss ? 'MASTER DEFEATED' : 'STAGE CLEARED';
+    if (subEl) subEl.textContent = levelDefinition.finalBoss
+      ? 'THE SHADOW SHOGUN HAS FALLEN // CAMPAIGN VICTORY'
+      : `ALL ${levelDefinition.requiredKills} HOSTILES ELIMINATED // SHINOBI TRIUMPH`;
     banner.classList.remove('hidden');
     banner.classList.add('active');
+  }
+  if (levelDefinition.finalBoss) {
+    audio.play('master-defeat');
   }
 
   // 6. After the slow-motion cinematic plays (1.4s), transition to the results card!
@@ -732,6 +766,22 @@ function completeLevel() {
     damage: levelDamageTaken,
     reward
   });
+
+  // Level Milestone Weapon Unlock (e.g. Level 10 Gun, Level 20 Rifle, Level 30 Cannon)
+  if (result.unlockedWeaponMilestone) {
+    const milestoneWeapon = WEAPONS.find((w) => w.unlockLevel === result.unlockedWeaponMilestone);
+    if (milestoneWeapon) {
+      audio.play('weapon-unlocked');
+      hud.showWeaponUnlocked(milestoneWeapon, (w) => {
+        weaponManager.equip(w.id, player, progression);
+        updateMobileWeaponButton();
+        combatFeedback.message(`${w.name} EQUIPPED`, 1000);
+      }, () => {
+        updateMobileWeaponButton();
+      });
+    }
+  }
+
   isPaused = true;
   return true;
 }
@@ -822,8 +872,8 @@ function renderLevelSelect(page = null) {
   if (page === 'search') {
     page = null;
     if (Number.isInteger(searchValue) && searchValue >= 1 && searchValue <= CAMPAIGN_LEVELS) {
-    selectedLevel = searchValue;
-    levelPageIndex = Math.floor((searchValue - 1) / pageSize);
+      selectedLevel = searchValue;
+      levelPageIndex = Math.floor((searchValue - 1) / pageSize);
     }
   }
   const pageCount = Math.ceil(CAMPAIGN_LEVELS / pageSize);
@@ -834,16 +884,40 @@ function renderLevelSelect(page = null) {
   grid.replaceChildren();
   for (let level = first; level <= last; level++) {
     const definition = createLevelDefinition(level);
+    const isCompleted = progression.completedLevels.has(level);
+    const isLocked = level > progression.unlockedLevel;
+    const isCurrent = level === selectedLevel;
+
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'level-tile';
-    button.textContent = String(level).padStart(3, '0');
     button.title = `${definition.title} — ${definition.master ? 'MASTER LEVEL' : `DIFFICULTY ${definition.difficulty.toFixed(1)}`}`;
     button.classList.toggle('master', definition.master);
-    button.classList.toggle('complete', progression.completedLevels.has(level));
-    button.classList.toggle('current', level === selectedLevel);
-    button.classList.toggle('locked', level > progression.unlockedLevel);
-    button.disabled = level > progression.unlockedLevel;
+    button.classList.toggle('complete', isCompleted);
+    button.classList.toggle('current', isCurrent);
+    button.classList.toggle('locked', isLocked);
+    button.disabled = isLocked;
+
+    const statusBadge = isLocked
+      ? '<span class="tile-status status-locked">🔒 LOCKED</span>'
+      : isCompleted
+        ? '<span class="tile-status status-complete">✓ CLEARED</span>'
+        : definition.master
+          ? '<span class="tile-status status-master">⚔ MASTER</span>'
+          : '<span class="tile-status status-ready">▶ READY</span>';
+
+    button.innerHTML = `
+      <div class="tile-header">
+        <strong class="tile-num">LVL ${String(level).padStart(2, '0')}</strong>
+        ${statusBadge}
+      </div>
+      <div class="tile-title">${definition.master ? '★ ' : ''}${definition.title}</div>
+      <div class="tile-footer">
+        <span>Diff ${definition.difficulty.toFixed(1)}</span>
+        <span>${definition.requiredKills} Foes</span>
+      </div>
+    `;
+
     button.addEventListener('click', () => {
       selectedLevel = level;
       document.getElementById('levelSearch').value = String(level);
@@ -857,13 +931,23 @@ function renderLevelSelect(page = null) {
     `${String(first).padStart(2, '0')}–${String(last).padStart(2, '0')}`;
   document.getElementById('levelPrevious').disabled = currentPage === 0;
   document.getElementById('levelNext').disabled = currentPage === pageCount - 1;
+
   const detail = createLevelDefinition(selectedLevel);
+  const isCompleted = progression.completedLevels.has(selectedLevel);
+  const isLocked = selectedLevel > progression.unlockedLevel;
+  const statusLabel = isLocked
+    ? 'LOCKED // COMPLETE PREVIOUS LEVEL'
+    : isCompleted
+      ? 'CLEARED // REPLAY AVAILABLE'
+      : 'UNLOCKED // IN PROGRESS';
+
   document.getElementById('selectedLevelNumber').textContent = String(selectedLevel).padStart(2, '0');
-  document.getElementById('selectedLevelName').textContent = `${detail.master ? 'MASTER // ' : ''}${detail.title}`;
+  document.getElementById('selectedLevelName').textContent = `${detail.master ? 'MASTER LEVEL // ' : ''}${detail.title}`;
   document.getElementById('selectedLevelInfo').textContent =
-    `DIFFICULTY ${detail.difficulty.toFixed(1)} // ${detail.requiredKills} HOSTILES // REWARD ${detail.master ? '1400+' : '400+'} SCORE`;
+    `DIFFICULTY ${detail.difficulty.toFixed(1)} // ${detail.requiredKills} HOSTILES // STATUS: ${statusLabel}`;
   const playButton = document.getElementById('playSelectedLevel');
-  playButton.disabled = selectedLevel > progression.unlockedLevel;
+  playButton.textContent = isCompleted ? 'REPLAY LEVEL' : 'START LEVEL';
+  playButton.disabled = isLocked;
 }
 
 function renderArmory() {
@@ -1071,6 +1155,7 @@ function bindFrontend() {
   document.getElementById('equipWeaponButton').addEventListener('click', () => {
     if (!weaponManager.equip(selectedWeapon.id, player, progression)) return;
     renderArmory();
+    updateMobileWeaponButton();
     combatFeedback.message(`${selectedWeapon.name} // EQUIPPED`, 900);
   });
   document.querySelectorAll('[data-setting]').forEach((input) => {
@@ -1081,15 +1166,39 @@ function bindFrontend() {
       applySettings();
     });
   });
-  document.getElementById('fullscreenButton').addEventListener('click', async () => {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.getElementById('game-root').requestFullscreen();
-    } catch (error) {
-      console.warn('VOID RUNNER fullscreen mode is unavailable.', error);
-      combatFeedback.message('FULLSCREEN UNAVAILABLE', 900);
-    }
-  });
+
+  const fullscreenBtn = document.getElementById('fullscreenButton');
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', async () => {
+      try {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        } else {
+          await lockLandscapeOrientation();
+        }
+      } catch (error) {
+        console.warn('VOID RUNNER fullscreen mode is unavailable.', error);
+        combatFeedback.message('FULLSCREEN UNAVAILABLE', 900);
+      }
+    });
+  }
+
+  const lockLandscapeBtn = document.getElementById('lockLandscapeButton');
+  if (lockLandscapeBtn) {
+    lockLandscapeBtn.addEventListener('click', async () => {
+      await lockLandscapeOrientation();
+      document.body.classList.add('portrait-dismissed');
+      resize();
+    });
+  }
+
+  const dismissPortraitBtn = document.getElementById('dismissPortraitPrompt');
+  if (dismissPortraitBtn) {
+    dismissPortraitBtn.addEventListener('click', () => {
+      document.body.classList.add('portrait-dismissed');
+    });
+  }
+
   document.getElementById('loadingRetry').addEventListener('click', () => startLevelWithLoading(loadingLevel, null, true));
   document.getElementById('loadingMenu').addEventListener('click', showMainMenu);
   hud.hideModal();
@@ -1236,13 +1345,27 @@ const bindInput = () => {
       combatFeedback.message('CAMERA RECENTERED', 700);
       return;
     }
+    if (event.code === 'Tab') {
+      event.preventDefault();
+      if (isPaused) return;
+      const switched = weaponManager.toggleNextWeapon(player, progression);
+      if (switched) {
+        selectedWeapon = switched;
+        audio.play('slash');
+        combatFeedback.message(`${switched.name} // EQUIPPED`, 850);
+        updateMobileWeaponButton();
+      }
+      return;
+    }
     if (/^Digit[1-6]$/.test(event.code)) {
       event.preventDefault();
       if (isPaused) return;
       const weapon = WEAPONS[Number(event.code.slice(-1)) - 1];
       if (weaponManager.equip(weapon.id, player, progression)) {
         selectedWeapon = weapon;
+        audio.play('slash');
         combatFeedback.message(`${weapon.name} // EQUIPPED`, 850);
+        updateMobileWeaponButton();
       } else {
         combatFeedback.message(`${weapon.name} // UNLOCK AT LEVEL ${weapon.unlockLevel}`, 850);
       }
@@ -1328,9 +1451,23 @@ const bindInput = () => {
 
   hud.resumeButton.addEventListener('click', resumeGame);
   hud.restartButton.addEventListener('click', () => {
-    if (waveState === 'complete') replayLevel();
-    else startLevelWithLoading(wave);
+    if (screenState === 'game-over') {
+      restartCurrentLevel();
+    } else if (waveState === 'complete') {
+      replayLevel();
+    } else {
+      restartCurrentLevel();
+    }
   });
+  if (hud.levelSelectModalButton) {
+    hud.levelSelectModalButton.addEventListener('click', () => {
+      document.body.classList.remove('game-over-screen', 'victory-screen', 'screen-modal-active');
+      hud.hideModal();
+      isPaused = true;
+      inMainMenu = true;
+      setFrontView('levels');
+    });
+  }
   hud.mainMenuButton.addEventListener('click', showMainMenu);
   hud.continueButton.addEventListener('click', continueCampaign);
   hud.changeWeaponButton.addEventListener('click', () => openFrontFromPause('armory'));
@@ -1344,6 +1481,21 @@ const bindInput = () => {
     settingsManager.set('reducedEffects', !settingsManager.values.reducedEffects);
     applySettings();
   });
+
+  const switchBtn = document.getElementById('weaponSwitchButton');
+  if (switchBtn) {
+    switchBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (isPaused) return;
+      const switched = weaponManager.toggleNextWeapon(player, progression);
+      if (switched) {
+        selectedWeapon = switched;
+        audio.play('slash');
+        combatFeedback.message(`${switched.name} // EQUIPPED`, 850);
+        updateMobileWeaponButton();
+      }
+    });
+  }
 
   // 1. Professional Virtual Joystick on Mobile
   const zone = document.getElementById('joystickZone');
@@ -1755,9 +1907,11 @@ function resumeGame() {
   hud.hideModal();
   hud.restartButton.textContent = 'RESTART';
   lastTime = performance.now();
+  resize();
 }
 
 function resetGame(keepPaused = false, checkpoint = null) {
+  enemyAttackCoordinator.reset();
   for (const enemy of enemies) removeEnemy(enemy);
   enemies.length = 0;
   removeMasterArena();
@@ -2475,16 +2629,43 @@ function animate(time) {
   renderer.render(scene, camera);
 }
 
+async function lockLandscapeOrientation() {
+  try {
+    const root = document.getElementById('game-root') || document.documentElement;
+    if (!document.fullscreenElement && root.requestFullscreen) {
+      await root.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+    }
+    if (screen.orientation && typeof screen.orientation.lock === 'function') {
+      await screen.orientation.lock('landscape').catch((err) => {
+        console.info('Orientation lock status:', err?.message || err);
+      });
+    }
+  } catch (err) {
+    console.info('Screen orientation lock handled gracefully:', err);
+  }
+}
+
 function resize() {
   const width = window.visualViewport?.width || window.innerWidth;
   const height = window.visualViewport?.height || window.innerHeight;
+  const isLandscape = width >= height;
+
+  if (isLandscape) {
+    document.body.classList.add('is-landscape');
+    document.body.classList.remove('is-portrait');
+  } else {
+    document.body.classList.add('is-portrait');
+    document.body.classList.remove('is-landscape');
+  }
+
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+
   const quality = settingsManager.values.graphics;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, getPixelRatioCap(quality)));
   renderer.shadowMap.enabled = settingsManager.values.graphics !== 'low' && !isMobileViewport();
   renderer.toneMappingExposure = settingsManager.values.graphics === 'low' ? 1.04 : 1.12;
-  renderer.setSize(width, height);
+  renderer.setSize(width, height, false);
 }
 
 scene.add(player.root);
@@ -2493,6 +2674,8 @@ worldChunks.update(player.root.position);
 cameraController.lookYaw = Math.PI;
 bindInput();
 weaponManager.load(player, progression);
+updateMobileWeaponButton();
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') progression.save();
 });
@@ -2501,6 +2684,7 @@ window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => {
   setTimeout(resize, 60);
   setTimeout(resize, 250);
+  setTimeout(resize, 600);
 });
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', resize);
@@ -2511,4 +2695,19 @@ if (screen.orientation) {
     setTimeout(resize, 250);
   });
 }
+
+// Prevent unwanted browser scrolling, pull-to-refresh, or gesture navigation during gameplay
+const gameRoot = document.getElementById('game-root');
+if (gameRoot) {
+  gameRoot.addEventListener('touchmove', (event) => {
+    if (event.target.closest('.settings-scroll-box, .level-grid, .how-panels-grid, .modal-box, .weapon-grid')) {
+      return;
+    }
+    if (event.cancelable) event.preventDefault();
+  }, { passive: false });
+}
+
+// Initial sync of orientation classes and viewport
+resize();
 requestAnimationFrame(animate);
+

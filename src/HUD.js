@@ -40,6 +40,13 @@ export class HUD {
     this.continueButton = document.getElementById('continueButton');
     this.changeWeaponButton = document.getElementById('changeWeaponButton');
     this.settingsMenuButton = document.getElementById('settingsMenuButton');
+    this.levelSelectModalButton = document.getElementById('levelSelectModalButton');
+    this.weaponUnlockOverlay = document.getElementById('weaponUnlockOverlay');
+    this.weaponUnlockIcon = document.getElementById('weaponUnlockIcon');
+    this.unlockedWeaponName = document.getElementById('unlockedWeaponName');
+    this.unlockedWeaponDesc = document.getElementById('unlockedWeaponDesc');
+    this.equipUnlockedWeaponBtn = document.getElementById('equipUnlockedWeaponBtn');
+    this.closeUnlockOverlayBtn = document.getElementById('closeUnlockOverlayBtn');
     this.cameraResetButton = document.getElementById('cameraResetButton');
     this.pauseButton = document.getElementById('pauseButton');
     this.minimap = document.getElementById('minimap');
@@ -71,7 +78,16 @@ export class HUD {
 
   update(player, enemies, wave, worldOffset = { x: 0, y: 0 }, getHeight = () => 0, combat = null, target = null, defeated = 0, abilities = {}) {
     const equippedHudWeapon = document.getElementById('equippedHudWeapon');
-    if (equippedHudWeapon) equippedHudWeapon.textContent = player.weaponConfig?.name || 'VOID REAVER';
+    if (equippedHudWeapon) {
+      if (player.weaponConfig?.category === 'ranged') {
+        const ammoText = player.gunReloadTimer > 0
+          ? `RELOADING ${(player.gunReloadDuration - player.gunReloadTimer).toFixed(1)}s`
+          : `AMMO ${player.gunAmmo} / ${player.gunMaxAmmo}`;
+        equippedHudWeapon.textContent = `${player.weaponConfig?.name || 'VOID FIREARM'} [${ammoText}]`;
+      } else {
+        equippedHudWeapon.textContent = player.weaponConfig?.name || 'SHADOW KATANA';
+      }
+    }
     this.scoreValue.textContent = String(Math.floor(player.score)).padStart(6, '0');
     this.comboValue.textContent = `x${player.combo}`;
     this.scoreMultiplier.textContent = `SCORE x${player.scoreMultiplier ?? 1}`;
@@ -374,20 +390,49 @@ export class HUD {
     this.modalEyebrow.textContent = eyebrow;
     this.modalMessage.textContent = message;
     this.resultsPanel.classList.add('hidden');
-    this.resumeButton.style.display = title === 'PAUSED' ? '' : 'none';
-    this.changeWeaponButton.style.display = title === 'PAUSED' ? '' : 'none';
-    this.settingsMenuButton.style.display = title === 'PAUSED' ? '' : 'none';
-    this.mainMenuButton.style.display = title === 'RUN TERMINATED' || title === 'PAUSED' ? '' : 'none';
+    const isPaused = title === 'PAUSED';
+    const isGameOver = title === 'GAME OVER' || title === 'RUN TERMINATED';
+    const isVictory = title === 'LEVEL COMPLETE' || title === 'VOID OVERLORD DEFEATED';
+
+    this.resumeButton.style.display = isPaused ? '' : 'none';
+    this.changeWeaponButton.style.display = isPaused ? '' : 'none';
+    this.settingsMenuButton.style.display = isPaused ? '' : 'none';
+    this.mainMenuButton.style.display = isGameOver || isPaused || isVictory ? '' : 'none';
     this.continueButton.style.display = 'none';
-    this.restartButton.textContent = title === 'MAIN MENU' ? 'START RUN' : 'RESTART';
+    if (this.levelSelectModalButton) {
+      this.levelSelectModalButton.style.display = isGameOver || isPaused || isVictory ? '' : 'none';
+    }
+    this.restartButton.textContent = isGameOver ? 'RESTART LEVEL' : isVictory ? 'REPLAY LEVEL' : title === 'MAIN MENU' ? 'START RUN' : 'RESTART';
+    this.restartButton.style.display = '';
+
     this.overlay.classList.remove('modal-paused', 'modal-game-over', 'modal-victory');
-    if (title === 'PAUSED') {
+    if (isPaused) {
       this.overlay.classList.add('modal-paused');
-    } else if (title === 'RUN TERMINATED') {
+    } else if (isGameOver) {
       this.overlay.classList.add('modal-game-over');
-    } else if (title === 'LEVEL COMPLETE' || title === 'VOID OVERLORD DEFEATED') {
+    } else if (isVictory) {
       this.overlay.classList.add('modal-victory');
     }
+    this.overlay.classList.remove('hidden');
+  }
+
+  showGameOver(level, definition = {}) {
+    const lvlNum = String(level).padStart(2, '0');
+    const title = definition.title || 'SANCTUARY TRIAL';
+    this.modalTitle.textContent = 'GAME OVER';
+    this.modalEyebrow.textContent = `LEVEL ${lvlNum} // SHINOBI DEFEATED`;
+    this.modalMessage.textContent = `Your shadow has fallen in "${title}". The path of the ninja demands resilience. Rise and restart the level.`;
+    this.resultsPanel.classList.add('hidden');
+    this.resumeButton.style.display = 'none';
+    this.continueButton.style.display = 'none';
+    this.changeWeaponButton.style.display = 'none';
+    this.settingsMenuButton.style.display = 'none';
+    this.restartButton.textContent = 'RESTART LEVEL';
+    this.restartButton.style.display = '';
+    if (this.levelSelectModalButton) this.levelSelectModalButton.style.display = '';
+    this.mainMenuButton.style.display = '';
+    this.overlay.classList.remove('modal-paused', 'modal-victory');
+    this.overlay.classList.add('modal-game-over');
     this.overlay.classList.remove('hidden');
   }
 
@@ -413,8 +458,40 @@ export class HUD {
     this.restartButton.textContent = 'REPLAY LEVEL';
     this.changeWeaponButton.style.display = 'none';
     this.settingsMenuButton.style.display = 'none';
+    if (this.levelSelectModalButton) this.levelSelectModalButton.style.display = '';
     this.continueButton.style.display = result.final ? 'none' : '';
     this.mainMenuButton.style.display = '';
+  }
+
+  showWeaponUnlocked(weapon, onEquip, onContinue) {
+    if (!this.weaponUnlockOverlay) return;
+    if (this.unlockedWeaponName) this.unlockedWeaponName.textContent = weapon.name;
+    if (this.unlockedWeaponDesc) this.unlockedWeaponDesc.textContent = weapon.description;
+    if (this.weaponUnlockIcon) this.weaponUnlockIcon.textContent = weapon.icon || '⌖';
+    this.weaponUnlockOverlay.classList.remove('hidden');
+    this.weaponUnlockOverlay.classList.add('active');
+
+    const cleanup = () => {
+      this.weaponUnlockOverlay.classList.remove('active');
+      this.weaponUnlockOverlay.classList.add('hidden');
+      if (this.equipUnlockedWeaponBtn) this.equipUnlockedWeaponBtn.onclick = null;
+      if (this.closeUnlockOverlayBtn) this.closeUnlockOverlayBtn.onclick = null;
+    };
+
+    if (this.equipUnlockedWeaponBtn) {
+      this.equipUnlockedWeaponBtn.onclick = (e) => {
+        e?.preventDefault();
+        cleanup();
+        onEquip?.(weapon);
+      };
+    }
+    if (this.closeUnlockOverlayBtn) {
+      this.closeUnlockOverlayBtn.onclick = (e) => {
+        e?.preventDefault();
+        cleanup();
+        onContinue?.();
+      };
+    }
   }
 
   showCombatMessage(message, duration = 900) {

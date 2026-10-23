@@ -60,7 +60,7 @@ export class CameraController {
       const targetYaw = Math.PI;
       const yawDelta = Math.atan2(Math.sin(targetYaw - this.lookYaw), Math.cos(targetYaw - this.lookYaw));
       this.lookYaw += yawDelta * (1 - Math.exp(-dt * 8));
-      this.targetPitch = isPortrait ? 0.32 : 0.26;
+      this.targetPitch = isPortrait ? 0.32 : 0.24;
     } else {
       const desiredHeading = this.heading.set(velocity.x, 0, velocity.z);
       if (desiredHeading.lengthSq() > 4) {
@@ -120,11 +120,11 @@ export class CameraController {
       introLift = (this.introTimer / this.introDuration) * 3.8;
     }
 
-    const baseDist = mobile ? (isPortrait ? 9.4 : 8.5) : (7.7 + speedRatio * 2.9);
+    const baseDist = mobile ? (isPortrait ? 9.4 : 7.9) : (7.7 + speedRatio * 2.9);
     const targetDistance = baseDist + chargePullback + overdrivePullback +
       dashPullback + boostPullback + bossPullback + closeCombatPullback + introLift * 0.8;
 
-    const baseHeight = mobile ? (isPortrait ? 4.1 : 3.45) : (3.25 + speedRatio * 0.65);
+    const baseHeight = mobile ? (isPortrait ? 4.1 : 3.3) : (3.25 + speedRatio * 0.65);
     const targetHeight = baseHeight + Math.max(0, velocity.y) * (mobile ? 0.015 : 0.035) +
       (target?.type === 'colossus' ? 1.0 : 0) + introLift;
 

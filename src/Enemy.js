@@ -10,6 +10,52 @@ const ARCHETYPES = {
 
 let enemyCounter = 0;
 
+export class EnemyAttackCoordinator {
+  constructor() {
+    this.activeAttacker = null;
+    this.turnDelay = 0;
+  }
+
+  update(dt) {
+    this.turnDelay = Math.max(0, this.turnDelay - dt);
+    if (this.activeAttacker) {
+      if (!this.activeAttacker.alive || this.activeAttacker.hitStun > 0 || this.activeAttacker.attackPhase <= 0) {
+        this.release(this.activeAttacker, 0.25);
+      }
+    }
+  }
+
+  canAttack(enemy) {
+    if (this.turnDelay > 0) return false;
+    if (this.activeAttacker === null || this.activeAttacker === enemy) {
+      return true;
+    }
+    return false;
+  }
+
+  claim(enemy) {
+    if (this.canAttack(enemy)) {
+      this.activeAttacker = enemy;
+      return true;
+    }
+    return false;
+  }
+
+  release(enemy, pauseDuration = 0.28) {
+    if (this.activeAttacker === enemy) {
+      this.activeAttacker = null;
+      this.turnDelay = pauseDuration;
+    }
+  }
+
+  reset() {
+    this.activeAttacker = null;
+    this.turnDelay = 0;
+  }
+}
+
+export const enemyAttackCoordinator = new EnemyAttackCoordinator();
+
 export class Enemy {
   constructor(position, type = 'scout', options = {}) {
     this.id = ++enemyCounter;
@@ -212,10 +258,15 @@ export class Enemy {
     this.bladeGlow = mesh(new THREE.BoxGeometry(0.02, bladeLen * 0.88, 0.08), red,
       new THREE.Vector3(-0.06, bladeLen * 0.48, 0), this.weapon);
 
-    this.health = this.spec.health;
+    const level = Math.max(1, options.level || options.masterLevel || 1);
+    this.level = level;
+    const hpScale = 1 + (level - 1) * 0.045;
+    this.health = Math.round(this.spec.health * hpScale);
     this.maxHealth = this.health;
-    this.attackDamage = this.spec.attackDamage ?? (this.type === 'colossus' ? 28 : 14);
+    this.attackDamage = Math.round((this.spec.attackDamage ?? (this.type === 'colossus' ? 28 : 14)) * (1 + (level - 1) * 0.025));
     this.attackCooldownScale = this.spec.attackCooldownScale ?? 1;
+    this.windupDuration = 0.52;
+    this.strikeDuration = 0.22;
     this.alive = true;
     this.defeated = false;
     this.rewarded = false;
@@ -338,7 +389,12 @@ export class Enemy {
   }
 
   update(dt, player, camera, getHeight, world = null, allEnemies = []) {
+    enemyAttackCoordinator.update(dt);
     if (!this.alive) {
+      if (this.attackPhase > 0) {
+        this.attackPhase = 0;
+        enemyAttackCoordinator.release(this, 0.15);
+      }
       if (this.defeated && this.defeatTimer > 0) {
         this.defeatTimer = Math.max(0, this.defeatTimer - dt);
         const progress = this.defeatTimer / this.defeatDuration;
@@ -411,15 +467,27 @@ export class Enemy {
     this.root.rotation.y += THREE.MathUtils.clamp(yawDelta, -dt * 3.4, dt * 3.4);
 
     // Eye telegraph glow during attack windup
-    const isWindingUp = this.attackPhase > 0 && !this.attackHitDone;
+    const isWindingUp = this.attackPhase > (this.strikeDuration || 0.22) && !this.attackHitDone;
+    const isStriking = this.attackPhase > 0 && this.attackPhase <= (this.strikeDuration || 0.22);
     for (const eye of this.eyes) {
-      eye.scale.set(isWindingUp ? 1.6 : 1, isWindingUp ? 1.6 : 1, 1);
+      eye.scale.set(isWindingUp ? 1.7 : 1, isWindingUp ? 1.7 : 1, 1);
     }
     if (this.bladeGlow) {
-      this.bladeGlow.material.emissiveIntensity = isWindingUp ? 2.8 : 1.1;
+      this.bladeGlow.material.emissiveIntensity = isWindingUp ? 3.8 : isStriking ? 2.5 : 1.1;
     }
 
     // === ATTACK LOGIC & COCHOREOGRAPHY ===
+    if (this.type !== 'colossus') {
+      if (this.attackPhase > 0) {
+        this.attackPhase = Math.max(0, this.attackPhase - dt);
+        if (this.attackPhase <= 0) {
+          this.attackPhase = 0;
+          this.attackHitDone = true;
+          enemyAttackCoordinator.release(this, 0.28);
+        }
+      }
+    }
+
     if (this.type === 'colossus') {
       if (this.attackActiveTimer > 0) {
         this.attackActiveTimer = Math.max(0, this.attackActiveTimer - dt);
@@ -462,15 +530,21 @@ export class Enemy {
     } else if (this.hitStun > 0) {
       this.root.rotation.z = Math.sin(this.phase * 28) * 0.12;
       this.torso.rotation.x = -0.28 * Math.min(1, this.hitStun * 3);
-      this.attackPhase = Math.max(0, this.attackPhase - dt * 1.8);
+      if (this.attackPhase > 0) {
+        this.attackPhase = 0;
+        this.attackHitDone = true;
+        enemyAttackCoordinator.release(this, 0.22);
+      }
     } else if (this.type === 'ranged' && ninjaDist < 7) {
       this.torso.rotation.x = 0;
       // Shuriken master retreats to maintain ranged distance
       this.root.rotation.z = 0;
       this.moveOnGround(-ninjaDx / ninjaDist, -ninjaDz / ninjaDist, dt, world, getHeight);
-      if (this.attackCooldown <= 0 && this.attackPhase <= 0) {
-        this.attackPhase = 0.55;
-        this.attackCooldown = 1.6 * this.attackCooldownScale;
+      if (this.attackCooldown <= 0 && this.attackPhase <= 0 && enemyAttackCoordinator.claim(this)) {
+        this.windupDuration = Math.max(0.38, 0.58 - (this.level - 1) * 0.012);
+        this.strikeDuration = 0.22;
+        this.attackPhase = this.windupDuration + this.strikeDuration;
+        this.attackCooldown = 1.8 * this.attackCooldownScale;
         this.attackHitDone = false;
       }
     } else if (ninjaDist > this.attackRange) {
@@ -480,10 +554,12 @@ export class Enemy {
       this.moveOnGround(dx / distToTarget, dz / distToTarget, dt, world, getHeight);
     } else {
       this.torso.rotation.x = 0;
-      // In combat range: coordinated simultaneous attack!
-      if (this.attackCooldown <= 0 && this.attackPhase <= 0) {
-        this.attackPhase = 0.42; // Fast windup telegraph
-        this.attackCooldown = (this.type === 'scout' ? 0.75 : 1.15) * this.attackCooldownScale;
+      // In combat range: coordinated turn-taking attack! Only one normal enemy attacks at a time
+      if (this.attackCooldown <= 0 && this.attackPhase <= 0 && enemyAttackCoordinator.claim(this)) {
+        this.windupDuration = Math.max(0.38, 0.54 - (this.level - 1) * 0.012);
+        this.strikeDuration = 0.22;
+        this.attackPhase = this.windupDuration + this.strikeDuration;
+        this.attackCooldown = (this.type === 'scout' ? 1.4 : 1.9) * this.attackCooldownScale;
         this.attackHitDone = false;
       }
     }
@@ -513,9 +589,20 @@ export class Enemy {
         if (this.arms[1]) this.arms[1].rotation.x = -swing * 1.3;
       }
     } else if (this.attackPhase > 0) {
-      const swing = Math.sin(this.phase * 18);
-      this.weapon.rotation.z = -swing * 0.85;
-      if (this.arms[1]) this.arms[1].rotation.x = -swing * 1.25;
+      if (isWindingUp) {
+        // Clear windup animation: weapon raised high overhead, blade cocked back
+        const windupProg = 1 - (this.attackPhase - this.strikeDuration) / Math.max(0.01, this.windupDuration);
+        this.weapon.rotation.z = 0.55 + windupProg * 0.45;
+        this.weapon.rotation.x = -1.25;
+        if (this.arms[1]) this.arms[1].rotation.x = -1.55;
+        if (this.arms[0]) this.arms[0].rotation.x = -0.55;
+      } else {
+        // Strike execution: swift downward/forward cleaving cut
+        const strikeProg = 1 - this.attackPhase / Math.max(0.01, this.strikeDuration);
+        this.weapon.rotation.z = -0.85 - strikeProg * 0.5;
+        this.weapon.rotation.x = 0.45;
+        if (this.arms[1]) this.arms[1].rotation.x = -0.2 - strikeProg * 1.35;
+      }
     } else {
       this.weapon.rotation.z = 0;
       this.weapon.rotation.y = 0;

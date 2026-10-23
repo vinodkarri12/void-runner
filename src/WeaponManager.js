@@ -1,52 +1,87 @@
-const STORAGE_KEY = 'void-runner-weapons-v1';
+const STORAGE_KEY = 'void-runner-weapons-v2';
 
 export const WEAPONS = [
   {
-    id: 'void-reaver', name: 'SHADOW KATANA', type: 'FORGED KATANA',
-    description: 'Forged steel katana with midnight temper line and sweeping slashes.',
-    unlockLevel: 1, color: 0xb66aff, damage: 1, range: 1, cooldown: 1,
+    id: 'void-reaver',
+    name: 'SHADOW KATANA',
+    type: 'FORGED KATANA',
+    category: 'melee',
+    description: 'Forged steel shinobi katana delivering razor-sharp slashes and devastating combo finishers.',
+    unlockLevel: 1,
+    color: 0xb66aff,
+    damage: 1.0,
+    range: 1.0,
+    cooldown: 1.0,
     icon: '⚔'
   },
   {
-    id: 'phantom-katana', name: 'MURAMASA BLADE', type: 'QUICK KATANA',
-    description: 'Quick-draw cursed katana with swift forward dash-strikes.',
-    unlockLevel: 4, color: 0x50eaff, damage: 0.88, range: 1.08, cooldown: 0.68,
-    icon: '╱'
+    id: 'void-hand-cannon',
+    name: 'VOID HAND CANNON',
+    type: 'SHADOW FIREARM',
+    category: 'ranged',
+    description: 'High-velocity shinobi firearm firing condensed void rounds with explosive kinetic impact.',
+    unlockLevel: 10,
+    color: 0x00f2fe,
+    damage: 1.25,
+    range: 2.8,
+    cooldown: 0.75,
+    ammoMax: 6,
+    icon: '⌖'
   },
   {
-    id: 'twin-shadow-blades', name: 'TWIN KODACHI', type: 'DUAL BLADES',
-    description: 'Dual short swords trading reach for furious combination cuts.',
-    unlockLevel: 7, color: 0xd86cff, damage: 0.68, range: 0.86, cooldown: 0.52,
-    icon: '⚔'
+    id: 'void-plasma-rifle',
+    name: 'SHADOW PLASMA RIFLE',
+    type: 'PULSE RIFLE',
+    category: 'ranged',
+    description: 'Rapid-firing automatic pulse firearm for long-range crowd suppression.',
+    unlockLevel: 20,
+    color: 0xff3b5c,
+    damage: 1.45,
+    range: 3.2,
+    cooldown: 0.55,
+    ammoMax: 12,
+    icon: '⚡'
   },
   {
-    id: 'kinetic-gauntlets', name: 'TEKKO-KAGI CLAWS', type: 'IRON CLAWS',
-    description: 'Iron ninja claw gauntlets delivering bone-crushing impact.',
-    unlockLevel: 10, color: 0xff637f, damage: 1.42, range: 0.84, cooldown: 1.28,
-    icon: '◈'
-  },
-  {
-    id: 'arc-spear', name: 'SHINOBI NAGINATA', type: 'POLEARM BLADE',
-    description: 'Curved samurai polearm with long reach for wide perimeter sweeps.',
-    unlockLevel: 12, color: 0x7df3ff, damage: 1.16, range: 1.42, cooldown: 1.12,
-    icon: '↟'
-  },
-  {
-    id: 'orbital-drones', name: 'SHADOW KUNAI FAN', type: 'PHANTOM BLADES',
-    description: 'Floating enchanted kunai blades with piercing ranged strikes.',
-    unlockLevel: 14, color: 0xff62dc, damage: 0.82, range: 1, cooldown: 1,
-    icon: '◎'
+    id: 'void-heavy-cannon',
+    name: 'VOID DISRUPTOR CANNON',
+    type: 'HEAVY ARTILLERY',
+    category: 'ranged',
+    description: 'Devastating heavy cannon that disintegrates armor with charged void blasts.',
+    unlockLevel: 30,
+    color: 0xffd166,
+    damage: 2.1,
+    range: 3.5,
+    cooldown: 1.4,
+    ammoMax: 4,
+    icon: '💥'
   }
 ];
 
 export class WeaponManager {
-  constructor(storage = globalThis.localStorage) {
+  constructor(storage = null) {
     this.storage = storage;
+    if (!this.storage) {
+      try {
+        this.storage = globalThis.localStorage;
+      } catch (_) {}
+    }
     this.equippedId = 'void-reaver';
   }
 
   isUnlocked(weapon, progression) {
-    return progression.unlockedLevel >= weapon.unlockLevel;
+    if (!weapon || !progression) return false;
+    if (weapon.unlockLevel <= 1) return true;
+    // Weapon unlocks only after COMPLETING the specified level milestone
+    return progression.completedLevels.has(weapon.unlockLevel) || progression.unlockedLevel > weapon.unlockLevel;
+  }
+
+  getUnlockedWeapons(progression) {
+    return WEAPONS.filter((w) => this.isUnlocked(w, progression));
+  }
+
+  getEquippedWeapon() {
+    return WEAPONS.find((w) => w.id === this.equippedId) || WEAPONS[0];
   }
 
   equip(id, player, progression) {
@@ -62,12 +97,29 @@ export class WeaponManager {
     return true;
   }
 
+  toggleNextWeapon(player, progression) {
+    const unlocked = this.getUnlockedWeapons(progression);
+    if (unlocked.length <= 1) return null;
+    const currentIndex = unlocked.findIndex((w) => w.id === this.equippedId);
+    const nextIndex = (currentIndex + 1) % unlocked.length;
+    const nextWeapon = unlocked[nextIndex];
+    if (this.equip(nextWeapon.id, player, progression)) {
+      return nextWeapon;
+    }
+    return null;
+  }
+
   load(player, progression) {
     try {
       const saved = this.storage?.getItem(STORAGE_KEY);
-      if (saved) this.equip(saved, player, progression);
+      if (saved && this.equip(saved, player, progression)) {
+        return;
+      }
     } catch (error) {
       console.warn('VOID RUNNER equipped weapon could not be loaded.', error);
     }
+    // Default fallback to starter katana
+    this.equip('void-reaver', player, progression);
   }
 }
+

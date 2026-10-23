@@ -17,12 +17,12 @@ const DAMAGE_CONFIG = Object.freeze({
     'void-charge': 1.25,
     'void-chain': 0.9,
     'ninja-execution': 1,
-    'phantom-dash': 1.1,
-    'katana-combo-1': 1.1,
+    'katana-combo-1': 1.0,
     'katana-combo-2': 1.35,
     'katana-finisher': 1.85,
     'katana-empowered-finisher': 2.45,
-    'katana-dash-slash': 1.75
+    'katana-dash-slash': 1.75,
+    'void-gun-shot': 1.0
   }),
   sideMultiplier: 1.25,
   rearMultiplier: 1.5,
@@ -224,8 +224,86 @@ export class CombatSystem {
     return true;
   }
 
+  performGunShot(player, enemies, feedback = {}) {
+    if (!player.isAlive) return false;
+    const shot = player.performGunAttack();
+    if (!shot) return false;
+
+    if (shot.status === 'reloading') {
+      feedback.message?.(`RELOADING // ${shot.remainingTime.toFixed(1)}s`, 600);
+      this.audio?.play('gun-reload');
+      return false;
+    }
+    if (shot.status === 'empty') {
+      feedback.message?.('MAGAZINE EMPTY // RELOADING', 800);
+      this.audio?.play('gun-reload');
+      return false;
+    }
+
+    if (shot.status === 'fired') {
+      const weapon = player.weaponConfig || { color: 0x00f2fe };
+      const color = weapon.color || 0x00f2fe;
+
+      // Audio SFX
+      this.audio?.play('gun-shot');
+
+      // Muzzle Position in world coordinates
+      const startPos = player.weapon.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.2, 0));
+      const forward = player.facing.clone().setY(0).normalize();
+
+      // Muzzle Flash Effect
+      this.effects?.muzzleFlash(startPos, forward, color);
+
+      // Raycast against enemies in line of fire (up to 35 meters)
+      let hitEnemy = null;
+      let closestDist = 35;
+      let hitPos = null;
+
+      for (const enemy of enemies) {
+        if (!enemy.alive) continue;
+        const enemyCenter = enemy.root.position.clone().add(new THREE.Vector3(0, 1.2 * (enemy.spec?.scale || 1), 0));
+        const toEnemy = enemyCenter.clone().sub(startPos);
+        const dist = toEnemy.length();
+        if (dist > closestDist) continue;
+
+        // Check if enemy is in forward aim cone
+        toEnemy.normalize();
+        const dot = forward.dot(toEnemy);
+        if (dot > 0.78) { // Forward firing arc (~40 deg)
+          hitEnemy = enemy;
+          closestDist = dist;
+          hitPos = enemyCenter;
+        }
+      }
+
+      if (hitEnemy && hitPos) {
+        // Bullet tracer directly to enemy
+        this.effects?.bulletTracer(startPos, hitPos, color);
+        // Deal configurable balanced damage
+        this.applyDamageToEnemy(player, hitEnemy, shot.damage, 'void-gun-shot', feedback);
+        this.effects?.sparks(hitPos, 0xffe57f, 12, 5.0);
+        this.effects?.burst(hitPos, color, 14, 4.5);
+        if (feedback.cameraShake) feedback.cameraShake.value = Math.max(feedback.cameraShake.value, 0.28);
+      } else {
+        // Shoot forward to max range
+        const maxRangePos = startPos.clone().addScaledVector(forward, 32);
+        this.effects?.bulletTracer(startPos, maxRangePos, color);
+        if (feedback.cameraShake) feedback.cameraShake.value = Math.max(feedback.cameraShake.value, 0.15);
+      }
+
+      feedback.message?.(`VOID ROUND FIRED // ${shot.ammoLeft}/${player.gunMaxAmmo}`, 500);
+      return true;
+    }
+    return false;
+  }
+
   performKatanaCombo(player, enemies, feedback = {}) {
     if (!player.isAlive) return false;
+    // Ranged firearms automatically delegate to performGunShot
+    if (player.weaponConfig?.category === 'ranged') {
+      return this.performGunShot(player, enemies, feedback);
+    }
+
     const combo = player.performKatanaAttack?.();
     if (!combo) return false;
 
@@ -246,25 +324,25 @@ export class CombatSystem {
     // Glowing sword slash trail effect
     this.effects?.katanaSlashTrail(player.root.position, player.facing, step, weaponColor);
 
-    // Damage, range, and forward arc settings per combo stage
-    let baseDamage = 38;
+    // Standard katana attack damage is exactly 60 HP per successful hit
+    let baseDamage = 60;
     let range = 4.2 * (weapon.range || 1);
     let minDot = 0.22;
     let attackType = 'katana-combo-1';
 
     if (step === 2) {
-      baseDamage = 54;
+      baseDamage = 75;
       range = 4.6 * (weapon.range || 1);
       minDot = 0.16;
       attackType = 'katana-combo-2';
     } else if (step === 3) {
       if (combo.isEmpowered) {
-        baseDamage = 142;
+        baseDamage = 150;
         range = 6.4 * (weapon.range || 1);
         minDot = -0.35; // Massive 250 degree sweeping cleave
         attackType = 'katana-empowered-finisher';
       } else {
-        baseDamage = 96;
+        baseDamage = 110;
         range = 5.8 * (weapon.range || 1);
         minDot = -0.15; // Devastating wide ~200 degree cleave
         attackType = 'katana-finisher';
@@ -561,6 +639,11 @@ export class CombatSystem {
     let scaledDamage = Math.max(1, safeRawDamage) * speedMultiplier * attackScale * weaponScale *
       angleMultiplier * frontalArmor * bossScale * overdriveScale;
 
+    // Standard katana attack deals exactly 60 HP per successful hit
+    if (attackType === 'katana-combo-1') {
+      scaledDamage = 60;
+    }
+
     // Heavy Samurai / Elite frontal block mechanics
     const isHeavyEnemy = enemy.type === 'guardian' || enemy.type === 'elite';
     const isFrontAttack = facingDot > 0.45;
@@ -671,7 +754,10 @@ export class CombatSystem {
       else bossHit = dist < 17 && Math.abs(angle) < 0.23;
     }
     const normalHit = enemy.type !== 'colossus' &&
-      dist < enemy.attackRange && enemy.attackPhase > 0.25 && !enemy.attackHitDone;
+      dist < enemy.attackRange &&
+      enemy.attackPhase > 0 &&
+      enemy.attackPhase <= (enemy.strikeDuration || 0.24) &&
+      !enemy.attackHitDone;
     if ((normalHit || bossHit) && player.invulnerable <= 0) {
       const damage = enemy.attackDamage ?? (enemy.type === 'colossus' ? 38 : 16);
       const applied = feedback.takeDamage

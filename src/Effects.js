@@ -334,6 +334,30 @@ export class Effects {
     this.trails.push({ mesh: streak, life: 0.28, maxLife: 0.28, streak: true });
   }
 
+  bulletTracer(start, end, color = 0x00f2fe) {
+    const distance = start.distanceTo(end);
+    if (distance < 0.1) return;
+    const geom = new THREE.CylinderGeometry(0.04, 0.08, distance, 6, 1, true);
+    const mat = this.createEffectMaterial(color, 0.95, THREE.DoubleSide).clone();
+    const beam = new THREE.Mesh(geom, mat);
+    beam.position.copy(start).lerp(end, 0.5);
+    this.scratchVector.copy(end).sub(start).normalize();
+    beam.quaternion.setFromUnitVectors(this.upVector, this.scratchVector);
+    this.scene.add(beam);
+    this.trails.push({ mesh: beam, life: 0.18, maxLife: 0.18, streak: true });
+
+    // Tracer target impact burst
+    this.burst(end, color, this.isMobile ? 6 : 14, 3.8);
+    this.shockwave(end, color, 0.65);
+  }
+
+  muzzleFlash(position, direction, color = 0x00f2fe) {
+    const flashPos = position.clone().addScaledVector(direction, 0.35);
+    this.burst(flashPos, color, this.isMobile ? 8 : 16, 4.2);
+    this.sparks(flashPos, 0xffe57f, this.isMobile ? 6 : 12, 5.0);
+    this.shockwave(flashPos, color, 0.85);
+  }
+
   damageNumber(position, amount, color = '#e7faff') {
     this.floatingText(position, `-${Math.round(amount)}`, color);
   }

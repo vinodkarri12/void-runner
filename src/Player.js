@@ -384,6 +384,11 @@ export class Player {
     this.dashAttackCooldown = 0;
     this.dashAttackState = null;
     this.wasAirborne = false;
+    this.gunAmmo = 6;
+    this.gunMaxAmmo = 6;
+    this.gunReloadTimer = 0;
+    this.gunReloadDuration = 1.2;
+    this.gunFireCooldown = 0;
   }
 
   createKatanaMesh(parentGroup, scale = 1.0) {
@@ -449,16 +454,30 @@ export class Player {
   }
 
   takeDamage(amount) {
-    if (!this.isAlive || this.invulnerable > 0) return 0;
+    if (!this.isAlive || this.health <= 0 || this.invulnerable > 0) return 0;
     const actual = Math.min(this.health, Math.max(1, amount));
     this.health = Math.max(0, this.health - actual);
     this.invulnerable = this.damageInvulnerabilityWindow;
     this.hitReactionTimer = 0.38;
     if (this.health <= 0) {
+      this.health = 0;
       this.isAlive = false;
       this.defeatPose = true;
+      this.velocity.set(0, 0, 0);
+      this.horizontalSpeed = 0;
+      this.speed = 0;
+      this.movementState = 'STOPPED';
+      this.isRunning = false;
+      this.isBoosting = false;
     }
     return actual;
+  }
+
+  healPlayer(amount) {
+    if (!this.isAlive || this.health <= 0) return 0;
+    const before = this.health;
+    this.health = Math.min(this.maxHealth, this.health + Math.max(0, amount));
+    return this.health - before;
   }
 
   animate(time, dt = 1 / 60) {
@@ -477,6 +496,15 @@ export class Player {
       if (this.comboResetTimer === 0) {
         this.comboStep = 0;
       }
+    }
+    if (this.gunReloadTimer > 0) {
+      this.gunReloadTimer = Math.max(0, this.gunReloadTimer - dt);
+      if (this.gunReloadTimer === 0) {
+        this.gunAmmo = this.gunMaxAmmo;
+      }
+    }
+    if (this.gunFireCooldown > 0) {
+      this.gunFireCooldown = Math.max(0, this.gunFireCooldown - dt);
     }
 
     // === RUN & IDLE LIMB KINEMATICS ===
@@ -618,6 +646,19 @@ export class Player {
         rightArm.rotation.x = -1.2;
         rightArm.rotation.y = 0.3;
         this.weapon.rotation.z = 0.25;
+      } else if (this.attackAction === 'gun-shot') {
+        // Precise forward gun aiming with sharp recoil kickback
+        const recoil = Math.sin((this.attackTimer / Math.max(0.01, this.attackDuration)) * Math.PI);
+        rightArm.rotation.x = -1.54 - recoil * 0.32;
+        rightArm.rotation.y = 0.05;
+        this.weapon.rotation.x = 0.22 - recoil * 0.45;
+        this.weapon.rotation.z = -0.05;
+      } else if (this.attackAction === 'gun-reload') {
+        // Reloading gesture: arm lowers slightly
+        const reloadPhase = Math.sin((this.attackTimer / Math.max(0.01, this.attackDuration)) * Math.PI);
+        rightArm.rotation.x = -0.85 + reloadPhase * 0.32;
+        rightArm.rotation.y = -0.28;
+        this.weapon.rotation.x = 0.45;
       }
     }
 
@@ -738,6 +779,47 @@ export class Player {
     };
   }
 
+  performGunAttack() {
+    if (!this.isAlive) return null;
+    if (this.gunReloadTimer > 0) {
+      return { status: 'reloading', remainingTime: this.gunReloadTimer };
+    }
+    if (this.gunFireCooldown > 0) return null;
+
+    if (this.gunAmmo <= 0) {
+      this.reloadGun();
+      return { status: 'empty' };
+    }
+
+    this.gunAmmo--;
+    this.currentAttackId++;
+    const weaponCooldown = Math.max(0.35, this.weaponConfig?.cooldown || 0.75);
+    this.gunFireCooldown = 0.28 * weaponCooldown;
+    this.startAttack('gun-shot', 0.22);
+
+    if (this.gunAmmo === 0) {
+      setTimeout(() => {
+        if (this.isAlive && this.gunAmmo === 0 && this.gunReloadTimer <= 0) {
+          this.reloadGun();
+        }
+      }, 240);
+    }
+
+    return {
+      status: 'fired',
+      attackId: this.currentAttackId,
+      ammoLeft: this.gunAmmo,
+      damage: 75 * (this.weaponConfig?.damage || 1.25)
+    };
+  }
+
+  reloadGun() {
+    if (this.gunReloadTimer > 0 || this.gunAmmo >= this.gunMaxAmmo || !this.isAlive) return false;
+    this.gunReloadTimer = this.gunReloadDuration;
+    this.startAttack('gun-reload', this.gunReloadDuration);
+    return true;
+  }
+
   performDashAttack(target = null, direction = null) {
     if (!this.isAlive || this.dashAttackCooldown > 0 || this.energy < 16) return null;
     this.energy = Math.max(0, this.energy - 16);
@@ -820,35 +902,63 @@ export class Player {
     const gold = this.materials.ninjaGold;
     const steel = this.materials.katanaSteel;
 
-    if (config.id === 'kinetic-gauntlets') {
-      // Tekko-Kagi Iron Ninja Claws
-      const gauntlet = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.36, 0.28), dark);
-      gauntlet.position.set(0, 0.05, 0.06);
-      group.add(gauntlet);
-      for (const offset of [-0.09, 0, 0.09]) {
-        const claw = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.42, 4), steel);
-        claw.position.set(offset, 0.32, 0.12);
-        claw.rotation.x = -0.22;
-        group.add(claw);
-      }
-    } else if (config.id === 'arc-spear') {
-      // Shinobi Naginata Polearm
-      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.042, 2.2, 8), dark);
-      shaft.position.set(0, 0.4, 0);
-      group.add(shaft);
-      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.72, 6), steel);
-      blade.position.set(0, 1.76, 0);
-      blade.scale.set(0.35, 1, 1);
-      group.add(blade);
-      const guard = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 6, 12), gold);
-      guard.position.set(0, 1.42, 0);
-      guard.rotation.x = Math.PI / 2;
-      group.add(guard);
-    } else if (config.id === 'twin-shadow-blades') {
-      // Twin Kodachi
-      this.createKatanaMesh(group, 0.78);
+    if (config.id === 'void-hand-cannon') {
+      // Futuristic Shinobi Hand Cannon
+      // Pistol Grip
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.32, 0.12), dark);
+      grip.position.set(0, -0.06, 0);
+      grip.rotation.x = 0.28;
+      group.add(grip);
+
+      // Receiver
+      const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.32), dark);
+      receiver.position.set(0, 0.1, 0.05);
+      group.add(receiver);
+
+      // Glowing power core / energy cylinder
+      const coreMat = new THREE.MeshStandardMaterial({
+        color: 0x00f2fe,
+        emissive: 0x00f2fe,
+        emissiveIntensity: 2.8,
+        roughness: 0.2
+      });
+      const core = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 10), coreMat);
+      core.rotation.x = Math.PI / 2;
+      core.position.set(0, 0.1, 0.02);
+      group.add(core);
+
+      // Hexagonal barrel
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.52, 6), steel);
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.set(0, 0.11, 0.42);
+      group.add(barrel);
+
+      // Gold muzzle brake
+      const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.1), gold);
+      muzzle.position.set(0, 0.11, 0.68);
+      group.add(muzzle);
+
+      // Tactical sight
+      const sight = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.04, 0.24), gold);
+      sight.position.set(0, 0.21, 0.12);
+      group.add(sight);
+    } else if (config.id === 'void-plasma-rifle') {
+      // Plasma Pulse Rifle
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.8), dark);
+      body.position.set(0, 0.1, 0.2);
+      group.add(body);
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 8), steel);
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.set(0, 0.12, 0.7);
+      group.add(barrel);
+    } else if (config.id === 'void-heavy-cannon') {
+      // Void Cannon
+      const cannonBody = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.9, 10), dark);
+      cannonBody.rotation.x = Math.PI / 2;
+      cannonBody.position.set(0, 0.15, 0.35);
+      group.add(cannonBody);
     } else {
-      // Shadow Katana / Muramasa
+      // Shadow Katana (Main Blade)
       this.createKatanaMesh(group, 1.0);
     }
     return group;
@@ -866,6 +976,9 @@ export class Player {
     this.grounded = true;
     this.maxHealth = 100;
     this.health = this.maxHealth;
+    this.gunAmmo = this.gunMaxAmmo || 6;
+    this.gunReloadTimer = 0;
+    this.gunFireCooldown = 0;
     this.energy = 100;
     this.score = 0;
     this.combo = 0;
