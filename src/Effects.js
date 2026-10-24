@@ -49,35 +49,35 @@ export class Effects {
       this.footprints.push(footprint);
     }
 
-    // Drifting Autumn Leaves & Sakura Petals
-    this.leafCount = this.isMobile ? 28 : 52;
+    // Drifting Sakura (Cherry Blossom) Petals matching reference image
+    this.leafCount = this.isMobile ? 36 : 68;
     this.leaves = [];
-    const leafColors = [0xd62432, 0xe67322, 0xc71f38, 0xef8947, 0xe882a7];
-    const leafGeo = new THREE.PlaneGeometry(0.18, 0.24);
+    const petalColors = [0xffb3c8, 0xff9ec0, 0xffc5da, 0xfca5c7, 0xfff0f5];
+    const petalGeo = new THREE.PlaneGeometry(0.19, 0.26);
     for (let i = 0; i < this.leafCount; i++) {
-      const col = leafColors[i % leafColors.length];
+      const col = petalColors[i % petalColors.length];
       const mat = new THREE.MeshBasicMaterial({
         color: col,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.9,
         side: THREE.DoubleSide,
         depthWrite: false
       });
-      const leaf = new THREE.Mesh(leafGeo, mat);
-      leaf.position.set(
-        (Math.random() - 0.5) * 40,
-        2 + Math.random() * 8,
-        (Math.random() - 0.5) * 50
+      const petal = new THREE.Mesh(petalGeo, mat);
+      petal.position.set(
+        (Math.random() - 0.5) * 44,
+        2.5 + Math.random() * 9,
+        (Math.random() - 0.5) * 54
       );
-      leaf.userData = {
+      petal.userData = {
         phase: Math.random() * Math.PI * 2,
-        fallSpeed: 0.7 + Math.random() * 0.9,
-        driftSpeed: 1.1 + Math.random() * 1.4,
-        rotSpeedX: (Math.random() - 0.5) * 3,
-        rotSpeedY: (Math.random() - 0.5) * 2.5
+        fallSpeed: 0.65 + Math.random() * 0.85,
+        driftSpeed: 1.2 + Math.random() * 1.5,
+        rotSpeedX: (Math.random() - 0.5) * 3.2,
+        rotSpeedY: (Math.random() - 0.5) * 2.8
       };
-      this.scene.add(leaf);
-      this.leaves.push(leaf);
+      this.scene.add(petal);
+      this.leaves.push(petal);
     }
   }
 
@@ -257,41 +257,51 @@ export class Effects {
     this.trails.push({ mesh: arc, life: 0.28, maxLife: 0.28, slash: true });
   }
 
-  katanaSlashTrail(position, facing, comboIndex = 1, color = 0xff3855, scale = 1.35) {
+  katanaSlashTrail(position, facing, comboIndex = 1, color = 0x00f2fe, scale = 1.35) {
     const trailPos = position.clone().add(new THREE.Vector3(0, 1.15, 0));
+    // Reference Image Signature Style: Bright electric cyan-blue sword trail with brilliant white-hot core
+    const cyanColor = 0x00f2fe;
+    const coreColor = 0xffffff;
+    const azureColor = 0x38bdf8;
+
     if (comboIndex === 1) {
-      // Horizontal clean Katana sweep
-      this.slashArc(trailPos, facing, color, scale * 1.25, 0.08, -0.15);
-      this.burst(trailPos.clone().addScaledVector(facing, 1.2), color, this.isMobile ? 4 : 7, 3.2);
+      // Horizontal clean Katana sweep: dual-layer electric cyan and white edge
+      this.slashArc(trailPos, facing, cyanColor, scale * 1.35, 0.08, -0.15);
+      this.slashArc(trailPos, facing, coreColor, scale * 1.15, 0.08, -0.15);
+      this.burst(trailPos.clone().addScaledVector(facing, 1.25), cyanColor, this.isMobile ? 5 : 9, 3.4);
     } else if (comboIndex === 2) {
-      // Rising diagonal cross-slash
-      this.slashArc(trailPos, facing, 0xff7043, scale * 1.4, -0.38, 0.65);
-      this.burst(trailPos.clone().addScaledVector(facing, 1.3), 0xff8a50, this.isMobile ? 5 : 9, 3.8);
+      // Rising diagonal cross-slash: cyan blade wave
+      this.slashArc(trailPos, facing, cyanColor, scale * 1.5, -0.38, 0.65);
+      this.slashArc(trailPos, facing, azureColor, scale * 1.25, -0.38, 0.65);
+      this.burst(trailPos.clone().addScaledVector(facing, 1.35), cyanColor, this.isMobile ? 6 : 11, 4.0);
     } else {
-      // Powerful leaping finisher: giant crimson-gold crescent wave
-      this.slashArc(trailPos, facing, 0xff1744, scale * 1.95, 0.22, 0.1);
-      this.slashArc(trailPos, facing, 0xffd700, scale * 1.6, -0.15, -0.2);
-      this.shockwave(position, 0xff3d00, 1.8);
-      this.sparks(trailPos.clone().addScaledVector(facing, 1.5), 0xffd54f, this.isMobile ? 8 : 16, 6.2);
+      // Leaping finisher: giant brilliant cyan-blue crescent with golden spark flare
+      this.slashArc(trailPos, facing, cyanColor, scale * 2.05, 0.22, 0.1);
+      this.slashArc(trailPos, facing, coreColor, scale * 1.7, 0.22, 0.1);
+      this.slashArc(trailPos, facing, 0xffd700, scale * 1.55, -0.15, -0.2);
+      this.shockwave(position, cyanColor, 2.0);
+      this.sparks(trailPos.clone().addScaledVector(facing, 1.5), 0xfff0a0, this.isMobile ? 10 : 20, 6.8);
     }
   }
 
-  sparks(position, color = 0xffdf6d, count = 10, power = 5.5) {
-    const actualCount = this.isMobile ? Math.min(count, 6) : count;
+  sparks(position, color = 0xffe57f, count = 12, power = 5.8) {
+    const actualCount = this.isMobile ? Math.min(count, 8) : count;
+    const sparkPalette = [0xffffff, 0xfff4cc, 0xffe066, 0xffb703, 0xffffff];
     for (let i = 0; i < actualCount; i++) {
-      const particle = this.getPooledParticle(color);
+      const sparkCol = sparkPalette[i % sparkPalette.length];
+      const particle = this.getPooledParticle(sparkCol);
       if (!particle) return;
       this.scratchVector.set(
-        (Math.random() - 0.5) * 2,
-        Math.random() * 1.8 + 0.4,
-        (Math.random() - 0.5) * 2
+        (Math.random() - 0.5) * 2.2,
+        Math.random() * 2.0 + 0.5,
+        (Math.random() - 0.5) * 2.2
       ).normalize();
       particle.position.copy(position);
-      particle.userData.velocity = this.scratchVector.multiplyScalar(power * (0.6 + Math.random() * 0.7)).clone();
-      particle.userData.life = 0.2 + Math.random() * 0.22;
+      particle.userData.velocity = this.scratchVector.multiplyScalar(power * (0.65 + Math.random() * 0.8)).clone();
+      particle.userData.life = 0.22 + Math.random() * 0.26;
       particle.userData.maxLife = particle.userData.life;
-      particle.userData.gravity = 11;
-      particle.scale.setScalar(0.7);
+      particle.userData.gravity = 12;
+      particle.scale.setScalar(0.75);
       this.particles.push(particle);
     }
   }
@@ -358,34 +368,53 @@ export class Effects {
     this.shockwave(flashPos, color, 0.85);
   }
 
-  damageNumber(position, amount, color = '#e7faff') {
-    this.floatingText(position, `-${Math.round(amount)}`, color);
+  damageNumber(position, amount, color = '#ff2b4c') {
+    // Reference image style: Prominent bold damage number (e.g. 70) floating above target
+    const text = typeof amount === 'number' ? `${Math.round(amount)}` : String(amount);
+    this.floatingText(position, text, color);
   }
 
-  floatingText(position, text, color = '#e7faff') {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 96;
-    const context = canvas.getContext('2d');
-    context.font = 'bold 54px Segoe UI, sans-serif';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.shadowColor = color;
-    context.shadowBlur = 16;
-    context.fillStyle = color;
-    context.fillText(text, 128, 48);
-    const texture = new THREE.CanvasTexture(canvas);
+  floatingText(position, text, color = '#ff2b4c') {
+    const cacheKey = `${text}_${color}`;
+    if (!this.textTextureCache) this.textTextureCache = new Map();
+    let texture = this.textTextureCache.get(cacheKey);
+    if (!texture) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 384;
+      canvas.height = 160;
+      const context = canvas.getContext('2d');
+      context.font = '900 84px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+
+      // Glowing impact drop shadow
+      context.shadowColor = '#ffd700';
+      context.shadowBlur = 18;
+
+      // Bold golden-yellow outline matching reference image
+      context.strokeStyle = '#ffd700';
+      context.lineWidth = 8;
+      context.strokeText(text, 192, 80);
+
+      // Vivid red/white core text
+      context.fillStyle = color;
+      context.fillText(text, 192, 80);
+
+      texture = new THREE.CanvasTexture(canvas);
+      this.textTextureCache.set(cacheKey, texture);
+    }
+
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
       map: texture,
       transparent: true,
       depthTest: false,
       depthWrite: false
     }));
-    sprite.position.copy(position).add(new THREE.Vector3(0, 2.3, 0));
-    sprite.scale.set(1.5, 0.56, 1);
-    sprite.renderOrder = 30;
+    sprite.position.copy(position).add(new THREE.Vector3(0, 2.5, 0));
+    sprite.scale.set(1.85, 0.76, 1);
+    sprite.renderOrder = 35;
     this.scene.add(sprite);
-    this.trails.push({ mesh: sprite, life: 0.8, maxLife: 0.8, damageNumber: true, texture });
+    this.trails.push({ mesh: sprite, life: 0.85, maxLife: 0.85, damageNumber: true, isCachedTexture: true });
   }
 
   energyTether(start, end, color = 0xb36cff) {
@@ -458,7 +487,7 @@ export class Effects {
           this.shockwavePool.push(item.mesh);
         } else {
           this.scene.remove(item.mesh);
-          if (item.texture) item.texture.dispose();
+          if (item.texture && !item.isCachedTexture) item.texture.dispose();
           if ((item.tether) && item.mesh.geometry) item.mesh.geometry.dispose();
           if (item.mesh.material && !item.slash && !item.streak) item.mesh.material.dispose();
         }
@@ -483,10 +512,19 @@ export class Effects {
       }
     }
 
-    for (const effect of [...this.speedStreaks, ...this.footprints]) {
+    // Direct iteration without per-frame array spread allocations
+    for (let s = 0; s < this.speedStreaks.length; s++) {
+      const effect = this.speedStreaks[s];
       if (!effect.visible) continue;
       effect.userData.life -= dt;
       effect.material.opacity = Math.max(0, effect.userData.life / effect.userData.maxLife) * 0.62;
+      if (effect.userData.life <= 0) effect.visible = false;
+    }
+    for (let f = 0; f < this.footprints.length; f++) {
+      const effect = this.footprints[f];
+      if (!effect.visible) continue;
+      effect.userData.life -= dt;
+      effect.material.opacity = Math.max(0, effect.userData.life / effect.userData.maxLife) * 0.56;
       if (effect.userData.life <= 0) effect.visible = false;
     }
     for (const image of this.afterimages) {

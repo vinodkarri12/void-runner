@@ -5,8 +5,8 @@ export class CameraController {
     this.camera = camera;
     this.player = player;
     this.lookYaw = Math.PI;
-    this.lookPitch = 0.26;
-    this.targetPitch = 0.26;
+    this.lookPitch = 0.24;
+    this.targetPitch = 0.24;
     this.currentFov = camera.fov;
     this.currentBank = 0;
     this.currentDistance = null;
@@ -15,6 +15,7 @@ export class CameraController {
     this.lastHeading = new THREE.Vector3(0, 0, 1);
     this.desired = new THREE.Vector3();
     this.focus = new THREE.Vector3();
+    this.smoothedFocus = new THREE.Vector3();
     this.positionScratch = new THREE.Vector3();
     this.cameraPath = new THREE.Vector3();
     this.direction = new THREE.Vector3();
@@ -23,9 +24,13 @@ export class CameraController {
     this.aim = new THREE.Vector3();
     this.shakeOffset = new THREE.Vector3();
     this.sensitivity = 1;
+    this.sensitivityX = 1;
+    this.sensitivityY = 1;
     this.followStrength = 1;
     this.introTimer = 0;
     this.introDuration = 1.6;
+    this.lastTouchLookTime = 0;
+    this.lastUserLookTime = 0;
   }
 
   startIntro(duration = 1.6) {
@@ -36,22 +41,36 @@ export class CameraController {
   addMouseLook(deltaX, deltaY = 0) {
     const isMobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 768 || ('ontouchstart' in window);
     if (isMobile) return;
-    this.lookYaw -= deltaX * 0.0028 * this.sensitivity;
-    this.targetPitch = THREE.MathUtils.clamp(this.targetPitch - deltaY * 0.0018 * this.sensitivity, -0.12, 0.62);
+    const sensX = (this.sensitivity || 1) * (this.sensitivityX || 1);
+    const sensY = (this.sensitivity || 1) * (this.sensitivityY || 1);
+    this.lookYaw -= deltaX * 0.0028 * sensX;
+    this.targetPitch = THREE.MathUtils.clamp(this.targetPitch - deltaY * 0.0018 * sensY, -0.22, 0.65);
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    this.lastUserLookTime = now;
   }
 
   addTouchLook(deltaX, deltaY = 0, customSensitivity = 1) {
-    const sens = (this.sensitivity || 1) * customSensitivity;
-    this.lookYaw -= deltaX * 0.0042 * sens;
-    this.targetPitch = THREE.MathUtils.clamp(this.targetPitch - deltaY * 0.0028 * sens, -0.16, 0.65);
-    this.lastTouchLookTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const sensX = (this.sensitivity || 1) * (this.sensitivityX || 1) * customSensitivity;
+    const sensY = (this.sensitivity || 1) * (this.sensitivityY || 1) * customSensitivity;
+    this.lookYaw -= deltaX * 0.0042 * sensX;
+    this.targetPitch = THREE.MathUtils.clamp(this.targetPitch - deltaY * 0.0028 * sensY, -0.22, 0.65);
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    this.lastTouchLookTime = now;
+    this.lastUserLookTime = now;
   }
 
   reset() {
     this.lookYaw = Math.PI;
     const isMobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 768 || ('ontouchstart' in window);
-    this.targetPitch = isMobile && this.camera.aspect < 1.0 ? 0.32 : 0.26;
+    this.targetPitch = isMobile && this.camera.aspect < 1.0 ? 0.28 : 0.22;
     this.lookPitch = this.targetPitch;
+    this.currentDistance = null;
+    this.currentHeight = null;
+    this.currentBank = 0;
+    if (this.player && this.player.root) {
+      this.smoothedFocus.copy(this.player.root.position).add(new THREE.Vector3(0, 1.25, 0));
+    }
+    this.lastHeading.set(0, 0, 1);
   }
 
   update(dt, targetPosition, world = null, enemies = [], shake = 0, reducedShake = false) {
@@ -62,57 +81,23 @@ export class CameraController {
     const isPortrait = this.camera.aspect < 1.0;
 
     const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    const timeSinceTouch = now - (this.lastTouchLookTime || 0);
-    const userControllingCamera = timeSinceTouch < 2400;
+    const timeSinceUserLook = now - (this.lastUserLookTime || 0);
 
-    if (mobile) {
-      if (!userControllingCamera && speed > 7 && (velocity.x !== 0 || velocity.z !== 0)) {
-        // When running at speed without touching the camera, smoothly align behind the ninja
-        const desiredHeading = this.heading.set(velocity.x, 0, velocity.z);
-        if (desiredHeading.lengthSq() > 1) {
-          const inputYaw = Math.atan2(-desiredHeading.x, -desiredHeading.z);
-          const yawDelta = Math.atan2(Math.sin(inputYaw - this.lookYaw), Math.cos(inputYaw - this.lookYaw));
-          this.lookYaw += yawDelta * (1 - Math.exp(-dt * 2.2));
-        }
-      }
+    // Smooth focus tracking centered on ninja's chest/torso
+    // targetPosition passed in is player.root.position with chest offset
+    const desiredFocus = this.focus.copy(targetPosition);
+    if (this.smoothedFocus.lengthSq() < 0.1) {
+      this.smoothedFocus.copy(desiredFocus);
     } else {
-      const desiredHeading = this.heading.set(velocity.x, 0, velocity.z);
-      if (desiredHeading.lengthSq() > 4) {
-        desiredHeading.normalize();
-        const steering = THREE.MathUtils.clamp(speedRatio * 0.58 + (this.player.dashDuration > 0 ? 0.38 : 0), 0, 0.88);
-        this.lastHeading.lerp(desiredHeading, 1 - Math.exp(-dt * (2.2 + speedRatio * 3.2) * steering));
-      } else if (this.lastHeading.lengthSq() < 0.5) {
-        this.lastHeading.set(this.player.facing.x, 0, this.player.facing.z).normalize();
-      } else {
-        const facingHeading = this.heading.set(this.player.facing.x, 0, this.player.facing.z);
-        if (facingHeading.lengthSq() > 0.01) {
-          facingHeading.normalize();
-          this.lastHeading.lerp(facingHeading, 1 - Math.exp(-dt * 0.24));
-        }
-      }
-      this.lastHeading.y = 0;
-      if (this.lastHeading.lengthSq() > 0.01) this.lastHeading.normalize();
-
-      const inputYaw = Math.atan2(-this.lastHeading.x, -this.lastHeading.z);
-      const yawDelta = Math.atan2(Math.sin(inputYaw - this.lookYaw), Math.cos(inputYaw - this.lookYaw));
-      const movementYawWeight = speed > 13 ? THREE.MathUtils.clamp((speed - 13) / 18, 0, 0.42) : 0;
-      this.lookYaw += yawDelta * (1 - Math.exp(-dt * 1.25 * movementYawWeight));
+      // Smooth tracking: responsive horizontal following with fluid vertical dampening for jumps
+      const followX = 1 - Math.exp(-dt * 14);
+      const followY = 1 - Math.exp(-dt * 9);
+      this.smoothedFocus.x += (desiredFocus.x - this.smoothedFocus.x) * followX;
+      this.smoothedFocus.y += (desiredFocus.y - this.smoothedFocus.y) * followY;
+      this.smoothedFocus.z += (desiredFocus.z - this.smoothedFocus.z) * followX;
     }
 
-    this.lookPitch += (this.targetPitch - this.lookPitch) * (1 - Math.exp(-dt * 7));
-
-    const turnCross = this.previousVelocity.x * velocity.z - this.previousVelocity.z * velocity.x;
-    const bankTarget = mobile
-      ? THREE.MathUtils.clamp(-turnCross * 0.001, -0.04, 0.04)
-      : THREE.MathUtils.clamp(-turnCross * 0.0019, -0.08, 0.08);
-    this.currentBank += (bankTarget - this.currentBank) * (1 - Math.exp(-dt * 5));
-    this.previousVelocity.copy(velocity);
-
-    const chargePullback = this.player.chargeLevel * (mobile ? 1.4 : 2.4);
-    const overdrivePullback = this.player.overdriveTimer > 0 ? (mobile ? 0.9 : 1.35) : 0;
-    const dashPullback = this.player.dashDuration > 0 ? (mobile ? 0.4 : 0.55) : 0;
-    const boostPullback = this.player.isBoosting ? (mobile ? 0.6 : 0.95) : 0;
-
+    // Keep ninja and nearby enemies in view during combat
     let target = null;
     let nearest = 42;
     for (const enemy of enemies) {
@@ -123,92 +108,140 @@ export class CameraController {
         target = enemy;
       }
     }
+
+    // Gentle combat framing: subtly blend towards combat engagement area without losing ninja center
+    if (target && nearest < 14) {
+      const combatWeight = (1 - nearest / 14) * 0.14;
+      const combatTargetX = (target.root.position.x + this.player.root.position.x) * 0.5;
+      const combatTargetZ = (target.root.position.z + this.player.root.position.z) * 0.5;
+      this.smoothedFocus.x = THREE.MathUtils.lerp(this.smoothedFocus.x, combatTargetX, combatWeight);
+      this.smoothedFocus.z = THREE.MathUtils.lerp(this.smoothedFocus.z, combatTargetZ, combatWeight);
+    }
+
+    // Camera Auto-Alignment (PREVENT UNWANTED SPINNING):
+    // Only ease behind player on mobile when running forward without manual camera drag for > 3.0s.
+    // On PC, mouse has full authority. Never spin when moving backwards, strafing, or dodging!
+    if (mobile && timeSinceUserLook > 3000 && speed > 9) {
+      const camFwdX = -Math.sin(this.lookYaw);
+      const camFwdZ = -Math.cos(this.lookYaw);
+      const velMag = Math.hypot(velocity.x, velocity.z);
+      if (velMag > 0.1) {
+        const velDotFwd = (camFwdX * velocity.x + camFwdZ * velocity.z) / velMag;
+        // Only if running forward relative to camera view
+        if (velDotFwd > 0.65) {
+          const desiredYaw = Math.atan2(-velocity.x, -velocity.z);
+          const yawDelta = Math.atan2(Math.sin(desiredYaw - this.lookYaw), Math.cos(desiredYaw - this.lookYaw));
+          this.lookYaw += yawDelta * (1 - Math.exp(-dt * 1.5));
+        }
+      }
+    }
+
+    this.lookPitch += (this.targetPitch - this.lookPitch) * (1 - Math.exp(-dt * 9));
+
+    // Dynamic camera framing distance and elevation
+    const chargePullback = this.player.chargeLevel * (mobile ? 1.0 : 1.6);
+    const overdrivePullback = this.player.overdriveTimer > 0 ? (mobile ? 0.7 : 1.1) : 0;
+    const dashPullback = this.player.dashDuration > 0 ? 0.35 : 0;
+    const boostPullback = this.player.isBoosting ? (mobile ? 0.5 : 0.8) : 0;
     const bossPullback = target?.type === 'colossus'
-      ? (mobile ? 3.8 : 5.4) + Math.max(0, target.spec.scale - 2.25) * 1.5
+      ? (mobile ? 3.4 : 4.6) + Math.max(0, target.spec.scale - 2.25) * 1.2
       : 0;
-    const closeCombatPullback = target && nearest < 12 ? (mobile ? 0.7 : 1.2) : 0;
+    const closeCombatPullback = target && nearest < 12 ? (mobile ? 0.6 : 1.0) : 0;
 
     let introLift = 0;
     if (this.introTimer > 0) {
       this.introTimer = Math.max(0, this.introTimer - dt);
-      introLift = (this.introTimer / this.introDuration) * 3.8;
+      introLift = (this.introTimer / this.introDuration) * 3.2;
     }
 
-    const baseDist = mobile ? (isPortrait ? 9.4 : 7.9) : (7.7 + speedRatio * 2.9);
+    const baseDist = mobile ? (isPortrait ? 8.6 : 7.2) : (6.9 + speedRatio * 2.2);
     const targetDistance = baseDist + chargePullback + overdrivePullback +
-      dashPullback + boostPullback + bossPullback + closeCombatPullback + introLift * 0.8;
+      dashPullback + boostPullback + bossPullback + closeCombatPullback + introLift * 0.7;
 
-    const baseHeight = mobile ? (isPortrait ? 4.1 : 3.3) : (3.25 + speedRatio * 0.65);
-    const targetHeight = baseHeight + Math.max(0, velocity.y) * (mobile ? 0.015 : 0.035) +
-      (target?.type === 'colossus' ? 1.0 : 0) + introLift;
+    const baseHeight = mobile ? (isPortrait ? 3.7 : 2.9) : (2.65 + speedRatio * 0.45);
+    const targetHeight = baseHeight + (target?.type === 'colossus' ? 0.8 : 0) + introLift;
 
     if (this.currentDistance === null) this.currentDistance = targetDistance;
     if (this.currentHeight === null) this.currentHeight = targetHeight;
-    const framingResponse = 1 - Math.exp(-dt * (mobile ? 3.5 : 2.4));
+    const framingResponse = 1 - Math.exp(-dt * (mobile ? 4.0 : 3.2));
     this.currentDistance += (targetDistance - this.currentDistance) * framingResponse;
     this.currentHeight += (targetHeight - this.currentHeight) * framingResponse;
 
     this.offset.set(
       Math.sin(this.lookYaw) * this.currentDistance,
-      this.currentHeight + this.lookPitch * 1.8,
+      this.currentHeight + this.lookPitch * 1.6,
       Math.cos(this.lookYaw) * this.currentDistance
     );
 
-    const anticipation = THREE.MathUtils.clamp(speed * (mobile ? 0.03 : 0.085), 0, mobile ? 1.0 : 3.4);
-    this.focus.copy(targetPosition).add(new THREE.Vector3(0, mobile ? 1.25 : 1.1, 0));
-    if (!mobile) this.focus.addScaledVector(this.lastHeading, anticipation);
+    this.desired.copy(this.smoothedFocus).add(this.offset);
 
-    if (!mobile && target && (speed > 12 || nearest < 15)) {
-      const aimX = (target.root.position.x + this.player.root.position.x) * 0.5;
-      const aimY = (target.root.position.y + this.player.root.position.y) * 0.5 + (target.type === 'colossus' ? 2.2 : 1.1);
-      const aimZ = (target.root.position.z + this.player.root.position.z) * 0.5;
-      this.focus.lerp(this.aim.set(aimX, aimY, aimZ), target.type === 'colossus' ? 0.28 : 0.12);
-    }
+    // Collision detection with world walls, terrain, and environment objects
+    const path = this.cameraPath.subVectors(this.desired, this.smoothedFocus);
+    const totalDist = path.length();
+    const minSafeDist = 2.2; // Keep minimum distance so camera never clips into ninja model
 
-    this.desired.copy(this.focus).add(this.offset);
+    if (totalDist > minSafeDist) {
+      const steps = 14;
+      let hitFraction = 1.0;
+      for (let i = 2; i <= steps; i++) {
+        const frac = i / steps;
+        this.positionScratch.copy(this.smoothedFocus).addScaledVector(path, frac);
 
-    // Collision detection with world features
-    const path = this.cameraPath.subVectors(this.desired, this.focus);
-    const steps = Math.max(2, Math.ceil(path.length() / 1.4));
-    for (let index = 1; index <= steps; index++) {
-      this.positionScratch.copy(this.focus).addScaledVector(path, index / steps);
-      if (world && typeof world.isLocationClear === 'function' && !world.isLocationClear(this.positionScratch.x, this.positionScratch.z, 0.48)) {
-        this.desired.copy(this.focus).addScaledVector(path, Math.max(0.12, (index - 1) / steps));
-        break;
+        // Ground / terrain clearance test
+        if (world && typeof world.getHeight === 'function') {
+          const terrainY = world.getHeight(this.positionScratch.x, this.positionScratch.z);
+          if (this.positionScratch.y < terrainY + 0.55) {
+            hitFraction = Math.min(hitFraction, Math.max(minSafeDist / totalDist, (i - 1) / steps));
+            break;
+          }
+        }
+
+        // Wall & solid obstacle clearance test
+        if (world && typeof world.isLocationClear === 'function' && !world.isLocationClear(this.positionScratch.x, this.positionScratch.z, 0.45)) {
+          hitFraction = Math.min(hitFraction, Math.max(minSafeDist / totalDist, (i - 1) / steps));
+          break;
+        }
+      }
+
+      if (hitFraction < 1.0) {
+        this.desired.copy(this.smoothedFocus).addScaledVector(path, hitFraction);
       }
     }
 
-    const response = (mobile ? 5.8 : (4.8 + speedRatio * 2.6)) * this.followStrength;
-    this.camera.position.lerp(this.desired, 1 - Math.exp(-dt * response));
+    const followRate = (mobile ? 7.2 : (5.8 + speedRatio * 2.2)) * (this.followStrength || 1.0);
+    this.camera.position.lerp(this.desired, 1 - Math.exp(-dt * followRate));
 
+    // Ensure camera stays above terrain floor and feature collision is resolved
     if (world) {
-      const floor = (typeof world.getHeight === 'function' ? world.getHeight(this.camera.position.x, this.camera.position.z) : 0) + 1.45;
+      const floor = (typeof world.getHeight === 'function' ? world.getHeight(this.camera.position.x, this.camera.position.z) : 0) + 1.25;
       this.camera.position.y = Math.max(this.camera.position.y, floor);
       if (typeof world.resolveFeatureCollision === 'function') {
         world.resolveFeatureCollision(this.camera.position, 0.45);
       }
     }
 
-    this.camera.lookAt(this.focus);
-    if (this.currentBank !== 0) this.camera.rotateZ(this.currentBank);
+    this.camera.lookAt(this.smoothedFocus);
 
-    const shakeScale = reducedShake ? 0.12 : (mobile ? 0.18 : 0.3);
-    const shakeAmount = Math.min(mobile ? 0.1 : 0.18, shake * shakeScale);
-    if (shakeAmount > 0) {
-      this.shakeOffset.set(
-        (Math.random() - 0.5) * shakeAmount,
-        (Math.random() - 0.5) * shakeAmount,
-        (Math.random() - 0.5) * shakeAmount
-      );
-      this.camera.position.add(this.shakeOffset);
+    // Camera shake (only during combat impacts, never during normal running)
+    if (shake > 0.02) {
+      const shakeScale = reducedShake ? 0.08 : (mobile ? 0.14 : 0.22);
+      const shakeAmount = Math.min(mobile ? 0.1 : 0.16, shake * shakeScale);
+      if (shakeAmount > 0) {
+        this.shakeOffset.set(
+          (Math.random() - 0.5) * shakeAmount,
+          (Math.random() - 0.5) * shakeAmount,
+          (Math.random() - 0.5) * shakeAmount
+        );
+        this.camera.position.add(this.shakeOffset);
+      }
     }
 
-    const baseFov = mobile ? (isPortrait ? 68 : 60) : 59;
-    const targetFov = baseFov + speedRatio * (mobile ? 6 : 18) +
-      (this.player.isBoosting ? (mobile ? 4.5 : 7.5) : 0) +
-      (this.player.overdriveTimer > 0 ? (mobile ? 2 : 4) : 0) +
-      (this.player.dashDuration > 0 ? (mobile ? 2 : 3) : 0);
-    this.currentFov += (targetFov - this.currentFov) * (1 - Math.exp(-dt * (mobile ? 2.5 : 2.8)));
+    const baseFov = mobile ? (isPortrait ? 66 : 58) : 58;
+    const targetFov = baseFov + speedRatio * (mobile ? 5 : 14) +
+      (this.player.isBoosting ? (mobile ? 3.5 : 6.0) : 0) +
+      (this.player.overdriveTimer > 0 ? (mobile ? 2 : 3.5) : 0) +
+      (this.player.dashDuration > 0 ? 1.5 : 0);
+    this.currentFov += (targetFov - this.currentFov) * (1 - Math.exp(-dt * 3.0));
     this.camera.fov = this.currentFov;
     this.camera.updateProjectionMatrix();
   }

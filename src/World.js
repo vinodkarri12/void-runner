@@ -3,26 +3,27 @@ import * as THREE from 'three';
 export class World {
   constructor() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x070b14);
-    this.scene.fog = new THREE.Fog(0x0c111c, 110, 560);
+    this.scene.background = new THREE.Color(0x050914);
+    this.scene.fog = new THREE.Fog(0x081020, 85, 520);
     this.obstacles = [];
     this.addLighting();
     this.addMoon();
     this.addStarfield();
     this.addMountainHorizon();
+    this.addJapaneseCastleBackdrop();
     this.addGrandToriiGate();
   }
 
   setCampaignMood(level) {
     // 3 Distinct Ninja Environments:
-    // Levels 1-5: Moonlit Bamboo Grove Sanctuary (Deep Indigo Night)
-    // Levels 6-10: Shadow Pagoda & Castle Courtyards (Charcoal Mist & Slate)
+    // Levels 1-5: Moonlit Japanese Temple Sanctuary (Rich Indigo & Sapphire Night)
+    // Levels 6-10: Shadow Pagoda & Castle Courtyards (Deep Charcoal Mist & Slate)
     // Levels 11-15: Crimson Demon Fortress (Blood Moon & Ashen Fog)
     const mood = level >= 11
       ? { background: 0x14070c, fog: 0x1d0a12, far: 440, moonColor: 0xff3b52, lightColor: 0xdb8290 }
       : level >= 6
-        ? { background: 0x0a0d14, fog: 0x121620, far: 500, moonColor: 0xd6e4f0, lightColor: 0x9fb5cc }
-        : { background: 0x070b14, fog: 0x0c111c, far: 560, moonColor: 0xe8f0f8, lightColor: 0xa8c2dd };
+        ? { background: 0x070b14, fog: 0x0c121e, far: 500, moonColor: 0xd6e4f0, lightColor: 0x9fb5cc }
+        : { background: 0x050914, fog: 0x081020, far: 520, moonColor: 0xeaf2ff, lightColor: 0xa4c7ee };
 
     this.scene.background.setHex(mood.background);
     this.scene.fog.color.setHex(mood.fog);
@@ -40,54 +41,67 @@ export class World {
   }
 
   addLighting() {
-    // Deep atmospheric ambient light
-    this.ambientLight = new THREE.HemisphereLight(0x7896b0, 0x12161c, 1.25);
+    // Deep atmospheric indigo ambient light matching moonlit Japanese night
+    this.ambientLight = new THREE.HemisphereLight(0x6a8fb8, 0x0e131c, 1.35);
     this.scene.add(this.ambientLight);
 
-    // Dramatic moonlight casting crisp shadow silhouettes
-    this.moonLight = new THREE.DirectionalLight(0xa8c2dd, 2.2);
-    this.moonLight.position.set(-52, 98, -62);
+    // Dramatic rich blue moonlight casting crisp shadow silhouettes
+    this.moonLight = new THREE.DirectionalLight(0xa4c7ee, 2.4);
+    this.moonLight.position.set(-58, 105, -68);
     this.moonLight.castShadow = true;
     this.moonLight.shadow.mapSize.set(1024, 1024);
-    this.moonLight.shadow.camera.left = -95;
-    this.moonLight.shadow.camera.right = 95;
-    this.moonLight.shadow.camera.top = 95;
-    this.moonLight.shadow.camera.bottom = -95;
+    this.moonLight.shadow.camera.left = -105;
+    this.moonLight.shadow.camera.right = 105;
+    this.moonLight.shadow.camera.top = 105;
+    this.moonLight.shadow.camera.bottom = -105;
     this.moonLight.shadow.bias = -0.0005;
     this.scene.add(this.moonLight);
 
-    // Warm lantern fill light (simulating Japanese lanterns along the path)
-    const lanternFill = new THREE.DirectionalLight(0xff9438, 0.45);
-    lanternFill.position.set(40, 25, 45);
+    // Warm orange lantern fill light (simulating Japanese lanterns along the path)
+    const lanternFill = new THREE.DirectionalLight(0xff9438, 0.65);
+    lanternFill.position.set(45, 28, 45);
     this.scene.add(lanternFill);
 
-    // Cool rim light for ninja silhouette separation
-    const rimLight = new THREE.DirectionalLight(0x4a7a9e, 0.55);
-    rimLight.position.set(15, 18, 120);
+    // Cool cyan-blue rim light for high-contrast ninja silhouette separation
+    const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.65);
+    rimLight.position.set(20, 22, 130);
     this.scene.add(rimLight);
   }
 
   addMoon() {
-    // Large luminous Japanese moon in the night sky
+    // Large luminous Japanese full moon in the night sky matching reference image
     const moonGroup = new THREE.Group();
     moonGroup.position.set(-180, 240, -420);
 
-    const moonGeo = new THREE.CircleGeometry(42, 48);
+    const moonGeo = new THREE.CircleGeometry(46, 48);
     const moonMat = new THREE.MeshBasicMaterial({
-      color: 0xe8f0f8,
+      color: 0xf0f6ff,
       transparent: true,
-      opacity: 0.95,
+      opacity: 0.98,
       depthWrite: false
     });
     this.moonMesh = new THREE.Mesh(moonGeo, moonMat);
     moonGroup.add(this.moonMesh);
 
-    // Soft luminous lunar halo / corona
-    const coronaGeo = new THREE.RingGeometry(40, 72, 48);
-    const coronaMat = new THREE.MeshBasicMaterial({
-      color: 0x9fb8d4,
+    // Inner bright cyan-white lunar corona
+    const innerCoronaGeo = new THREE.RingGeometry(44, 68, 48);
+    const innerCoronaMat = new THREE.MeshBasicMaterial({
+      color: 0x8ec5fc,
       transparent: true,
-      opacity: 0.28,
+      opacity: 0.42,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    const innerCorona = new THREE.Mesh(innerCoronaGeo, innerCoronaMat);
+    moonGroup.add(innerCorona);
+
+    // Outer soft luminous lunar atmospheric halo
+    const coronaGeo = new THREE.RingGeometry(64, 110, 48);
+    const coronaMat = new THREE.MeshBasicMaterial({
+      color: 0x4a88c7,
+      transparent: true,
+      opacity: 0.26,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       side: THREE.DoubleSide
@@ -338,6 +352,154 @@ export class World {
 
     this.scene.add(toriiGroup);
     this.portal = toriiGroup;
+  }
+
+  addJapaneseCastleBackdrop() {
+    // Grand Japanese Castle (Tenshukaku) and Pagoda complex visible against the moonlit horizon
+    const castleGroup = new THREE.Group();
+    castleGroup.position.set(70, 0, -210);
+
+    const stoneBaseMat = new THREE.MeshStandardMaterial({
+      color: 0x222730,
+      roughness: 0.88,
+      metalness: 0.18
+    });
+    const roofMat = new THREE.MeshStandardMaterial({
+      color: 0x141820,
+      roughness: 0.72,
+      metalness: 0.28
+    });
+    const timberMat = new THREE.MeshStandardMaterial({
+      color: 0x181310,
+      roughness: 0.85,
+      metalness: 0.12
+    });
+    const plasterMat = new THREE.MeshStandardMaterial({
+      color: 0xcfd6df,
+      roughness: 0.8,
+      metalness: 0.08
+    });
+    const shojiGlowMat = new THREE.MeshStandardMaterial({
+      color: 0xffb84d,
+      emissive: 0xff8818,
+      emissiveIntensity: 1.6,
+      roughness: 0.4,
+      metalness: 0.05
+    });
+    const goldFinialMat = new THREE.MeshStandardMaterial({
+      color: 0xd4a742,
+      emissive: 0x5a3f0e,
+      emissiveIntensity: 0.45,
+      metalness: 0.85,
+      roughness: 0.25
+    });
+
+    // Main Castle Stone Foundation (Ishigaki)
+    const baseGeo = new THREE.CylinderGeometry(34, 46, 26, 4);
+    const castleBase = new THREE.Mesh(baseGeo, stoneBaseMat);
+    castleBase.position.y = 13;
+    castleBase.rotation.y = Math.PI / 4;
+    castleBase.castShadow = true;
+    castleBase.receiveShadow = true;
+    castleGroup.add(castleBase);
+
+    // 5-Tier Japanese Castle Keep
+    let currentY = 26;
+    const tierWidths = [38, 32, 26, 20, 14];
+    const tierHeights = [9.5, 8.5, 7.8, 6.8, 5.8];
+
+    for (let t = 0; t < 5; t++) {
+      const w = tierWidths[t];
+      const h = tierHeights[t];
+
+      // Timber and plaster floor body
+      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), plasterMat);
+      body.position.y = currentY + h / 2;
+      body.castShadow = true;
+      castleGroup.add(body);
+
+      // Dark timber corner columns
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          const col = new THREE.Mesh(new THREE.BoxGeometry(1.2, h, 1.2), timberMat);
+          col.position.set(sx * (w / 2 - 0.4), currentY + h / 2, sz * (w / 2 - 0.4));
+          castleGroup.add(col);
+        }
+      }
+
+      // Glowing Shoji Windows on 4 sides
+      for (const rot of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+        const win = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.55, h * 0.48), shojiGlowMat);
+        win.position.set(0, currentY + h * 0.52, w / 2 + 0.12);
+        win.rotation.y = rot;
+        castleGroup.add(win);
+      }
+
+      // Traditional curved eave roof extending outward
+      const roofOverhang = w + 8.5;
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(roofOverhang * 0.72, 3.6, 4), roofMat);
+      roof.position.y = currentY + h + 1.6;
+      roof.rotation.y = Math.PI / 4;
+      roof.castShadow = true;
+      castleGroup.add(roof);
+
+      // Wooden balcony railing for middle and top tiers
+      if (t === 1 || t === 3) {
+        const balustrade = new THREE.Mesh(new THREE.BoxGeometry(w + 2.5, 1.2, w + 2.5), timberMat);
+        balustrade.position.y = currentY + 0.6;
+        castleGroup.add(balustrade);
+      }
+
+      currentY += h + 2.4;
+    }
+
+    // Shachihoko roof ridge finial
+    const roofFinial = new THREE.Mesh(new THREE.ConeGeometry(2.4, 5.2, 4), goldFinialMat);
+    roofFinial.position.y = currentY + 2.4;
+    roofFinial.rotation.y = Math.PI / 4;
+    castleGroup.add(roofFinial);
+
+    // Warm castle lantern light
+    const castleLight = new THREE.PointLight(0xffa033, 12, 110, 1.8);
+    castleLight.position.set(0, 48, 18);
+    castleGroup.add(castleLight);
+
+    // Flanking Temple Pagoda on Left Ridge
+    const pagodaLeft = new THREE.Group();
+    pagodaLeft.position.set(-82, 0, -170);
+
+    const pagBase = new THREE.Mesh(new THREE.CylinderGeometry(16, 21, 14, 4), stoneBaseMat);
+    pagBase.position.y = 7;
+    pagBase.rotation.y = Math.PI / 4;
+    pagodaLeft.add(pagBase);
+
+    let pagY = 14;
+    for (let p = 0; p < 4; p++) {
+      const pw = 18 - p * 3.4;
+      const ph = 6.2;
+      const pBody = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, pw), plasterMat);
+      pBody.position.y = pagY + ph / 2;
+      pagodaLeft.add(pBody);
+
+      // Glowing window
+      const pWin = new THREE.Mesh(new THREE.PlaneGeometry(pw * 0.6, ph * 0.5), shojiGlowMat);
+      pWin.position.set(0, pagY + ph / 2, pw / 2 + 0.08);
+      pagodaLeft.add(pWin);
+
+      const pRoof = new THREE.Mesh(new THREE.ConeGeometry((pw + 5.5) * 0.72, 2.6, 4), roofMat);
+      pRoof.position.y = pagY + ph + 1.2;
+      pRoof.rotation.y = Math.PI / 4;
+      pagodaLeft.add(pRoof);
+
+      pagY += ph + 1.8;
+    }
+    const pagFinial = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.6, 6, 8), goldFinialMat);
+    pagFinial.position.y = pagY + 3;
+    pagodaLeft.add(pagFinial);
+
+    this.scene.add(castleGroup);
+    this.scene.add(pagodaLeft);
+    this.castleGroup = castleGroup;
   }
 
   random(seed) {

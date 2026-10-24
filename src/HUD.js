@@ -70,6 +70,51 @@ export class HUD {
     this.bossHealthText = document.getElementById('bossHealthText');
     this.bossHealthBar = document.getElementById('bossHealthBar');
     this.bossPhaseText = document.getElementById('bossPhaseText');
+
+    // Reference & HD Performance HUD Elements
+    this.hudEnergyText = document.getElementById('hudEnergyText');
+    this.hudEnergyBar = document.getElementById('hudEnergyBar');
+    this.hudMissionName = document.getElementById('hudMissionName');
+    this.hudScoreText = document.getElementById('hudScoreText');
+    this.hudDefeatedKills = document.getElementById('hudDefeatedKills');
+    this.hudTopSpeed = document.getElementById('hudTopSpeed');
+    this.hudTopBoost = document.getElementById('hudTopBoost');
+    this.hudTopBoostLabel = document.getElementById('hudTopBoostLabel');
+
+    // Cached ability status nodes to avoid repeated per-frame document.getElementById lookups
+    this.statusNodes = {
+      qStatus: document.getElementById('qStatus'),
+      fStatus: document.getElementById('fStatus'),
+      eStatus: document.getElementById('eStatus'),
+      rStatus: document.getElementById('rStatus'),
+      tStatus: document.getElementById('tStatus'),
+      gStatus: document.getElementById('gStatus'),
+      vStatus: document.getElementById('vStatus'),
+      xStatus: document.getElementById('xStatus'),
+      zStatus: document.getElementById('zStatus'),
+      equippedHudWeapon: document.getElementById('equippedHudWeapon'),
+      hudComboBadge: document.getElementById('hudComboBadge'),
+      bossName: document.getElementById('bossName')
+    };
+
+    // Performance dirty-checking caches
+    this._cache = {
+      score: -1,
+      combo: -1,
+      defeated: -1,
+      enemiesRemaining: -1,
+      wave: -1,
+      hp: -1,
+      maxHp: -1,
+      energy: -1,
+      weaponText: '',
+      topSpeed: '',
+      boostState: '',
+      missionText: '',
+      levelProgressRatio: -1,
+      levelStatusText: ''
+    };
+
     this.messageTimer = 0;
     this.flashIntensity = 0;
     this.flashDuration = 0;
@@ -78,64 +123,130 @@ export class HUD {
 
   update(player, enemies, wave, worldOffset = { x: 0, y: 0 }, getHeight = () => 0, combat = null, target = null, defeated = 0, abilities = {}) {
     this.updateAttackButton(player.weaponConfig, player);
-    const equippedHudWeapon = document.getElementById('equippedHudWeapon');
-    if (equippedHudWeapon) {
+
+    // Equipped weapon display with caching
+    const equippedNode = this.statusNodes.equippedHudWeapon;
+    if (equippedNode) {
+      let weaponText = '';
       if (player.weaponConfig?.category === 'ranged') {
         const ammoText = player.gunReloadTimer > 0
           ? `RELOADING ${(player.gunReloadDuration - player.gunReloadTimer).toFixed(1)}s`
           : `AMMO ${player.gunAmmo} / ${player.gunMaxAmmo}`;
-        equippedHudWeapon.textContent = `${player.weaponConfig?.name || 'VOID FIREARM'} [${ammoText}]`;
+        weaponText = `${player.weaponConfig?.name || 'VOID FIREARM'} [${ammoText}]`;
       } else {
-        equippedHudWeapon.textContent = player.weaponConfig?.name || 'SHADOW KATANA';
+        weaponText = player.weaponConfig?.name || 'SHADOW KATANA';
+      }
+      if (this._cache.weaponText !== weaponText) {
+        this._cache.weaponText = weaponText;
+        equippedNode.textContent = weaponText;
       }
     }
-    this.scoreValue.textContent = String(Math.floor(player.score)).padStart(6, '0');
-    this.comboValue.textContent = `x${player.combo}`;
+
+    // Score & Multiplier with caching
+    const curScore = Math.floor(player.score);
+    if (this._cache.score !== curScore) {
+      this._cache.score = curScore;
+      const scoreStr = String(curScore).padStart(6, '0');
+      this.scoreValue.textContent = scoreStr;
+      if (this.hudScoreText) this.hudScoreText.textContent = `SCORE ${scoreStr}`;
+    }
+
+    // Combo counter with caching
+    if (this._cache.combo !== player.combo) {
+      this._cache.combo = player.combo;
+      this.comboValue.textContent = player.combo > 1 ? `COMBO: ${player.combo}x` : `COMBO: 1x`;
+      const comboBadge = this.statusNodes.hudComboBadge;
+      if (comboBadge) comboBadge.classList.toggle('active', player.combo > 1);
+    }
     this.scoreMultiplier.textContent = `SCORE x${player.scoreMultiplier ?? 1}`;
-    this.defeatedValue.textContent = String(defeated);
+
+    // Defeated enemies counter with caching
+    if (this._cache.defeated !== defeated) {
+      this._cache.defeated = defeated;
+      this.defeatedValue.textContent = String(defeated);
+      if (this.hudDefeatedKills) this.hudDefeatedKills.textContent = String(defeated);
+    }
+
+    // Enemies remaining counter with caching
     const remaining = abilities.enemiesRemaining ?? enemies.filter((e) => e.alive).length;
-    this.enemyValue.textContent = `${remaining} LEFT`;
+    if (this._cache.enemiesRemaining !== remaining) {
+      this._cache.enemiesRemaining = remaining;
+      this.enemyValue.textContent = `Enemies: ${remaining}`;
+    }
+
+    // Level number
+    if (this.levelValue && wave && this._cache.wave !== wave) {
+      this._cache.wave = wave;
+      this.levelValue.textContent = `LEVEL ${String(wave).padStart(2, '0')} / 15`;
+    }
+
+    // Player Health
     this.updateHealthHUD(player);
-    this.energyText.textContent = `${Math.ceil(player.energy)}/100`;
-    this.energyBar.style.width = `${Math.max(0, player.energy)}%`;
-    this.weaponEnergyText.textContent = `${Math.ceil(player.energy)}%`;
-    this.weaponEnergyBar.style.width = `${Math.max(0, player.energy)}%`;
+
+    // Player Energy / Stamina with caching
+    const engVal = Math.ceil(player.energy);
+    if (this._cache.energy !== engVal) {
+      this._cache.energy = engVal;
+      const engPct = Math.max(0, player.energy);
+      if (this.hudEnergyText) this.hudEnergyText.textContent = `${engVal} / 100`;
+      if (this.hudEnergyBar) this.hudEnergyBar.style.width = `${engPct}%`;
+      this.energyText.textContent = `${engVal}/100`;
+      this.energyBar.style.width = `${engPct}%`;
+      this.weaponEnergyText.textContent = `${engVal}%`;
+      this.weaponEnergyBar.style.width = `${engPct}%`;
+    }
+
+    // Impact discharge & overdrive
     const charge = combat?.chargeValue ?? player.chargeLevel;
     this.chargePercent.textContent = `${Math.round(charge * 100)}%`;
     this.chargeBar.style.width = `${charge * 100}%`;
     this.chargeFull.classList.toggle('visible', combat?.charging === true && charge >= 0.98);
+
     this.overdriveText.textContent = player.overdriveTimer > 0
       ? `${player.overdriveTimer.toFixed(1)}s`
       : `${Math.round(player.overdriveCharge)}%`;
     this.overdriveBar.style.width = `${player.overdriveTimer > 0 ? player.overdriveTimer / 6.5 * 100 : player.overdriveCharge}%`;
     this.overdriveStatus.textContent = player.overdriveTimer > 0 ? 'OVERDRIVE ACTIVE' : player.overdriveCooldown > 0 ? 'OVERDRIVE COOLING' : 'OVERDRIVE READY';
     this.overdriveStatus.classList.toggle('active', player.overdriveTimer > 0);
-    const setStatus = (id, remaining) => {
-      const node = document.getElementById(id);
-      node.textContent = remaining > 0 ? `${remaining.toFixed(1)}s` : 'READY';
+
+    // Ability cooldowns using cached DOM references
+    const setCachedStatus = (node, remaining) => {
+      if (!node) return;
+      const text = remaining > 0 ? `${remaining.toFixed(1)}s` : 'READY';
+      if (node.textContent !== text) node.textContent = text;
       node.classList.toggle('cooling', remaining > 0);
     };
-    setStatus('qStatus', combat?.cooldowns.strike ?? 0);
-    setStatus('fStatus', combat?.cooldowns.slash ?? 0);
-    setStatus('eStatus', player.dashTimer);
-    setStatus('rStatus', combat?.cooldowns.charge ?? 0);
-    setStatus('tStatus', player.overdriveTimer > 0 ? player.overdriveTimer : player.overdriveCooldown);
-    setStatus('gStatus', abilities.cloneCooldown ?? 0);
-    setStatus('vStatus', abilities.chainCooldown ?? 0);
-    const anchorStatus = document.getElementById('xStatus');
-    anchorStatus.textContent = abilities.anchorCooldown > 0
-      ? `${abilities.anchorCooldown.toFixed(1)}s`
-      : abilities.anchored ? 'LOCKED' : 'READY';
-    anchorStatus.classList.toggle('cooling', abilities.anchorCooldown > 0);
-    const executionStatus = document.getElementById('zStatus');
-    executionStatus.textContent = abilities.executionCooldown > 0
-      ? `${abilities.executionCooldown.toFixed(1)}s`
-      : abilities.executionAvailable ? 'READY' : 'NO TARGET';
-    executionStatus.classList.toggle('cooling', abilities.executionCooldown > 0 || !abilities.executionAvailable);
+    setCachedStatus(this.statusNodes.qStatus, combat?.cooldowns.strike ?? 0);
+    setCachedStatus(this.statusNodes.fStatus, combat?.cooldowns.slash ?? 0);
+    setCachedStatus(this.statusNodes.eStatus, player.dashTimer);
+    setCachedStatus(this.statusNodes.rStatus, combat?.cooldowns.charge ?? 0);
+    setCachedStatus(this.statusNodes.tStatus, player.overdriveTimer > 0 ? player.overdriveTimer : player.overdriveCooldown);
+    setCachedStatus(this.statusNodes.gStatus, abilities.cloneCooldown ?? 0);
+    setCachedStatus(this.statusNodes.vStatus, abilities.chainCooldown ?? 0);
+
+    const anchorNode = this.statusNodes.xStatus;
+    if (anchorNode) {
+      const aText = abilities.anchorCooldown > 0
+        ? `${abilities.anchorCooldown.toFixed(1)}s`
+        : abilities.anchored ? 'LOCKED' : 'READY';
+      if (anchorNode.textContent !== aText) anchorNode.textContent = aText;
+      anchorNode.classList.toggle('cooling', abilities.anchorCooldown > 0);
+    }
+
+    const execNode = this.statusNodes.zStatus;
+    if (execNode) {
+      const zText = abilities.executionCooldown > 0
+        ? `${abilities.executionCooldown.toFixed(1)}s`
+        : abilities.executionAvailable ? 'READY' : 'NO TARGET';
+      if (execNode.textContent !== zText) execNode.textContent = zText;
+      execNode.classList.toggle('cooling', abilities.executionCooldown > 0 || !abilities.executionAvailable);
+    }
+
+    // Boss health panel
     const boss = enemies.find((enemy) => enemy.alive && enemy.type === 'colossus');
     this.bossHealthPanel.classList.toggle('hidden', !boss);
     if (boss) {
-      document.getElementById('bossName').textContent = boss.name;
+      if (this.statusNodes.bossName) this.statusNodes.bossName.textContent = boss.name;
       this.bossHealthText.textContent = `${Math.ceil(boss.health)} / ${boss.maxHealth}`;
       this.bossHealthBar.style.width = `${Math.max(0, boss.health / boss.maxHealth * 100)}%`;
       this.bossHealthPanel.classList.toggle('final-boss', boss.isFinalBoss);
@@ -149,12 +260,21 @@ export class HUD {
             : 'ARMORED';
       this.bossHealthPanel.classList.toggle('vulnerable', boss.vulnerableTimer > 0);
     }
+
     if (target?.alive) {
       const healthRatio = Math.max(0, target.health / target.maxHealth);
       this.targetHealthText.textContent = `${Math.ceil(target.health)} / ${target.maxHealth}`;
       this.targetHealthBar.style.width = `${healthRatio * 100}%`;
     }
-    this.speedValue.textContent = player.horizontalSpeed.toFixed(1).padStart(4, '0');
+
+    // Speed display
+    const speedStr = player.horizontalSpeed.toFixed(1).padStart(4, '0');
+    this.speedValue.textContent = speedStr;
+    if (this.hudTopSpeed && this._cache.topSpeed !== speedStr) {
+      this._cache.topSpeed = speedStr;
+      this.hudTopSpeed.textContent = speedStr;
+    }
+
     const speedThreshold = player.overdriveTimer > 0 ? 38 : 30;
     const pct = Math.min(1, player.horizontalSpeed / speedThreshold);
     const kineticMultiplier = 0.45 + Math.min(1.6, player.horizontalSpeed / 30) * 0.62;
@@ -173,6 +293,22 @@ export class HUD {
     const boostPct = Math.round(boostEnergy);
     const inCooldown = (player.boostCooldownTimer || 0) > 0;
     const isBoosting = Boolean(player.isBoosting);
+
+    // Top-Right Telemetry Boost Indicator
+    if (this.hudTopBoost && this.hudTopBoostLabel) {
+      const boostKey = `${isBoosting}_${inCooldown}_${boostPct}`;
+      if (this._cache.boostState !== boostKey) {
+        this._cache.boostState = boostKey;
+        this.hudTopBoost.className = 'hud-telemetry-boost' + (isBoosting ? ' is-active' : inCooldown ? ' is-cooling' : '');
+        this.hudTopBoostLabel.textContent = isBoosting
+          ? 'BOOST SURGE'
+          : inCooldown
+            ? `COOLING ${(player.boostCooldownTimer || 0).toFixed(1)}s`
+            : boostPct < 100
+              ? `BOOST ${boostPct}%`
+              : 'BOOST READY';
+      }
+    }
 
     if (this.hudBoostBar) {
       this.hudBoostBar.style.width = `${boostPct}%`;
@@ -231,35 +367,59 @@ export class HUD {
   }
 
   showLevel(level, definition, progression, state = {}) {
-    this.levelValue.textContent = `LEVEL: ${String(level).padStart(2, '0')} / 15`;
-    this.levelTitle.textContent = definition.master ? `MASTER // ${definition.title}` : definition.title;
-    this.levelObjective.textContent = definition.objective;
-    this.unlockedLevel.textContent = `UNLOCKED: ${String(progression.unlockedLevel).padStart(2, '0')}  //  CLEARED: ${progression.completedCount}`;
+    if (this.levelValue) this.levelValue.textContent = `LEVEL ${String(level).padStart(2, '0')} / 15`;
+
+    const missionText = definition.master ? `MASTER // ${definition.title}` : definition.title;
+    if (this.hudMissionName && this._cache.missionText !== missionText) {
+      this._cache.missionText = missionText;
+      this.hudMissionName.textContent = missionText;
+    }
+    if (this.levelTitle) this.levelTitle.textContent = missionText;
+    if (this.levelObjective) this.levelObjective.textContent = definition.objective;
+    if (this.unlockedLevel) this.unlockedLevel.textContent = `UNLOCKED: ${String(progression.unlockedLevel).padStart(2, '0')}  //  CLEARED: ${progression.completedCount}`;
+
     const completed = progression.completedLevels.has(level) && state.status === undefined;
     const ratio = state.status === 'complete' || completed
       ? 1
       : state.status === 'active'
         ? Math.min(1, (definition.requiredKills - (state.enemiesRemaining ?? definition.requiredKills)) / definition.requiredKills)
         : 0;
-    this.levelProgress.style.width = `${ratio * 100}%`;
+    if (this.levelProgress && this._cache.levelProgressRatio !== ratio) {
+      this._cache.levelProgressRatio = ratio;
+      this.levelProgress.style.width = `${ratio * 100}%`;
+    }
+
     const defeated = definition.requiredKills - (state.enemiesRemaining ?? definition.requiredKills);
     const waveLabel = state.waveCount > 1 ? `WAVE ${state.waveIndex || 1}/${state.waveCount} // ` : '';
-    this.levelProgressText.textContent = state.status === 'complete' || completed
+    const statusText = state.status === 'complete' || completed
       ? 'LEVEL CLEARED'
       : state.status === 'spawning'
         ? `${waveLabel}PORTAL ARRIVALS // ${defeated} / ${definition.requiredKills}`
         : `${waveLabel}HOSTILES ${defeated} / ${definition.requiredKills}`;
+    if (this.levelProgressText && this._cache.levelStatusText !== statusText) {
+      this._cache.levelStatusText = statusText;
+      this.levelProgressText.textContent = statusText;
+    }
+
     this.levelTitle.classList.toggle('master-level-title', definition.master);
     this.campaignPanel.classList.toggle('master-arena', definition.master);
   }
 
   updateHealthHUD(player) {
-    this.healthText.textContent = `${Math.ceil(player.health)} / ${player.maxHealth} HP`;
-    this.healthBar.style.width = `${Math.max(0, player.health / player.maxHealth * 100)}%`;
-    this.healthBar.classList.toggle('critical', player.health <= player.maxHealth * 0.3);
+    const curHp = Math.ceil(player.health);
+    if (this._cache.hp !== curHp || this._cache.maxHp !== player.maxHealth) {
+      this._cache.hp = curHp;
+      this._cache.maxHp = player.maxHealth;
+      this.healthText.textContent = `HP: ${curHp} / ${player.maxHealth}`;
+      this.healthBar.style.width = `${Math.max(0, player.health / player.maxHealth * 100)}%`;
+      this.healthBar.classList.toggle('critical', player.health <= player.maxHealth * 0.3);
+    }
   }
 
   drawMinimap(player, enemies, worldOffset, getHeight) {
+    // Performance optimization: skip 144 terrain noise calculations when minimap is hidden
+    if (!this.minimap || this.minimap.offsetParent === null) return;
+
     const context = this.minimapContext;
     const width = this.minimap.width;
     const height = this.minimap.height;

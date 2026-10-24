@@ -311,7 +311,7 @@ export class CombatSystem {
     const step = combo.step;
     const attackId = combo.attackId;
     const weapon = player.weaponConfig || { damage: 1, range: 1, cooldown: 1 };
-    const weaponColor = weapon.color ?? (step === 3 ? 0xff1744 : step === 2 ? 0xff7043 : 0xff3b52);
+    const weaponColor = (weapon.id === 'void-reaver' || !weapon.color) ? 0x00f2fe : weapon.color;
 
     // Audio SFX for sword swings
     if (step === 3) {
@@ -322,7 +322,7 @@ export class CombatSystem {
       this.audio?.play('sword-swing');
     }
 
-    // Glowing sword slash trail effect
+    // Glowing electric cyan-blue sword slash trail matching reference image
     this.effects?.katanaSlashTrail(player.root.position, player.facing, step, weaponColor);
 
     // Standard normal katana hit deals exactly 70 HP
@@ -365,9 +365,10 @@ export class CombatSystem {
       if (this.applyDamageToEnemy(player, enemy, damage, attackType, feedback)) {
         hits++;
         const hitPoint = enemy.root.position.clone().add(new THREE.Vector3(0, 1.15 * (enemy.spec?.scale || 1), 0));
-        // Sparks and impact effects on connection
-        this.effects?.sparks(hitPoint, combo.isEmpowered ? 0xff3b52 : 0xffd54f, step === 3 ? (combo.isEmpowered ? 28 : 18) : 10, step === 3 ? 7.5 : 4.8);
-        this.effects?.burst(hitPoint, weaponColor, step === 3 ? (combo.isEmpowered ? 30 : 20) : 12, 5.2);
+        // Golden-white sparks, impact flash, and shockwave on connection matching reference image
+        this.effects?.sparks(hitPoint, 0xffe57f, step === 3 ? 24 : 14, 5.8);
+        this.effects?.burst(hitPoint, 0x00f2fe, step === 3 ? 24 : 14, 5.2);
+        this.effects?.shockwave(hitPoint, 0x00f2fe, 1.0);
         this.audio?.play('katana-hit');
 
         if (step === 3) {
@@ -696,7 +697,7 @@ export class CombatSystem {
     enemy.drawHealth();
     this.effects.burst(enemy.root.position.clone().add(new THREE.Vector3(0, 1.1 * enemy.spec.scale, 0)), 0x9eeeff, 12, 4.5);
     const displayDamage = (attackType === 'katana-combo-1' || attackType === 'katana-combo-2' || attackType === 'katana-normal') ? 70 : Math.round(damage);
-    this.effects.damageNumber(enemy.root.position, displayDamage, enemy.type === 'colossus' ? '#ffafcc' : ENEMY_COLOR);
+    this.effects.damageNumber(enemy.root.position, displayDamage, enemy.type === 'colossus' ? '#ffafcc' : '#ff264a');
     if (feedback.cameraShake) feedback.cameraShake.value = Math.min(1.2, feedback.cameraShake.value + 0.14 + damage / 240);
     feedback.flash?.(attackType === 'void-charge' ? 0.52 : 0.28, false);
     if (angleLabel) feedback.message?.(angleLabel, 780);

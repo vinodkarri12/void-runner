@@ -14,6 +14,8 @@ const DEFAULTS = Object.freeze({
   reducedEffects: false,
   graphics: 'high',
   cameraSensitivity: 1.0,
+  cameraSensitivityX: 1.0,
+  cameraSensitivityY: 1.0,
   controlOpacity: 0.85,
   hudScale: 1.0,
   layoutPreset: 'default',
@@ -50,7 +52,13 @@ export class SettingsManager {
     this.values.controlScale = Number.isFinite(ctrlScale) ? Math.max(0.75, Math.min(1.4, ctrlScale)) : DEFAULTS.controlScale;
 
     const camSens = Number(this.values.cameraSensitivity);
-    this.values.cameraSensitivity = Number.isFinite(camSens) ? Math.max(0.2, Math.min(2.5, camSens)) : DEFAULTS.cameraSensitivity;
+    this.values.cameraSensitivity = Number.isFinite(camSens) ? Math.max(0.2, Math.min(3.0, camSens)) : DEFAULTS.cameraSensitivity;
+
+    const camSensX = Number(this.values.cameraSensitivityX);
+    this.values.cameraSensitivityX = Number.isFinite(camSensX) ? Math.max(0.2, Math.min(3.0, camSensX)) : DEFAULTS.cameraSensitivityX;
+
+    const camSensY = Number(this.values.cameraSensitivityY);
+    this.values.cameraSensitivityY = Number.isFinite(camSensY) ? Math.max(0.2, Math.min(3.0, camSensY)) : DEFAULTS.cameraSensitivityY;
 
     const ctrlOpacity = Number(this.values.controlOpacity);
     this.values.controlOpacity = Number.isFinite(ctrlOpacity) ? Math.max(0.2, Math.min(1.0, ctrlOpacity)) : DEFAULTS.controlOpacity;
@@ -79,5 +87,15 @@ export class SettingsManager {
     } catch (error) {
       console.warn('VOID RUNNER settings could not be saved.', error);
     }
+  }
+
+  resetToDefaults() {
+    this.values = { ...DEFAULTS };
+    try {
+      this.storage?.setItem(STORAGE_KEY, JSON.stringify(this.values));
+    } catch (error) {
+      console.warn('VOID RUNNER settings could not be saved.', error);
+    }
+    return this.values;
   }
 }

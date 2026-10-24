@@ -12,6 +12,7 @@ export const DEFAULT_LAYOUT = {
     jumpButton: { anchor: 'bottom-right', x: 36, y: 146, size: 64, opacity: 0.88, visible: true, name: 'JUMP' },
     crouchButton: { anchor: 'bottom-right', x: 136, y: 136, size: 58, opacity: 0.88, visible: true, name: 'SIT / CROUCH' },
     weaponSwitchButton: { anchor: 'bottom-right', x: 226, y: 38, size: 54, opacity: 0.88, visible: true, name: 'WEAPON SWITCH' },
+    mobileCameraResetBtn: { anchor: 'bottom-right', x: 216, y: 136, size: 56, opacity: 0.88, visible: true, name: 'CAMERA RESET' },
     leftPanel: { anchor: 'top-left', x: 18, y: 110, size: 160, opacity: 0.95, visible: true, name: 'HEALTH & MINIMAP' },
     objectivePanel: { anchor: 'top-right', x: 18, y: 110, size: 180, opacity: 0.92, visible: true, name: 'OBJECTIVES' }
   }
@@ -28,7 +29,8 @@ export const PRESETS = {
       dashAttackButton: { anchor: 'bottom-right', x: 146, y: 40, size: 66 },
       jumpButton: { anchor: 'bottom-right', x: 36, y: 146, size: 64 },
       crouchButton: { anchor: 'bottom-right', x: 136, y: 136, size: 58 },
-      weaponSwitchButton: { anchor: 'bottom-right', x: 226, y: 38, size: 54 }
+      weaponSwitchButton: { anchor: 'bottom-right', x: 226, y: 38, size: 54 },
+      mobileCameraResetBtn: { anchor: 'bottom-right', x: 216, y: 136, size: 56 }
     }
   },
   compact: {
@@ -41,7 +43,8 @@ export const PRESETS = {
       dashAttackButton: { anchor: 'bottom-right', x: 118, y: 30, size: 56 },
       jumpButton: { anchor: 'bottom-right', x: 26, y: 118, size: 56 },
       crouchButton: { anchor: 'bottom-right', x: 110, y: 110, size: 50 },
-      weaponSwitchButton: { anchor: 'bottom-right', x: 186, y: 28, size: 48 }
+      weaponSwitchButton: { anchor: 'bottom-right', x: 186, y: 28, size: 48 },
+      mobileCameraResetBtn: { anchor: 'bottom-right', x: 176, y: 110, size: 48 }
     }
   },
   spread: {
@@ -54,7 +57,8 @@ export const PRESETS = {
       dashAttackButton: { anchor: 'bottom-right', x: 176, y: 54, size: 74 },
       jumpButton: { anchor: 'bottom-right', x: 50, y: 172, size: 72 },
       crouchButton: { anchor: 'bottom-right', x: 164, y: 164, size: 66 },
-      weaponSwitchButton: { anchor: 'bottom-right', x: 268, y: 52, size: 60 }
+      weaponSwitchButton: { anchor: 'bottom-right', x: 268, y: 52, size: 60 },
+      mobileCameraResetBtn: { anchor: 'bottom-right', x: 254, y: 164, size: 64 }
     }
   },
   'left-handed': {
@@ -67,7 +71,8 @@ export const PRESETS = {
       dashAttackButton: { anchor: 'bottom-left', x: 146, y: 40, size: 66 },
       jumpButton: { anchor: 'bottom-left', x: 36, y: 146, size: 64 },
       crouchButton: { anchor: 'bottom-left', x: 136, y: 136, size: 58 },
-      weaponSwitchButton: { anchor: 'bottom-left', x: 226, y: 38, size: 54 }
+      weaponSwitchButton: { anchor: 'bottom-left', x: 226, y: 38, size: 54 },
+      mobileCameraResetBtn: { anchor: 'bottom-left', x: 216, y: 136, size: 56 }
     }
   }
 };

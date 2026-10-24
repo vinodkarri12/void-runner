@@ -22,20 +22,26 @@ const viewport = document.getElementById('viewport');
 const isMobileViewport = () => (typeof window !== 'undefined') &&
   (window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 768 || ('ontouchstart' in window));
 const getPixelRatioCap = (quality) => {
-  if (isMobileViewport()) {
-    return quality === 'high' ? 1.25 : 1.0;
+  const isMobile = isMobileViewport();
+  if (isMobile) {
+    // Sharp HD on high-res mobile displays while preventing overheating:
+    // Low: 1.0 (smooth performance on low-end)
+    // Medium: 1.35 (balanced performance and clarity)
+    // High: Math.min(window.devicePixelRatio || 1, 2.0) (Crisp HD Retina)
+    if (quality === 'low') return 1.0;
+    if (quality === 'medium') return 1.35;
+    return Math.min(window.devicePixelRatio || 1, 2.0);
   }
-  const qualityCap = quality === 'low' ? 1.0 : quality === 'medium' ? 1.25 : 1.75;
-  const fullHdCap = Math.min(1920 / window.innerWidth, 1080 / window.innerHeight);
-  return Math.min(qualityCap, Math.max(1, fullHdCap));
+  const qualityCap = quality === 'low' ? 1.0 : quality === 'medium' ? 1.5 : 2.0;
+  return Math.min(qualityCap, window.devicePixelRatio || 1);
 };
 const renderer = new THREE.WebGLRenderer({
-  antialias: !isMobileViewport(),
+  antialias: true,
   powerPreference: 'high-performance'
 });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, getPixelRatioCap('high')));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = !isMobileViewport();
+renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -988,8 +994,10 @@ function syncSettingsControls() {
 function applySettings() {
   const settings = settingsManager.values;
   audio.setVolume(settings.masterVolume, settings.sfxVolume);
-  cameraController.sensitivity = settings.cameraSensitivity || settings.sensitivity;
-  cameraController.followStrength = settings.cameraFollow;
+  cameraController.sensitivity = settings.cameraSensitivity || settings.sensitivity || 1.0;
+  cameraController.sensitivityX = settings.cameraSensitivityX || 1.0;
+  cameraController.sensitivityY = settings.cameraSensitivityY || 1.0;
+  cameraController.followStrength = settings.cameraFollow || 1.0;
   reduceFlash = settings.reducedEffects;
   document.body.classList.toggle('reduced-flash', reduceFlash);
   document.body.classList.toggle('reduced-effects', reduceFlash);
@@ -1006,8 +1014,9 @@ function applySettings() {
   document.getElementById('reduceFlashButton').textContent = `REDUCE FLASH / SHAKE: ${reduceFlash ? 'ON' : 'OFF'}`;
   document.getElementById('reduceFlashButton').setAttribute('aria-pressed', String(reduceFlash));
   const quality = settings.graphics;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, getPixelRatioCap(quality)));
-  renderer.shadowMap.enabled = quality !== 'low' && !isMobileViewport();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, getPixelRatioCap(quality)));
+  renderer.shadowMap.enabled = quality !== 'low';
+  renderer.shadowMap.type = quality === 'high' ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
   renderer.toneMappingExposure = quality === 'low' ? 1.04 : 1.12;
 }
 
@@ -1204,42 +1213,11 @@ function bindFrontend() {
     });
   });
 
-  const lockLandscapeOrientation = async () => {
-    try {
-      const root = document.documentElement;
-      if (!document.fullscreenElement) {
-        if (root.requestFullscreen) {
-          await root.requestFullscreen();
-        } else if (root.webkitRequestFullscreen) {
-          await root.webkitRequestFullscreen();
-        }
-      }
-      if (screen.orientation && screen.orientation.lock) {
-        await screen.orientation.lock('landscape').catch(() => {});
-      }
-    } catch (err) {
-      console.warn('VOID RUNNER landscape lock or fullscreen not available:', err);
-    }
-  };
-
-  window.addEventListener('orientationchange', () => {
-    setTimeout(resize, 120);
-  });
-  if (screen.orientation) {
-    screen.orientation.addEventListener('change', () => {
-      setTimeout(resize, 120);
-    });
-  }
-
   const fullscreenButtons = document.querySelectorAll('#fullscreenButton, #hudFullscreenButton');
   fullscreenButtons.forEach((btn) => {
     btn.addEventListener('click', async () => {
       try {
-        if (document.fullscreenElement) {
-          await document.exitFullscreen();
-        } else {
-          await lockLandscapeOrientation();
-        }
+        await toggleFullscreen();
       } catch (error) {
         console.warn('VOID RUNNER fullscreen mode is unavailable.', error);
         combatFeedback.message('FULLSCREEN UNAVAILABLE', 900);
@@ -1261,6 +1239,28 @@ function bindFrontend() {
     dismissPortraitBtn.addEventListener('click', () => {
       document.body.classList.add('portrait-dismissed');
       resize();
+    });
+  }
+
+  const settingsCamReset = document.getElementById('settingsResetCameraBtn');
+  if (settingsCamReset) {
+    settingsCamReset.addEventListener('click', (e) => {
+      e.preventDefault();
+      cameraController.reset();
+      combatFeedback.message('CAMERA RECENTERED', 750);
+    });
+  }
+
+  const settingsResetDefaults = document.getElementById('settingsResetDefaultsBtn');
+  if (settingsResetDefaults) {
+    settingsResetDefaults.addEventListener('click', (e) => {
+      e.preventDefault();
+      settingsManager.resetToDefaults();
+      syncSettingsControls();
+      applySettings();
+      controlsCustomizer.resetToDefault();
+      resize();
+      combatFeedback.message('SETTINGS RESET TO DEFAULTS', 900);
     });
   }
 
@@ -1290,6 +1290,7 @@ const bindInput = () => {
     const handleDown = (event) => {
       if (event.button !== undefined && event.button !== 0) return;
       event.preventDefault();
+      event.stopPropagation();
       activePointers.add(event.pointerId);
       if (button.setPointerCapture) {
         try { button.setPointerCapture(event.pointerId); } catch (_) {}
@@ -1300,6 +1301,8 @@ const bindInput = () => {
     };
     const handleUp = (event) => {
       if (!activePointers.has(event.pointerId)) return;
+      event.preventDefault();
+      event.stopPropagation();
       activePointers.delete(event.pointerId);
       if (button.releasePointerCapture) {
         try { button.releasePointerCapture(event.pointerId); } catch (_) {}
@@ -1448,6 +1451,9 @@ const bindInput = () => {
     cameraTouchZone.addEventListener('pointerdown', (e) => {
       if (controlsCustomizer.isEditing || isPaused || screenState !== 'gameplay') return;
       if (activeCameraTouchPointer !== null) return;
+      if (e.target.closest('button, .action-round-btn, .mobile-ability-btn, .joystick-zone, .hud-header, .left-panel, .speed-panel, .ability-panel, .campaign-panel, #overlay, #frontEnd, #controlsEditorOverlay')) {
+        return;
+      }
       activeCameraTouchPointer = e.pointerId;
       lastCamTouchX = e.clientX;
       lastCamTouchY = e.clientY;
@@ -1695,10 +1701,26 @@ const bindInput = () => {
   hud.continueButton.addEventListener('click', continueCampaign);
   hud.changeWeaponButton.addEventListener('click', () => openFrontFromPause('armory'));
   hud.settingsMenuButton.addEventListener('click', () => openFrontFromPause('settings'));
+  const hudSettingsBtn = document.getElementById('hudSettingsButton');
+  if (hudSettingsBtn) {
+    hudSettingsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openFrontFromPause('settings');
+    });
+  }
   hud.cameraResetButton.addEventListener('click', () => {
     cameraController.reset();
     combatFeedback.message('CAMERA RECENTERED', 700);
   });
+  const mobileCamBtn = document.getElementById('mobileCameraResetBtn');
+  if (mobileCamBtn) {
+    mobileCamBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      cameraController.reset();
+      combatFeedback.message('CAMERA RESET', 700);
+    });
+  }
   hud.pauseButton.addEventListener('click', () => isPaused ? resumeGame() : pauseGame());
   hud.reduceFlashButton.addEventListener('click', () => {
     settingsManager.set('reducedEffects', !settingsManager.values.reducedEffects);
@@ -2630,20 +2652,36 @@ function updateEnemies(dt) {
   }
 }
 
+const cameraFocusScratch = new THREE.Vector3();
+const targetWorldPosScratch = new THREE.Vector3();
+const targetProjectedScratch = new THREE.Vector3();
+const vScratchBehind = new THREE.Vector3();
+const vScratchSpark = new THREE.Vector3();
+const vScratchFoot = new THREE.Vector3();
+const vScratchBoot = new THREE.Vector3();
+const vScratchPad = new THREE.Vector3();
+let lastOverdriveState = false;
+let lastSprintState = false;
+let lastBoostState = false;
+let cachedDashFillEl = null;
+let cachedDashBtnEl = null;
+let cachedDashBadgeEl = null;
+let lastDashReportedCd = -1;
+
 function updateTarget() {
   camera.updateMatrixWorld();
   let best = null;
   let bestScore = Infinity;
-  const projected = new THREE.Vector3();
   for (const enemy of enemies) {
     if (!enemy.alive) continue;
-    const worldPos = enemy.root.position.clone().add(new THREE.Vector3(0, 3.1 * enemy.spec.scale, 0));
-    if (worldPos.distanceTo(camera.position) > 145) continue;
-    projected.copy(worldPos).project(camera);
-    if (projected.z < -1 || projected.z > 1 || Math.abs(projected.x) > 1 || Math.abs(projected.y) > 1) continue;
-    const centerScore = Math.hypot(projected.x, projected.y);
+    targetWorldPosScratch.copy(enemy.root.position);
+    targetWorldPosScratch.y += 3.1 * enemy.spec.scale;
+    if (targetWorldPosScratch.distanceTo(camera.position) > 145) continue;
+    targetProjectedScratch.copy(targetWorldPosScratch).project(camera);
+    if (targetProjectedScratch.z < -1 || targetProjectedScratch.z > 1 || Math.abs(targetProjectedScratch.x) > 1 || Math.abs(targetProjectedScratch.y) > 1) continue;
+    const centerScore = Math.hypot(targetProjectedScratch.x, targetProjectedScratch.y);
     if (centerScore < 0.34 && centerScore < bestScore) {
-      best = { enemy, x: (projected.x * 0.5 + 0.5) * window.innerWidth, y: (-projected.y * 0.5 + 0.5) * window.innerHeight };
+      best = { enemy, x: (targetProjectedScratch.x * 0.5 + 0.5) * window.innerWidth, y: (-targetProjectedScratch.y * 0.5 + 0.5) * window.innerHeight };
       bestScore = centerScore;
     }
   }
@@ -2651,8 +2689,9 @@ function updateTarget() {
   hud.setTarget(targetEnemy, best?.x ?? 0, best?.y ?? 0);
 }
 
+const focus = cameraFocusScratch;
 function updateCamera(dt) {
-  const focus = player.root.position.clone();
+  focus.copy(player.root.position);
   focus.y += 1.3;
   cameraController.update(dt, focus, worldChunks, enemies, shake * settingsManager.values.cameraShake, reduceFlash);
   if (shake > 0) {
@@ -2681,13 +2720,30 @@ function updateGame(dt, time) {
     if (scoreBonusTimer === 0) player.scoreMultiplierBonus = 1;
   }
   combat.updateAbilityCooldowns(dt, player, keys.has('KeyR') || touch.charge);
-  document.body.classList.toggle('overdrive-active', player.overdriveTimer > 0);
+
+  // Cached DOM class toggling (avoids expensive full-DOM layout dirtying every tick)
+  const odActive = player.overdriveTimer > 0;
+  if (lastOverdriveState !== odActive) {
+    lastOverdriveState = odActive;
+    document.body.classList.toggle('overdrive-active', odActive);
+  }
   movementSystem.update(player, dt, worldChunks);
-  document.body.classList.toggle('sprint-active', player.isSprinting || player.isBoosting);
-  document.body.classList.toggle('boost-active', player.isBoosting);
+  const spActive = player.isSprinting || player.isBoosting;
+  if (lastSprintState !== spActive) {
+    lastSprintState = spActive;
+    document.body.classList.toggle('sprint-active', spActive);
+  }
+  const boActive = Boolean(player.isBoosting);
+  if (lastBoostState !== boActive) {
+    lastBoostState = boActive;
+    document.body.classList.toggle('boost-active', boActive);
+  }
+
   if (player.padBoostPending) {
     player.padBoostPending = false;
-    effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 0.08, 0)), 0x4adfff, 12, 4.5);
+    vScratchPad.copy(player.root.position);
+    vScratchPad.y += 0.08;
+    effects.burst(vScratchPad, 0x4adfff, 12, 4.5);
     combatFeedback.message('VECTOR PAD // MOMENTUM BOOST', 850);
   }
   if (player.dashSequence !== handledDashSequence) {
@@ -2696,18 +2752,23 @@ function updateGame(dt, time) {
   }
   combat.resolveDashAttack(player, enemies, combatFeedback, worldChunks);
 
-  // Update Dash Attack cooldown HUD ring
-  const dashCooldownFill = document.getElementById('dashCooldownFill');
-  const dashBtn = document.getElementById('dashAttackButton');
-  const dashStatusBadge = document.getElementById('dashStatusBadge');
-  if (dashCooldownFill) {
-    const cd = player.dashAttackCooldown || 0;
-    const ratio = THREE.MathUtils.clamp(cd / 2.2, 0, 1);
-    dashCooldownFill.style.strokeDashoffset = `${201 * ratio}px`;
-    if (dashBtn) dashBtn.classList.toggle('cooling', cd > 0);
-    if (dashStatusBadge) {
-      dashStatusBadge.textContent = cd > 0 ? `${cd.toFixed(1)}s` : 'READY';
-      dashStatusBadge.className = `dash-status-badge ${cd > 0 ? 'status-cooling' : 'status-ready'}`;
+  // Update Dash Attack cooldown HUD ring with cached DOM references
+  if (!cachedDashFillEl) {
+    cachedDashFillEl = document.getElementById('dashCooldownFill');
+    cachedDashBtnEl = document.getElementById('dashAttackButton');
+    cachedDashBadgeEl = document.getElementById('dashStatusBadge');
+  }
+  const cd = player.dashAttackCooldown || 0;
+  if (Math.abs(cd - lastDashReportedCd) > 0.04 || (cd === 0 && lastDashReportedCd > 0)) {
+    lastDashReportedCd = cd;
+    if (cachedDashFillEl) {
+      const ratio = THREE.MathUtils.clamp(cd / 2.2, 0, 1);
+      cachedDashFillEl.style.strokeDashoffset = `${201 * ratio}px`;
+    }
+    if (cachedDashBtnEl) cachedDashBtnEl.classList.toggle('cooling', cd > 0);
+    if (cachedDashBadgeEl) {
+      cachedDashBadgeEl.textContent = cd > 0 ? `${cd.toFixed(1)}s` : 'READY';
+      cachedDashBadgeEl.className = `dash-status-badge ${cd > 0 ? 'status-cooling' : 'status-ready'}`;
     }
   }
 
@@ -2743,24 +2804,29 @@ function updateGame(dt, time) {
   if (player.horizontalSpeed > 3.2 && time - lastTrailTime > trailInterval) {
     lastTrailTime = time;
     const trailColor = player.isBoosting ? 0xffb338 : (highSpeed ? (time % 160 < 80 ? 0xd7b3ff : 0x7af4ff) : (sprinting ? 0xb86dff : 0x64dfff));
-    const behind = player.root.position.clone().add(new THREE.Vector3(0, 0.88, 0));
-    effects.speedStreak(behind, player.facing, trailColor, runRatio);
+    vScratchBehind.copy(player.root.position);
+    vScratchBehind.y += 0.88;
+    effects.speedStreak(vScratchBehind, player.facing, trailColor, runRatio);
     if ((highSpeed || player.isBoosting) && time - lastAfterimageTime > 95) {
       lastAfterimageTime = time;
       effects.afterimage(player.root, trailColor);
     }
     if (player.isBoosting && Math.random() < 0.45) {
-      const sparkPos = player.root.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.4 + Math.random() * 0.8, (Math.random() - 0.5) * 0.4));
-      effects.burst(sparkPos, 0xffc44d, 3, 2.2);
+      vScratchSpark.set(
+        player.root.position.x + (Math.random() - 0.5) * 0.6,
+        player.root.position.y + 0.4 + Math.random() * 0.8,
+        player.root.position.z + (Math.random() - 0.5) * 0.4
+      );
+      effects.burst(vScratchSpark, 0xffc44d, 3, 2.2);
     }
     if (player.grounded && sprinting && time - lastFootprintTime > 145) {
       lastFootprintTime = time;
-      const foot = player.root.position.clone().add(new THREE.Vector3(
-        (Math.random() - 0.5) * 0.26,
-        0.035,
-        -player.facing.z * 0.18
-      ));
-      effects.footprint(foot, trailColor, 0.72 + runRatio * 0.55);
+      vScratchFoot.set(
+        player.root.position.x + (Math.random() - 0.5) * 0.26,
+        player.root.position.y + 0.035,
+        player.root.position.z - player.facing.z * 0.18
+      );
+      effects.footprint(vScratchFoot, trailColor, 0.72 + runRatio * 0.55);
     }
   }
   if (player.grounded && player.horizontalSpeed > 4 && time - lastFootstepSoundTime > (sprinting ? 220 : 320)) {
@@ -2771,8 +2837,13 @@ function updateGame(dt, time) {
     lastBootParticleTime = time;
     const bootColor = highSpeed ? 0xc579ff : sprinting ? 0x7b9dff : 0x65e7ff;
     const strideSide = (Math.floor(time / 95) % 2 ? 1 : -1) * 0.18;
+    vScratchBoot.set(
+      player.root.position.x + strideSide,
+      player.root.position.y + 0.12,
+      player.root.position.z
+    );
     effects.bootParticles(
-      player.root.position.clone().add(new THREE.Vector3(strideSide, 0.12, 0)),
+      vScratchBoot,
       bootColor,
       sprinting ? 3 : 1,
       1.5 + runRatio * 1.7
@@ -2780,8 +2851,10 @@ function updateGame(dt, time) {
   }
   if (player.landingEffectPending) {
     const strength = THREE.MathUtils.clamp(player.landingImpact / 12, 0.55, 1.8);
-    effects.shockwave(player.root.position.clone(), 0x83eaff, strength);
-    effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 0.15, 0)), 0x8edfff, 8 + Math.round(strength * 6), 2 + strength * 2);
+    effects.shockwave(player.root.position, 0x83eaff, strength);
+    vScratchBehind.copy(player.root.position);
+    vScratchBehind.y += 0.15;
+    effects.burst(vScratchBehind, 0x8edfff, 8 + Math.round(strength * 6), 2 + strength * 2);
     player.landingEffectPending = false;
   }
   effects.update(dt, player.root.position);
@@ -2868,43 +2941,75 @@ function animate(time) {
   renderer.render(scene, camera);
 }
 
-async function lockLandscapeOrientation() {
+async function toggleFullscreen(forceState = null) {
   try {
-    const root = document.getElementById('game-root') || document.documentElement;
-    if (!document.fullscreenElement && root.requestFullscreen) {
-      await root.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
-    }
-    if (screen.orientation && typeof screen.orientation.lock === 'function') {
-      await screen.orientation.lock('landscape').catch((err) => {
-        console.info('Orientation lock status:', err?.message || err);
-      });
+    const isFs = Boolean(
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement
+    );
+    const shouldEnter = forceState !== null ? forceState : !isFs;
+
+    if (shouldEnter) {
+      const root = document.getElementById('game-root') || document.documentElement;
+      if (root.requestFullscreen) {
+        await root.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+      } else if (root.webkitRequestFullscreen) {
+        await root.webkitRequestFullscreen();
+      } else if (root.msRequestFullscreen) {
+        await root.msRequestFullscreen();
+      }
+      if (screen.orientation && typeof screen.orientation.lock === 'function') {
+        await screen.orientation.lock('landscape').catch(() => {});
+      }
+    } else {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen().catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        await document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        await document.msExitFullscreen();
+      }
     }
   } catch (err) {
-    console.info('Screen orientation lock handled gracefully:', err);
+    console.info('Fullscreen operation status:', err);
   }
+  setTimeout(resize, 80);
 }
 
+async function lockLandscapeOrientation() {
+  await toggleFullscreen(true);
+}
+
+let lastRenderWidth = 0;
+let lastRenderHeight = 0;
+let lastRenderDpr = 0;
+
 function resize() {
-  const width = window.visualViewport?.width || window.innerWidth;
-  const height = window.visualViewport?.height || window.innerHeight;
+  const width = window.innerWidth || document.documentElement.clientWidth;
+  const height = window.innerHeight || document.documentElement.clientHeight;
   const isLandscape = width >= height;
 
-  if (isLandscape) {
-    document.body.classList.add('is-landscape');
-    document.body.classList.remove('is-portrait');
-  } else {
-    document.body.classList.add('is-portrait');
-    document.body.classList.remove('is-landscape');
-  }
+  document.body.classList.toggle('is-landscape', isLandscape);
+  document.body.classList.toggle('is-portrait', !isLandscape);
 
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
 
   const quality = settingsManager.values.graphics;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, getPixelRatioCap(quality)));
-  renderer.shadowMap.enabled = settingsManager.values.graphics !== 'low' && !isMobileViewport();
-  renderer.toneMappingExposure = settingsManager.values.graphics === 'low' ? 1.04 : 1.12;
-  renderer.setSize(width, height, false);
+  const dpr = Math.min(window.devicePixelRatio || 1, getPixelRatioCap(quality));
+
+  if (width !== lastRenderWidth || height !== lastRenderHeight || dpr !== lastRenderDpr) {
+    lastRenderWidth = width;
+    lastRenderHeight = height;
+    lastRenderDpr = dpr;
+    renderer.setPixelRatio(dpr);
+    renderer.shadowMap.enabled = settingsManager.values.graphics !== 'low';
+    renderer.shadowMap.type = settingsManager.values.graphics === 'high' ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
+    renderer.toneMappingExposure = settingsManager.values.graphics === 'low' ? 1.04 : 1.12;
+    renderer.setSize(width, height, true);
+  }
   controlsCustomizer.applyToDOM();
 }
 
@@ -2921,14 +3026,17 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') progression.save();
 });
 window.addEventListener('pagehide', () => progression.save());
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => {
+  requestAnimationFrame(resize);
+});
 window.addEventListener('orientationchange', () => {
   setTimeout(resize, 60);
   setTimeout(resize, 250);
-  setTimeout(resize, 600);
 });
 if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', resize);
+  window.visualViewport.addEventListener('resize', () => {
+    requestAnimationFrame(resize);
+  });
 }
 if (screen.orientation) {
   screen.orientation.addEventListener('change', () => {
@@ -2936,6 +3044,14 @@ if (screen.orientation) {
     setTimeout(resize, 250);
   });
 }
+document.addEventListener('fullscreenchange', () => {
+  setTimeout(resize, 60);
+  setTimeout(resize, 200);
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  setTimeout(resize, 60);
+  setTimeout(resize, 200);
+});
 
 // Prevent unwanted browser scrolling, pull-to-refresh, or gesture navigation during gameplay
 const gameRoot = document.getElementById('game-root');

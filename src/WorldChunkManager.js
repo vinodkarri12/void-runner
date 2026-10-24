@@ -50,46 +50,78 @@ export class WorldChunkManager {
 
     // Japanese Shinobi World Materials
     this.terrainMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1a211e, // Dark mossy forest earth / fallen pine needles
+      color: 0x141c19, // Dark mossy forest earth / fallen pine needles
       roughness: 0.94,
       metalness: 0.08,
       vertexColors: true
     });
     this.roadMaterial = new THREE.MeshStandardMaterial({
-      color: 0x22262a, // Weathered ancient Japanese slate flagstones
-      roughness: 0.84,
-      metalness: 0.22,
-      emissive: 0x07090b,
-      emissiveIntensity: 0.2
+      color: 0x1b2330, // Wet moonlit Japanese stone flagstones with specular reflections
+      roughness: 0.28,
+      metalness: 0.42,
+      emissive: 0x060e18,
+      emissiveIntensity: 0.35
     });
     this.edgeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x8a1c22, // Lacquered vermilion / dark crimson wood railing
-      emissive: 0x240608,
-      emissiveIntensity: 0.35,
-      roughness: 0.65,
+      color: 0x9e1c24, // Lacquered vermilion / dark crimson wood railing
+      emissive: 0x2b060a,
+      emissiveIntensity: 0.38,
+      roughness: 0.58,
       metalness: 0.32
     });
     this.toriiMaterial = new THREE.MeshStandardMaterial({
-      color: 0xa82020, // Sacred Torii red lacquer
-      emissive: 0x360808,
-      emissiveIntensity: 0.32,
-      roughness: 0.58,
-      metalness: 0.24
+      color: 0xb32020, // Sacred Torii red lacquer
+      emissive: 0x3d0808,
+      emissiveIntensity: 0.36,
+      roughness: 0.54,
+      metalness: 0.26
     });
     this.charcoalWoodMaterial = new THREE.MeshStandardMaterial({
-      color: 0x14161a, // Dark burnt cedar (Yakisugi)
+      color: 0x131518, // Dark burnt cedar (Yakisugi)
       roughness: 0.88,
       metalness: 0.18
     });
+    this.sakuraWoodMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1c1719, // Gnarly ancient cherry blossom trunk wood
+      roughness: 0.9,
+      metalness: 0.12
+    });
+    this.sakuraBlossomMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff9ec0, // Lush blooming pink sakura cherry blossoms
+      emissive: 0x481122,
+      emissiveIntensity: 0.45,
+      roughness: 0.65,
+      metalness: 0.06
+    });
+    this.sakuraBlossomLightMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffc4d8, // Radiant pastel cherry blossom canopy accents
+      emissive: 0x5a182a,
+      emissiveIntensity: 0.4,
+      roughness: 0.6,
+      metalness: 0.05
+    });
+    this.stoneBalustradeMaterial = new THREE.MeshStandardMaterial({
+      color: 0x303640, // Carved Japanese shrine stone balustrades
+      roughness: 0.78,
+      metalness: 0.22
+    });
+    this.bannerSilkMaterial = new THREE.MeshStandardMaterial({
+      color: 0xb51c24, // Sacred crimson "忍" clan silk banner
+      emissive: 0x3e080f,
+      emissiveIntensity: 0.5,
+      roughness: 0.62,
+      metalness: 0.15,
+      side: THREE.DoubleSide
+    });
     this.lanternStoneMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3c4248, // Carved Japanese stone lantern (Tōrō)
+      color: 0x3a4047, // Carved Japanese stone lantern (Tōrō)
       roughness: 0.82,
       metalness: 0.15
     });
     this.lanternLightMaterial = new THREE.MeshStandardMaterial({
       color: 0xffa43b, // Warm flickering firelight / candle flame
       emissive: 0xff8820,
-      emissiveIntensity: 1.85,
+      emissiveIntensity: 2.1,
       roughness: 0.35,
       metalness: 0.1
     });
@@ -99,9 +131,9 @@ export class WorldChunkManager {
       metalness: 0.14
     });
     this.wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0x2b3036, // Interlocking Japanese castle stone (Ishigaki)
-      roughness: 0.88,
-      metalness: 0.2,
+      color: 0x272c33, // Interlocking Japanese castle stone (Ishigaki)
+      roughness: 0.85,
+      metalness: 0.24,
       side: THREE.DoubleSide
     });
     this.shojiPaperMaterial = new THREE.MeshStandardMaterial({
@@ -485,6 +517,21 @@ export class WorldChunkManager {
         }
       }
 
+      // === BLOOMING SAKURA (CHERRY BLOSSOM) TREES FLANKING THE COURTYARD ===
+      // Lush blooming pink cherry blossom trees hanging gracefully over the stone path
+      const sakuraPositions = [16, 42, 66, 90];
+      for (let i = 0; i < sakuraPositions.length; i++) {
+        const sZ = sakuraPositions[i];
+        const side = i % 2 === 0 ? -1 : 1;
+        this.addSakuraTree(group, roadCenterX + side * 10.8, sZ, worldOriginZ, side);
+      }
+
+      // === CRIMSON "忍" CLAN SILK BANNERS FLANKING PATH ===
+      const bannerPositions = [24, 72];
+      for (const bZ of bannerPositions) {
+        this.addClanBanners(group, roadCenterX, bZ, worldOriginZ);
+      }
+
       // === BAMBOO FORESTS FLANKING THE PATHWAY ===
       this.addBambooGrove(group, worldOriginX, worldOriginZ);
 
@@ -647,6 +694,92 @@ export class WorldChunkManager {
     bambooStalks.instanceMatrix.needsUpdate = true;
     bambooStalks.castShadow = true;
     group.add(bambooStalks);
+  }
+
+  addSakuraTree(group, localX, localZ, worldOriginZ, side = 1) {
+    const tree = new THREE.Group();
+    const groundY = routeHeight(worldOriginZ + localZ);
+    tree.position.set(localX, groundY, localZ);
+
+    const trunkMat = this.sakuraWoodMaterial;
+    const blossomMat = this.sakuraBlossomMaterial;
+    const lightBlossomMat = this.sakuraBlossomLightMaterial;
+
+    // Gnarled, twisting ancient trunk leaning slightly over the courtyard
+    const lean = side * -0.18;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.95, 7.5, 8), trunkMat);
+    trunk.position.set(0, 3.6, 0);
+    trunk.rotation.z = lean;
+    trunk.castShadow = true;
+    tree.add(trunk);
+
+    // Thick primary branches reaching inward toward the path
+    const branch1 = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.45, 5.2, 7), trunkMat);
+    branch1.position.set(side * -1.2, 6.2, 0.6);
+    branch1.rotation.set(0.2, 0.4, side * -0.65);
+    branch1.castShadow = true;
+    tree.add(branch1);
+
+    const branch2 = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.38, 4.4, 7), trunkMat);
+    branch2.position.set(side * 0.8, 6.6, -0.8);
+    branch2.rotation.set(-0.3, -0.5, side * 0.55);
+    branch2.castShadow = true;
+    tree.add(branch2);
+
+    // Voluminous, puffy clouds of pink cherry blossoms (Sakura canopies)
+    const canopyData = [
+      { x: side * -2.4, y: 7.8, z: 0.8, r: 3.4, mat: blossomMat },
+      { x: side * -1.0, y: 8.8, z: -0.4, r: 3.8, mat: lightBlossomMat },
+      { x: side * 1.6, y: 8.2, z: -1.2, r: 3.2, mat: blossomMat },
+      { x: 0, y: 9.6, z: 0, r: 4.2, mat: lightBlossomMat },
+      { x: side * -1.8, y: 6.8, z: -1.4, r: 2.8, mat: blossomMat },
+      { x: side * 1.2, y: 7.2, z: 1.2, r: 2.6, mat: blossomMat }
+    ];
+
+    for (const c of canopyData) {
+      const puff = new THREE.Mesh(new THREE.DodecahedronGeometry(c.r, 1), c.mat);
+      puff.position.set(c.x, c.y, c.z);
+      puff.scale.set(1.15, 0.82, 1.1);
+      puff.castShadow = true;
+      puff.receiveShadow = true;
+      tree.add(puff);
+    }
+
+    group.add(tree);
+  }
+
+  addClanBanners(group, centerX, localZ, worldOriginZ) {
+    const bannerGroup = new THREE.Group();
+    const groundY = routeHeight(worldOriginZ + localZ);
+    bannerGroup.position.set(centerX, groundY, localZ);
+
+    for (const side of [-1, 1]) {
+      const poleX = side * 8.8;
+      // Tall dark timber banner pole
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 9.5, 8), this.charcoalWoodMaterial);
+      pole.position.set(poleX, 4.75, 0);
+      pole.castShadow = true;
+      bannerGroup.add(pole);
+
+      // Horizontal crossbar
+      const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.2, 6), this.charcoalWoodMaterial);
+      crossbar.position.set(poleX - side * 0.6, 9.1, 0);
+      crossbar.rotation.z = Math.PI / 2;
+      bannerGroup.add(crossbar);
+
+      // Crimson silk banner hanging vertically
+      const banner = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 5.8), this.bannerSilkMaterial);
+      banner.position.set(poleX - side * 0.6, 5.9, 0);
+      banner.castShadow = true;
+      bannerGroup.add(banner);
+
+      // Gold/black "忍" emblem badge on the banner
+      const emblem = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.06), this.featureMaterials[1]);
+      emblem.position.set(poleX - side * 0.6, 6.6, 0.04);
+      bannerGroup.add(emblem);
+    }
+
+    group.add(bannerGroup);
   }
 
   createRouteSurface(worldStartZ, centerX, width, thickness = 0.04) {

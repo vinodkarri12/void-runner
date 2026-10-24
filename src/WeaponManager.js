@@ -8,7 +8,7 @@ export const WEAPONS = [
     category: 'melee',
     description: 'Forged steel shinobi katana delivering razor-sharp slashes and devastating combo finishers.',
     unlockLevel: 1,
-    color: 0xb66aff,
+    color: 0x00f2fe,
     damage: 1.0,
     range: 1.0,
     cooldown: 1.0,

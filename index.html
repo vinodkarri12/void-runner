@@ -21,26 +21,102 @@
   <div id="game-root">
     <div id="viewport"></div>
     <header class="hud-header">
-      <div class="brand-block">
-        <div class="brand-mark">忍</div>
-        <div>
-          <div class="brand-title">VOID RUNNER: SHADOW NINJA</div>
-          <div class="brand-subtitle">THE WAY OF THE SHINOBI</div>
+      <!-- TOP-LEFT: VOID RUNNER Logo + Ninja Avatar + HP 100/100 + Green Bar + Energy Bar + Combo -->
+      <div class="hud-top-left-status">
+        <div class="hud-brand-logo" aria-label="VOID RUNNER SHADOW NINJA">
+          <span class="brand-void">VOID</span>
+          <span class="brand-runner">RUNNER</span>
+          <span class="brand-sub">SHADOW NINJA</span>
+        </div>
+        <div class="hud-player-stats-row">
+          <div class="hud-avatar-circle" title="Shadow Ninja">
+            <div class="avatar-ring"></div>
+            <span class="avatar-kanji">忍</span>
+          </div>
+          <div class="hud-status-details">
+            <div class="hud-hp-row">
+              <span class="hud-hp-label">HP</span>
+              <strong id="healthText" class="hud-hp-text">100 / 100</strong>
+            </div>
+            <div class="hud-hp-bar-track">
+              <div id="healthBar" class="hud-hp-bar-fill"></div>
+            </div>
+            <!-- Energy / Stamina Bar -->
+            <div class="hud-stamina-row">
+              <span class="hud-stamina-label">ENG</span>
+              <strong id="hudEnergyText" class="hud-stamina-text">100 / 100</strong>
+            </div>
+            <div class="hud-stamina-bar-track">
+              <div id="hudEnergyBar" class="hud-stamina-bar-fill"></div>
+            </div>
+            <div class="hud-combo-badge" id="hudComboBadge">
+              <span class="hud-combo-icon">⚡</span>
+              <strong id="comboValue">COMBO: 2x</strong>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="hud-top-right">
-        <div class="mini-stat"><span>Score</span><strong id="scoreValue">000000</strong></div>
-        <div class="mini-stat"><span>Combo</span><strong id="comboValue">x0</strong><small id="scoreMultiplier">SCORE
-            x1</small></div>
-        <div class="mini-stat"><span>Defeated</span><strong id="defeatedValue">0</strong></div>
-        <div class="mini-stat"><span>Enemies Remaining</span><strong id="enemyValue">0 LEFT</strong></div>
-        <div class="mini-stat level-header-stat"><span>Campaign</span><strong id="levelValue">LEVEL: 01 / 15</strong>
+
+      <!-- TOP-CENTER: Mission Name, LEVEL 01 / 15, Score, Defeated & Remaining Enemies -->
+      <div class="hud-top-center-pill">
+        <div class="hud-center-primary">
+          <div class="hud-center-level" id="levelValue">LEVEL 01 / 15</div>
+          <span class="hud-mission-name" id="hudMissionName">BAMBOO GROVE</span>
         </div>
-        <div class="mini-stat movement-stat"><span>Movement</span><strong id="hudMovementState"
-            class="state-stopped">STOPPED</strong></div>
-        <button id="cameraResetButton" class="camera-reset-button" type="button" title="Reset camera (C)">CAM
-          RESET</button>
-        <button id="pauseButton" class="pause-button">II</button>
+        <div class="hud-center-subrow">
+          <span class="hud-score-display" id="hudScoreText">SCORE 000000</span>
+          <div class="hud-center-divider"></div>
+          <div class="hud-center-enemies">
+            <span class="skull-badge">💀</span>
+            <strong id="enemyValue">Enemies: 2 / 3</strong>
+            <span class="hud-kills-badge" title="Enemies Defeated">⚔ <b id="hudDefeatedKills">0</b></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP-RIGHT: Speed & Boost Telemetry + Settings, Fullscreen, Pause Buttons -->
+      <div class="hud-top-right">
+        <!-- Live Speed & Boost Information -->
+        <div class="hud-telemetry-badge" id="hudTopTelemetry" title="Real-time speed & boost state">
+          <div class="hud-telemetry-speed">
+            <span class="telem-label">SPEED</span>
+            <strong id="hudTopSpeed">00.0</strong>
+            <small>M/S</small>
+          </div>
+          <div class="hud-telemetry-boost" id="hudTopBoost">
+            <span class="boost-pulse-dot"></span>
+            <span id="hudTopBoostLabel">BOOST READY</span>
+          </div>
+        </div>
+
+        <!-- Hidden/accessible stats preserved for game systems -->
+        <span id="scoreValue" class="sr-only">000000</span>
+        <span id="scoreMultiplier" class="sr-only">SCORE x1</span>
+        <span id="defeatedValue" class="sr-only">0</span>
+        <span id="hudMovementState" class="sr-only state-stopped">STOPPED</span>
+        <button id="cameraResetButton" class="camera-reset-button sr-only" type="button" title="Reset camera (C)">CAM RESET</button>
+
+        <!-- 1. Settings Button (⚙) -->
+        <button id="hudSettingsButton" class="hud-circle-btn hud-settings-button" type="button" title="Settings (O)" aria-label="Settings">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+          </svg>
+        </button>
+
+        <!-- 2. Fullscreen Button (⛶) -->
+        <button id="hudFullscreenButton" class="hud-circle-btn hud-fullscreen-button" type="button" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+        </button>
+
+        <!-- 3. Pause Button (⏸) -->
+        <button id="pauseButton" class="hud-circle-btn pause-button" type="button" title="Pause Game (ESC / P)" aria-label="Pause">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <rect x="6" y="5" width="4" height="14" rx="1"/>
+            <rect x="14" y="5" width="4" height="14" rx="1"/>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -294,12 +370,14 @@
                     step="0.05"></label>
               </div>
               <div class="settings-col">
-                <div class="settings-group-header">GRAPHICS & DISPLAY</div>
+                <div class="settings-group-header">GRAPHICS & CAMERA</div>
                 <label>GRAPHICS QUALITY <select data-setting="graphics">
                     <option value="low">LOW (PERFORMANCE)</option>
                     <option value="medium">MEDIUM</option>
                     <option value="high">HIGH (SHADOWS)</option>
                   </select></label>
+                <label>CAMERA SENSITIVITY (H) <input data-setting="cameraSensitivityX" type="range" min="0.2" max="3" step="0.05"></label>
+                <label>CAMERA SENSITIVITY (V) <input data-setting="cameraSensitivityY" type="range" min="0.2" max="3" step="0.05"></label>
                 <label>CAMERA FOLLOW <input data-setting="cameraFollow" type="range" min="0.3" max="2"
                     step="0.05"></label>
                 <label>CAMERA SHAKE <input data-setting="cameraShake" type="range" min="0" max="2" step="0.05"></label>
@@ -319,12 +397,14 @@
                   </select>
                 </label>
                 <label>BUTTON OPACITY <input data-setting="controlOpacity" type="range" min="0.2" max="1.0" step="0.05"></label>
-                <label>CAMERA SENSITIVITY <input data-setting="cameraSensitivity" type="range" min="0.3" max="2.5" step="0.05"></label>
+                <label>OVERALL SENSITIVITY <input data-setting="cameraSensitivity" type="range" min="0.3" max="2.5" step="0.05"></label>
                 <label>HUD SCALE <input data-setting="hudScale" type="range" min="0.75" max="1.3" step="0.05"></label>
                 <label>SHOW MINIMAP <input data-setting="hudMinimap" type="checkbox"></label>
                 <label>SHOW OBJECTIVES <input data-setting="hudObjective" type="checkbox"></label>
                 <button id="openCustomizeControlsBtn" class="front-customize-action-btn" type="button">⚡ CUSTOMIZE CONTROLS (LIVE DRAG & EDIT)</button>
                 <button id="resetControlsLayoutBtn" class="front-secondary-action-btn" type="button">RESET LAYOUT TO DEFAULT</button>
+                <button id="settingsResetCameraBtn" class="front-secondary-action-btn" type="button">RESET CAMERA POSITION</button>
+                <button id="settingsResetDefaultsBtn" class="front-secondary-action-btn" type="button" style="border-color: rgba(255, 65, 108, 0.45); color: #ffb4c2;">RESET ALL TO DEFAULTS</button>
               </div>
             </div>
           </div>
@@ -561,6 +641,17 @@
 
       <!-- Right Side: Action Controls Cluster -->
       <div id="actionCluster" class="action-cluster" aria-label="Action Controls">
+        <!-- 0. CAMERA Button -->
+        <button id="mobileCameraResetBtn" class="action-round-btn camera-btn" type="button" aria-label="Reset Camera" title="Reset Camera (C)">
+          <div class="action-glow-ring" aria-hidden="true"></div>
+          <div class="action-btn-inner">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+              <path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0-2a5 5 0 1 1 0 10 5 5 0 0 1 0-10zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+            </svg>
+          </div>
+          <span class="action-btn-label">CAMERA</span>
+        </button>
+
         <!-- 1. JUMP Button -->
         <button id="jumpButton" class="action-round-btn jump-btn" type="button" aria-label="Jump" title="Jump (Space / K)">
           <div class="action-glow-ring" aria-hidden="true"></div>
