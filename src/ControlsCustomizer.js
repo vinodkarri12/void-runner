@@ -384,6 +384,14 @@ export class ControlsCustomizer {
       if (opacityVal) opacityVal.textContent = `${Math.round((this.layout.globalOpacity || 0.85) * 100)}%`;
     }
 
+    const joySensSlider = document.getElementById('editorJoystickSensSlider');
+    const joySensVal = document.getElementById('editorJoystickSensValue');
+    if (joySensSlider && this.settingsManager) {
+      const sens = Number(this.settingsManager.values.joystickSensitivity) || 1.0;
+      joySensSlider.value = String(sens);
+      if (joySensVal) joySensVal.textContent = `${sens.toFixed(1)}x`;
+    }
+
     const elemLabel = document.getElementById('editorSelectedLabel');
     const elemSizeSlider = document.getElementById('editorElemSizeSlider');
     const elemSizeVal = document.getElementById('editorElemSizeValue');

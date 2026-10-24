@@ -1551,6 +1551,15 @@ const bindInput = () => {
       controlsCustomizer.setGlobalOpacity(parseFloat(e.target.value));
     });
   }
+  const editorJoySensSlider = document.getElementById('editorJoystickSensSlider');
+  if (editorJoySensSlider) {
+    editorJoySensSlider.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      settingsManager.set('joystickSensitivity', val);
+      const valLabel = document.getElementById('editorJoystickSensValue');
+      if (valLabel) valLabel.textContent = `${val.toFixed(1)}x`;
+    });
+  }
   const editorElemSizeSlider = document.getElementById('editorElemSizeSlider');
   if (editorElemSizeSlider) {
     editorElemSizeSlider.addEventListener('input', (e) => {
@@ -2979,8 +2988,27 @@ async function toggleFullscreen(forceState = null) {
 }
 
 async function lockLandscapeOrientation() {
+  try {
+    if (typeof screen !== 'undefined' && screen.orientation && typeof screen.orientation.lock === 'function') {
+      await screen.orientation.lock('landscape').catch(() => {});
+    }
+  } catch (_) {}
   await toggleFullscreen(true);
 }
+
+// Automatically request landscape orientation on mobile devices immediately and on first user gesture
+if (typeof screen !== 'undefined' && screen.orientation && typeof screen.orientation.lock === 'function') {
+  try {
+    screen.orientation.lock('landscape').catch(() => {});
+  } catch (_) {}
+}
+const handleFirstMobileLandscapeTrigger = () => {
+  if (isMobileViewport()) {
+    lockLandscapeOrientation().catch(() => {});
+  }
+};
+window.addEventListener('pointerdown', handleFirstMobileLandscapeTrigger, { once: true, passive: true });
+window.addEventListener('touchstart', handleFirstMobileLandscapeTrigger, { once: true, passive: true });
 
 let lastRenderWidth = 0;
 let lastRenderHeight = 0;
@@ -2991,8 +3019,14 @@ function resize() {
   const height = window.innerHeight || document.documentElement.clientHeight;
   const isLandscape = width >= height;
 
+  const isCoarse = window.matchMedia('(pointer: coarse)').matches;
+  const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isMobile = isCoarse || hasTouch || (width <= 820 && height <= 500) || (width <= 500);
+
   document.body.classList.toggle('is-landscape', isLandscape);
   document.body.classList.toggle('is-portrait', !isLandscape);
+  document.body.classList.toggle('is-mobile-device', isMobile);
+  document.body.classList.toggle('is-desktop-device', !isMobile);
 
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
