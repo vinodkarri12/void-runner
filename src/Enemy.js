@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 
 const ARCHETYPES = {
-  scout: { name: 'SHADOW ASSASSIN', scale: 0.95, health: 76, speed: 4.4, range: 2.4, armor: 0x121418, mass: 1 },
-  guardian: { name: 'HEAVY SAMURAI', scale: 1.34, health: 155, speed: 2.45, range: 2.9, armor: 0x221a1f, mass: 1.4 },
-  ranged: { name: 'SHINOBI SHURIKEN', scale: 1.05, health: 115, speed: 2.95, range: 11, armor: 0x181c20, mass: 1.1 },
-  elite: { name: 'ELITE SHADOW REAPER', scale: 1.45, health: 240, speed: 3.3, range: 3.3, armor: 0x281216, mass: 1.5 },
-  colossus: { name: 'SHADOW SHOGUN', scale: 2.35, health: 850, speed: 1.6, range: 4.6, armor: 0x1e1525, mass: 2.6 }
+  scout: { name: 'SHADOW ASSASSIN', scale: 0.95, health: 76, speed: 3.75, range: 2.4, armor: 0x121418, mass: 1 },
+  guardian: { name: 'HEAVY SAMURAI', scale: 1.34, health: 155, speed: 2.1, range: 2.9, armor: 0x221a1f, mass: 1.4 },
+  ranged: { name: 'SHINOBI SHURIKEN', scale: 1.05, health: 115, speed: 2.5, range: 11, armor: 0x181c20, mass: 1.1 },
+  elite: { name: 'ELITE SHADOW REAPER', scale: 1.45, health: 240, speed: 2.85, range: 3.3, armor: 0x281216, mass: 1.5 },
+  colossus: { name: 'SHADOW SHOGUN', scale: 2.35, health: 850, speed: 1.4, range: 4.6, armor: 0x1e1525, mass: 2.6 }
 };
 
 let enemyCounter = 0;
@@ -21,7 +21,7 @@ export class EnemyAttackCoordinator {
     this.turnDelay = Math.max(0, this.turnDelay - dt);
     if (this.activeAttacker) {
       if (!this.activeAttacker.alive || this.activeAttacker.hitStun > 0 || this.activeAttacker.attackPhase <= 0) {
-        this.release(this.activeAttacker, 0.32);
+        this.release(this.activeAttacker, 0.45);
       }
     }
     // Clean up inactive or defeated enemies from queue
@@ -60,7 +60,7 @@ export class EnemyAttackCoordinator {
     return false;
   }
 
-  release(enemy, pauseDuration = 0.32) {
+  release(enemy, pauseDuration = 0.45) {
     if (this.activeAttacker === enemy) {
       this.activeAttacker = null;
       this.turnDelay = pauseDuration;
@@ -301,7 +301,7 @@ export class Enemy {
     this.knockbackVelocity = new THREE.Vector3();
     this.isBlocking = false;
     this.blockTimer = 0;
-    this.attackCooldown = 0.4 + Math.random() * 0.5;
+    this.attackCooldown = 0.6 + Math.random() * 0.6;
     this.attackHitDone = false;
     this.attackRange = this.spec.range;
     this.attackPhase = 0;
@@ -518,8 +518,8 @@ export class Enemy {
         if (this.attackActiveTimer === 0) {
           this.attackActive = false;
           this.attackPhase = 0;
-          this.vulnerableTimer = 1.2;
-          this.attackCooldown = this.isFinalBoss ? 1.1 : 1.4;
+          this.vulnerableTimer = 1.35;
+          this.attackCooldown = this.isFinalBoss ? 1.35 : 1.7;
         }
       } else if (this.attackPhase > 0) {
         this.attackPhase = Math.max(0, this.attackPhase - dt);
@@ -532,9 +532,9 @@ export class Enemy {
         }
       } else if (this.hitStun <= 0 && ninjaDist < 20 && this.attackCooldown <= 0) {
         this.attackPattern = this.attackPatternCount++ % 3;
-        this.attackPhase = 0.95;
+        this.attackPhase = 1.15;
         this.attackHitDone = false;
-        this.attackCooldown = 1.8;
+        this.attackCooldown = 2.2;
         if (this.telegraphRing) {
           this.telegraphRing.visible = this.attackPattern !== 2;
           this.telegraphRing.scale.setScalar([2.0, 3.8, 5.2][this.attackPattern]);
@@ -564,10 +564,10 @@ export class Enemy {
       this.root.rotation.z = 0;
       this.moveOnGround(-ninjaDx / ninjaDist, -ninjaDz / ninjaDist, dt, world, getHeight);
       if (this.attackCooldown <= 0 && this.attackPhase <= 0 && enemyAttackCoordinator.claim(this)) {
-        this.windupDuration = Math.max(0.38, 0.58 - (this.level - 1) * 0.012);
+        this.windupDuration = Math.max(0.48, 0.68 - (this.level - 1) * 0.01);
         this.strikeDuration = 0.22;
         this.attackPhase = this.windupDuration + this.strikeDuration;
-        this.attackCooldown = 1.8 * this.attackCooldownScale;
+        this.attackCooldown = 2.2 * this.attackCooldownScale;
         this.attackHitDone = false;
       }
     } else if (ninjaDist > this.attackRange) {
@@ -579,10 +579,10 @@ export class Enemy {
       this.torso.rotation.x = 0;
       // In combat range: coordinated turn-taking attack! Only one normal enemy attacks at a time
       if (this.attackCooldown <= 0 && this.attackPhase <= 0 && enemyAttackCoordinator.claim(this)) {
-        this.windupDuration = Math.max(0.38, 0.54 - (this.level - 1) * 0.012);
+        this.windupDuration = Math.max(0.48, 0.65 - (this.level - 1) * 0.01);
         this.strikeDuration = 0.22;
         this.attackPhase = this.windupDuration + this.strikeDuration;
-        this.attackCooldown = (this.type === 'scout' ? 1.4 : 1.9) * this.attackCooldownScale;
+        this.attackCooldown = (this.type === 'scout' ? 1.85 : 2.35) * this.attackCooldownScale;
         this.attackHitDone = false;
       }
     }

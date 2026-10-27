@@ -1798,24 +1798,47 @@ const bindInput = () => {
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
-    stickPointer = event.pointerId;
-    if (stick && stick.setPointerCapture) {
+    stickPointer = event.pointerId !== undefined ? event.pointerId : (event.changedTouches ? event.changedTouches[0].identifier : 1);
+    if (stick && stick.setPointerCapture && event.pointerId !== undefined) {
       try { stick.setPointerCapture(event.pointerId); } catch (_) {}
     }
     stick?.classList.add('active');
-    processJoystick(event.clientX, event.clientY);
+    const point = event.touches ? event.touches[0] : event;
+    processJoystick(point.clientX, point.clientY);
   };
 
   const handleStickMove = (event) => {
-    if (event.pointerId !== stickPointer) return;
-    event.preventDefault();
-    event.stopPropagation();
-    processJoystick(event.clientX, event.clientY);
+    if (stickPointer === null) return;
+    if (event.pointerId !== undefined) {
+      if (event.pointerId !== stickPointer) return;
+      event.preventDefault();
+      event.stopPropagation();
+      processJoystick(event.clientX, event.clientY);
+    } else if (event.changedTouches) {
+      for (let i = 0; i < event.changedTouches.length; i++) {
+        if (event.changedTouches[i].identifier === stickPointer) {
+          event.preventDefault();
+          event.stopPropagation();
+          processJoystick(event.changedTouches[i].clientX, event.changedTouches[i].clientY);
+          break;
+        }
+      }
+    }
   };
 
   const handleStickEnd = (event) => {
-    if (event && event.pointerId !== undefined && stickPointer !== null && event.pointerId !== stickPointer) return;
     if (event) {
+      if (event.pointerId !== undefined && stickPointer !== null && event.pointerId !== stickPointer) return;
+      if (event.changedTouches && stickPointer !== null) {
+        let matched = false;
+        for (let i = 0; i < event.changedTouches.length; i++) {
+          if (event.changedTouches[i].identifier === stickPointer) {
+            matched = true;
+            break;
+          }
+        }
+        if (!matched && event.type !== 'touchcancel') return;
+      }
       event.preventDefault();
       event.stopPropagation();
     }
@@ -1839,13 +1862,22 @@ const bindInput = () => {
     stick.addEventListener('pointerup', handleStickEnd, { passive: false });
     stick.addEventListener('pointercancel', handleStickEnd, { passive: false });
     stick.addEventListener('lostpointercapture', handleStickEnd, { passive: false });
+    stick.addEventListener('touchstart', handleStickDown, { passive: false });
+    stick.addEventListener('touchmove', handleStickMove, { passive: false });
+    stick.addEventListener('touchend', handleStickEnd, { passive: false });
+    stick.addEventListener('touchcancel', handleStickEnd, { passive: false });
   }
   if (zone) {
     zone.addEventListener('pointerdown', handleStickDown, { passive: false });
+    zone.addEventListener('touchstart', handleStickDown, { passive: false });
   }
   window.addEventListener('pointermove', handleStickMove, { passive: false });
   window.addEventListener('pointerup', handleStickEnd, { passive: false });
   window.addEventListener('pointercancel', handleStickEnd, { passive: false });
+  window.addEventListener('touchmove', handleStickMove, { passive: false });
+  window.addEventListener('touchend', handleStickEnd, { passive: false });
+  window.addEventListener('touchcancel', handleStickEnd, { passive: false });
+  window.addEventListener('blur', () => handleStickEnd(null));
 
   heldControlReleases.add(() => {
     handleStickEnd(null);
@@ -2496,6 +2528,10 @@ function updateEnergyOrbs(dt, time) {
   }
 }
 
+const camInputFwdScratch = new THREE.Vector3();
+const camInputRightScratch = new THREE.Vector3();
+const camInputMoveScratch = new THREE.Vector3();
+
 function readInput(dt = 1 / 60) {
   if (controlsCustomizer.isEditing || waveState === 'intro' || !player.isAlive || isPaused || screenState !== 'gameplay') {
     player.isRunning = false;
@@ -2586,16 +2622,24 @@ function readInput(dt = 1 / 60) {
   }
 
   // Camera-relative direction calculation
-  // Direction must match the game camera and character orientation!
+  // Direction matches the third-person camera orientation accurately for all angles
   if (isMoving) {
-    const yaw = cameraController.lookYaw;
-    const forwardX = -Math.sin(yaw);
-    const forwardZ = -Math.cos(yaw);
-    const rightX = -Math.cos(yaw);
-    const rightZ = Math.sin(yaw);
+    camInputRightScratch.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    camInputRightScratch.y = 0;
+    const rightLen = camInputRightScratch.length();
+    if (rightLen > 0.0001) camInputRightScratch.multiplyScalar(1 / rightLen);
 
-    movementSystem.input.moveX = rightX * inputX + forwardX * inputY;
-    movementSystem.input.moveY = rightZ * inputX + forwardZ * inputY;
+    camInputFwdScratch.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    camInputFwdScratch.y = 0;
+    const fwdLen = camInputFwdScratch.length();
+    if (fwdLen > 0.0001) camInputFwdScratch.multiplyScalar(1 / fwdLen);
+
+    camInputMoveScratch.set(0, 0, 0)
+      .addScaledVector(camInputRightScratch, inputX)
+      .addScaledVector(camInputFwdScratch, inputY);
+
+    movementSystem.input.moveX = camInputMoveScratch.x;
+    movementSystem.input.moveY = camInputMoveScratch.z;
   } else {
     movementSystem.input.moveX = 0;
     movementSystem.input.moveY = 0;

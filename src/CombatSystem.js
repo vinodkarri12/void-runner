@@ -767,11 +767,13 @@ export class CombatSystem {
       }
     }
 
+    const isAcrobaticDodge = (player.dashDuration > 0) || (player.root.position.y > enemy.root.position.y + 1.8);
     const normalHit = enemy.type !== 'colossus' &&
       dist < enemy.attackRange &&
       enemy.attackPhase > 0 &&
       enemy.attackPhase <= (enemy.strikeDuration || 0.24) &&
-      !enemy.attackHitDone;
+      !enemy.attackHitDone &&
+      !isAcrobaticDodge;
 
     if ((normalHit || bossHit) && player.invulnerable <= 0) {
       // Every successful normal enemy attack must remove exactly 30 HP from player
@@ -782,10 +784,10 @@ export class CombatSystem {
         ? feedback.takeDamage(damage)
         : player.takeDamage(damage);
       // Give player brief damage protection after a hit so the same attack cannot damage repeatedly
-      player.invulnerable = Math.max(0.42, player.damageInvulnerabilityWindow || 0.45);
+      player.invulnerable = Math.max(0.55, player.damageInvulnerabilityWindow || 0.6);
       enemy.attackHitDone = true;
       if (enemyAttackCoordinator.activeAttacker === enemy) {
-        enemyAttackCoordinator.release(enemy, 0.32);
+        enemyAttackCoordinator.release(enemy, 0.45);
       }
       if (this.charging) this.cancelVoidCharge(player);
       this.effects.burst(player.root.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 0xd61c2e, 16, 5.5);

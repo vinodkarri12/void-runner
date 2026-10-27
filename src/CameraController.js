@@ -23,6 +23,7 @@ export class CameraController {
     this.heading = new THREE.Vector3();
     this.aim = new THREE.Vector3();
     this.shakeOffset = new THREE.Vector3();
+    this.collisionFraction = 1.0;
     this.sensitivity = 1;
     this.sensitivityX = 1;
     this.sensitivityY = 1;
@@ -67,6 +68,7 @@ export class CameraController {
     this.currentDistance = null;
     this.currentHeight = null;
     this.currentBank = 0;
+    this.collisionFraction = 1.0;
     if (this.player && this.player.root) {
       this.smoothedFocus.copy(this.player.root.position).add(new THREE.Vector3(0, 1.25, 0));
     }
@@ -90,8 +92,8 @@ export class CameraController {
       this.smoothedFocus.copy(desiredFocus);
     } else {
       // Smooth tracking: responsive horizontal following with fluid vertical dampening for jumps
-      const followX = 1 - Math.exp(-dt * 14);
-      const followY = 1 - Math.exp(-dt * 9);
+      const followX = 1 - Math.exp(-dt * 13);
+      const followY = 1 - Math.exp(-dt * 8);
       this.smoothedFocus.x += (desiredFocus.x - this.smoothedFocus.x) * followX;
       this.smoothedFocus.y += (desiredFocus.y - this.smoothedFocus.y) * followY;
       this.smoothedFocus.z += (desiredFocus.z - this.smoothedFocus.z) * followX;
@@ -178,11 +180,11 @@ export class CameraController {
     // Collision detection with world walls, terrain, and environment objects
     const path = this.cameraPath.subVectors(this.desired, this.smoothedFocus);
     const totalDist = path.length();
-    const minSafeDist = 2.2; // Keep minimum distance so camera never clips into ninja model
+    const minSafeDist = 2.4; // Keep minimum distance so camera never clips into ninja model
 
+    let hitFraction = 1.0;
     if (totalDist > minSafeDist) {
       const steps = 14;
-      let hitFraction = 1.0;
       for (let i = 2; i <= steps; i++) {
         const frac = i / steps;
         this.positionScratch.copy(this.smoothedFocus).addScaledVector(path, frac);
@@ -190,30 +192,38 @@ export class CameraController {
         // Ground / terrain clearance test
         if (world && typeof world.getHeight === 'function') {
           const terrainY = world.getHeight(this.positionScratch.x, this.positionScratch.z);
-          if (this.positionScratch.y < terrainY + 0.55) {
+          if (this.positionScratch.y < terrainY + 0.6) {
             hitFraction = Math.min(hitFraction, Math.max(minSafeDist / totalDist, (i - 1) / steps));
             break;
           }
         }
 
         // Wall & solid obstacle clearance test
-        if (world && typeof world.isLocationClear === 'function' && !world.isLocationClear(this.positionScratch.x, this.positionScratch.z, 0.45)) {
+        if (world && typeof world.isLocationClear === 'function' && !world.isLocationClear(this.positionScratch.x, this.positionScratch.z, 0.48)) {
           hitFraction = Math.min(hitFraction, Math.max(minSafeDist / totalDist, (i - 1) / steps));
           break;
         }
       }
-
-      if (hitFraction < 1.0) {
-        this.desired.copy(this.smoothedFocus).addScaledVector(path, hitFraction);
-      }
     }
 
-    const followRate = (mobile ? 7.2 : (5.8 + speedRatio * 2.2)) * (this.followStrength || 1.0);
+    // Smooth collision response: rapidly pull in to avoid clipping, smoothly ease out when clear
+    if (hitFraction < this.collisionFraction) {
+      this.collisionFraction += (hitFraction - this.collisionFraction) * (1 - Math.exp(-dt * 18));
+    } else {
+      this.collisionFraction += (hitFraction - this.collisionFraction) * (1 - Math.exp(-dt * 5.0));
+    }
+    this.collisionFraction = THREE.MathUtils.clamp(this.collisionFraction, minSafeDist / Math.max(0.1, totalDist), 1.0);
+
+    if (this.collisionFraction < 0.999) {
+      this.desired.copy(this.smoothedFocus).addScaledVector(path, this.collisionFraction);
+    }
+
+    const followRate = (mobile ? 8.4 : (6.6 + speedRatio * 2.2)) * (this.followStrength || 1.0);
     this.camera.position.lerp(this.desired, 1 - Math.exp(-dt * followRate));
 
     // Ensure camera stays above terrain floor and feature collision is resolved
     if (world) {
-      const floor = (typeof world.getHeight === 'function' ? world.getHeight(this.camera.position.x, this.camera.position.z) : 0) + 1.25;
+      const floor = (typeof world.getHeight === 'function' ? world.getHeight(this.camera.position.x, this.camera.position.z) : 0) + 1.35;
       this.camera.position.y = Math.max(this.camera.position.y, floor);
       if (typeof world.resolveFeatureCollision === 'function') {
         world.resolveFeatureCollision(this.camera.position, 0.45);
